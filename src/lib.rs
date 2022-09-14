@@ -1,4 +1,6 @@
+use uuid::Uuid;
 use std::collections::HashMap;
+
 use indexed_data_file::IndexedDataFile;
 
 mod serial;
@@ -56,7 +58,13 @@ impl Data{
         }
     }
 
-    fn insert(&mut self,basic_data:&BasicData)->Option<u32>{
+    fn update_new(
+        &mut self
+        ,activity: u8
+        ,priority: f64
+        ,term_begin: i64
+        ,term_end: i64
+    )->Option<u32>{
         let newid=self.serial.add()?;
         if let(
             Ok(_),Ok(_),Ok(_),Ok(_),Ok(_),Ok(_)
@@ -68,35 +76,56 @@ impl Data{
             ,self.term_end.resize_to(newid)
             ,self.last_updated.resize_to(newid)
         ){
-            self.uuid.triee_mut().update(newid,basic_data.uuid());
-            self.activity.triee_mut().update(newid,basic_data.activity());
-            self.priority.triee_mut().update(newid,basic_data.priority());
-            self.term_begin.triee_mut().update(newid,basic_data.term_begin());
-            self.term_end.triee_mut().update(newid,basic_data.term_end());
-            self.last_updated.triee_mut().update(newid,basic_data.last_updated());
+            self.uuid.triee_mut().update(newid,Uuid::new_v4().as_u128());
+            self.activity.triee_mut().update(newid,activity);
+            self.priority.triee_mut().update(newid,Priority::new(priority));
+            self.term_begin.triee_mut().update(newid,term_begin);
+            self.term_end.triee_mut().update(newid,term_end);
+            self.last_updated.triee_mut().update(newid,chrono::Local::now().timestamp());
             Some(newid)
         }else{
             None
         }
     }
-    pub fn update(&mut self,id:u32,basic_data:&BasicData)->Option<u32>{
+    pub fn insert(
+        &mut self
+        ,activity: u8
+        ,priority: f64
+        ,term_begin: i64
+        ,term_end: i64
+    )->Option<u32>{
+        self.update(0,activity,priority,term_begin,term_end)
+    }
+    pub fn update(
+        &mut self
+        ,id:u32
+        ,activity: u8
+        ,priority: f64
+        ,term_begin: i64
+        ,term_end: i64
+    )->Option<u32>{
+        let term_begin=if term_begin==0{
+            chrono::Local::now().timestamp()
+        }else{
+            term_begin
+        };
         if !self.serial.exists_blank()&&id==0{   //0は新規作成
-            self.insert(basic_data)
+            self.update_new(activity,priority,term_begin,term_end)
         }else{
             if let Some(id)=self.serial.pop_blank(){
-                self.uuid.update(id,basic_data.uuid());             //serial_number使いまわしの場合uuid再発行
-                self.activity.update(id,basic_data.activity());
-                self.priority.update(id,basic_data.priority());
-                self.term_begin.update(id,basic_data.term_begin());
-                self.term_end.update(id,basic_data.term_end());
-                self.last_updated.update(id,basic_data.last_updated());
+                self.uuid.update(id,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
+                self.activity.update(id,activity);
+                self.priority.update(id,Priority::new(priority));
+                self.term_begin.update(id,term_begin);
+                self.term_end.update(id,term_end);
+                self.last_updated.update(id,chrono::Local::now().timestamp());
                 Some(id)
             }else{
-                self.activity.update(id,basic_data.activity());
-                self.priority.update(id,basic_data.priority());
-                self.term_begin.update(id,basic_data.term_begin());
-                self.term_end.update(id,basic_data.term_end());
-                self.last_updated.update(id,basic_data.last_updated());
+                self.activity.update(id,activity);
+                self.priority.update(id,Priority::new(priority));
+                self.term_begin.update(id,term_begin);
+                self.term_end.update(id,term_end);
+                self.last_updated.update(id,chrono::Local::now().timestamp());
                 Some(id)
             }
         }

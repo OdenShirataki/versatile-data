@@ -5,6 +5,11 @@ use std::fmt;
 pub struct Priority{
     priority:f64
 }
+impl Priority{
+    pub fn new(priority:f64)->Priority{
+        Priority{priority}
+    }
+}
 impl PartialOrd for Priority {
     fn partial_cmp(&self, other: &Priority) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -37,7 +42,7 @@ impl Into<f64> for Priority {
 #[derive(Clone,Copy)]
 pub struct BasicData{
     activity: u8
-    ,priority: Priority
+    ,priority: f64
     ,term_begin: i64
     ,term_end: i64
     ,last_updated: i64
@@ -47,9 +52,9 @@ impl fmt::Debug for BasicData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f
-            ,"{{ activity:{} , priority:{} , term_begin:{} , term_end:{} , last_updated:{} ,uuid:{} }}"
+            ,"{{ activity:{} , priority:{} , term_begin:{} , term_end:{} , last_updated:{} , uuid:{} }}"
             ,self.activity
-            ,self.priority.priority
+            ,self.priority
             ,self.term_begin
             ,self.term_end
             ,self.last_updated
@@ -68,7 +73,7 @@ impl BasicData{
     )->BasicData{
         BasicData{
             activity
-            ,priority:Priority{priority}
+            ,priority
             ,term_begin
             ,term_end
             ,last_updated
@@ -78,7 +83,7 @@ impl BasicData{
     pub fn activity(&self)->u8{
         self.activity
     }
-    pub fn priority(&self)->Priority{
+    pub fn priority(&self)->f64{
         self.priority
     }
     pub fn term_begin(&self)->i64{

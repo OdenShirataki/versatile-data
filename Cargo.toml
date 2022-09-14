@@ -13,7 +13,16 @@ license = "MIT/Apache-2.0"
 [dependencies]
 libc="0.2"
 natord="1.0"
+chrono="0.4"
 
 file_mmap={ path="../file_mmap" , version="0.1" }
 indexed_data_file={ path="../indexed_data_file" , version="0.6" }
 strings_set_file={ path="../strings_set_file" , version="0.1" }
+
+[dependencies.uuid]
+version = "1.0"
+features = [
+    "v4",
+    "fast-rng",
+    "macro-diagnostics",
+]
