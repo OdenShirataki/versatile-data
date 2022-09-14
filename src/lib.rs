@@ -21,7 +21,6 @@ pub struct Data{
     ,last_updated: IndexedDataFile<i64>
     ,fields_cache:HashMap<String,Field>
 }
-
 impl Data{
     pub fn new(dir:&str)-> Option<Data>{
         if let (
@@ -109,7 +108,7 @@ impl Data{
         self.term_begin.delete(id);
         self.term_end.delete(id);
         self.last_updated.delete(id);
-        if let Ok(d)=std::fs::read_dir(self.data_dir.to_string()+"/"){
+        if let Ok(d)=std::fs::read_dir(self.data_dir.to_string()+"/fields/"){
             for p in d{
                 if let Ok(p)=p{
                     let path=p.path();
@@ -192,7 +191,7 @@ impl Data{
         if let Some(f)=self.fields_cache.get(name){
             return f.string(id)
         }else{
-            let dir_name=self.data_dir.to_string()+"/"+name+"/";
+            let dir_name=self.data_dir.to_string()+"/fields/"+name+"/";
             if std::path::Path::new(&dir_name).exists(){
                 if let Ok(field)=field::Field::new(&dir_name){
                     return self.fields_cache.entry(String::from(name)).or_insert(
@@ -208,7 +207,7 @@ impl Data{
         if self.fields_cache.contains_key(name){
             self.fields_cache.get_mut(name)
         }else{
-            let dir_name=self.data_dir.to_string()+"/"+name+"/";
+            let dir_name=self.data_dir.to_string()+"/fields/"+name+"/";
             if create{
                 match std::fs::create_dir_all(dir_name.to_owned()){
                     _=>{}
