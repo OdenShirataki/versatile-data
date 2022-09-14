@@ -1,24 +1,25 @@
 use std::collections::HashMap;
 use indexed_data_file::IndexedDataFile;
 
-pub mod field;
-
 mod serial;
 use serial::SerialNumber;
 
-pub mod basic;
-use basic::BasicData;
+mod field;
+pub use field::Field;
+
+mod basic;
+pub use basic::{BasicData,Priority};
 
 pub struct Data{
     data_dir:String
     ,serial: SerialNumber
     ,uuid: IndexedDataFile<u128>
     ,activity: IndexedDataFile<u8>
-    ,priority: IndexedDataFile<basic::Priority>
+    ,priority: IndexedDataFile<Priority>
     ,term_begin: IndexedDataFile<i64>
     ,term_end: IndexedDataFile<i64>
     ,last_updated: IndexedDataFile<i64>
-    ,fields_cache:HashMap<String,field::Field>
+    ,fields_cache:HashMap<String,Field>
 }
 
 impl Data{
@@ -123,7 +124,6 @@ impl Data{
                                             );
                                         }
                                     }
-                                    
                                 }
                             }
                         }
@@ -183,7 +183,28 @@ impl Data{
             None
         }
     }
-    pub fn field_mut(&mut self,name:&str,create:bool)->Option<&mut field::Field>{
+    pub fn field_update(&mut self,id:u32,field_name:&str,addr:*const i8){
+        if let Some(field)=self.field_mut(field_name,true){
+            field.update(id,addr);
+        }
+    }
+    pub fn field_value(&mut self,id:u32,name:&str)->Option<&str>{
+        if let Some(f)=self.fields_cache.get(name){
+            return f.string(id)
+        }else{
+            let dir_name=self.data_dir.to_string()+"/"+name+"/";
+            if std::path::Path::new(&dir_name).exists(){
+                if let Ok(field)=field::Field::new(&dir_name){
+                    return self.fields_cache.entry(String::from(name)).or_insert(
+                        field
+                    ).string(id);
+                }
+            }
+        }
+        None
+    }
+
+    fn field_mut(&mut self,name:&str,create:bool)->Option<&mut Field>{
         if self.fields_cache.contains_key(name){
             self.fields_cache.get_mut(name)
         }else{
@@ -202,20 +223,5 @@ impl Data{
             }
             None
         }
-    }
-    pub fn field_value(&mut self,id:u32,name:&str)->Option<&str>{
-        if let Some(f)=self.fields_cache.get(name){
-            return f.string(id)
-        }else{
-            let dir_name=self.data_dir.to_string()+"/"+name+"/";
-            if std::path::Path::new(&dir_name).exists(){
-                if let Ok(field)=field::Field::new(&dir_name){
-                    return self.fields_cache.entry(String::from(name)).or_insert(
-                        field
-                    ).string(id);
-                }
-            }
-        }
-        None
     }
 }
