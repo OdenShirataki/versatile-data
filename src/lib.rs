@@ -172,6 +172,9 @@ impl Data{
     pub fn uuid(&self,id:u32)->Option<u128>{
         self.uuid.triee().entity_value(id).map(|v|*v)
     }
+    pub fn uuid_str(&self,id:u32)->Option<String>{
+        self.uuid.triee().entity_value(id).map(|v|uuid::Uuid::from_u128(*v).to_string())
+    }
 
     pub fn activity_index(&self)->&IndexedDataFile<u8>{
         &self.activity
