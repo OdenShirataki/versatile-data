@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ffi::CString;
 use uuid::Uuid;
 use std::collections::HashMap;
@@ -58,10 +59,74 @@ impl Data{
             None
         }
     }
+    pub fn insert(
+        &mut self
+        ,activity: bool
+        ,priority: f64
+        ,term_begin: i64
+        ,term_end: i64
+    )->Option<u32>{
+        self.update(0,activity,priority,term_begin,term_end)
+    }
+    pub fn update(
+        &mut self
+        ,id:u32
+        ,activity: bool
+        ,priority: f64
+        ,term_begin: i64
+        ,term_end: i64
+    )->Option<u32>{
+        let term_begin=if term_begin==0{
+            chrono::Local::now().timestamp()
+        }else{
+            term_begin
+        };
+        if !self.serial.exists_blank()&&id==0{   //0は新規作成
+            self.update_new(activity,priority,term_begin,term_end)
+        }else{
+            if let Some(id)=self.serial.pop_blank(){
+                self.uuid.update(id,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
+                self.activity.update(id,activity as u8);
+                self.priority.update(id,Priority::new(priority));
+                self.term_begin.update(id,term_begin);
+                self.term_end.update(id,term_end);
+                self.last_updated.update(id,chrono::Local::now().timestamp());
+                Some(id)
+            }else{
+                self.activity.update(id,activity as u8);
+                self.priority.update(id,Priority::new(priority));
+                self.term_begin.update(id,term_begin);
+                self.term_end.update(id,term_end);
+                self.last_updated.update(id,chrono::Local::now().timestamp());
+                Some(id)
+            }
+        }
+    }
+    pub fn update_field(&mut self,id:u32,field_name:&str,cont:impl Into<String>){
+        let c_string: CString = CString::new(cont.into()).unwrap();
+        self.update_field_with_ptr(id,field_name,c_string.as_ptr());
+    }
+    pub fn update_field_with_ptr(&mut self,id:u32,field_name:&str,addr:*const i8){
+        if let Some(field)=self.field_mut(field_name,true){
+            field.update(id,addr);
+        }
+    }
+    pub fn delete(&mut self,id:u32){
+        self.serial.delete(id);
+        self.uuid.delete(id);
+        self.activity.delete(id);
+        self.term_begin.delete(id);
+        self.term_end.delete(id);
+        self.last_updated.delete(id);
+        self.load_fields();
+        for (_,v) in &mut self.fields_cache{
+            v.delete(id);
+        }
+    }
 
     fn update_new(
         &mut self
-        ,activity: u8
+        ,activity: bool
         ,priority: f64
         ,term_begin: i64
         ,term_end: i64
@@ -78,7 +143,7 @@ impl Data{
             ,self.last_updated.resize_to(newid)
         ){
             self.uuid.triee_mut().update(newid,Uuid::new_v4().as_u128());
-            self.activity.triee_mut().update(newid,activity);
+            self.activity.triee_mut().update(newid,activity as u8);
             self.priority.triee_mut().update(newid,Priority::new(priority));
             self.term_begin.triee_mut().update(newid,term_begin);
             self.term_end.triee_mut().update(newid,term_end);
@@ -88,49 +153,95 @@ impl Data{
             None
         }
     }
-    pub fn insert(
-        &mut self
-        ,activity: u8
-        ,priority: f64
-        ,term_begin: i64
-        ,term_end: i64
-    )->Option<u32>{
-        self.update(0,activity,priority,term_begin,term_end)
+
+    pub fn all(&self)->HashSet<u32>{
+        let mut result=HashSet::new();
+        for (_local_index,id,_d) in self.activity.triee().iter(){
+            result.replace(id);
+        }
+        result
     }
-    pub fn update(
-        &mut self
-        ,id:u32
-        ,activity: u8
-        ,priority: f64
-        ,term_begin: i64
-        ,term_end: i64
-    )->Option<u32>{
-        let term_begin=if term_begin==0{
-            chrono::Local::now().timestamp()
+
+    pub fn search(&self,activity:Option<bool>)->HashSet<u32>{
+        let mut result=HashSet::new();
+        for (_local_index,id,_d) in self.activity.triee().iter(){
+            result.replace(id);
+        }
+        result
+    }
+
+    pub fn uuid(&self,id:u32)->u128{
+        if let Some(v)=self.uuid.value(id){
+            v
         }else{
-            term_begin
-        };
-        if !self.serial.exists_blank()&&id==0{   //0は新規作成
-            self.update_new(activity,priority,term_begin,term_end)
-        }else{
-            if let Some(id)=self.serial.pop_blank(){
-                self.uuid.update(id,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
-                self.activity.update(id,activity);
-                self.priority.update(id,Priority::new(priority));
-                self.term_begin.update(id,term_begin);
-                self.term_end.update(id,term_end);
-                self.last_updated.update(id,chrono::Local::now().timestamp());
-                Some(id)
-            }else{
-                self.activity.update(id,activity);
-                self.priority.update(id,Priority::new(priority));
-                self.term_begin.update(id,term_begin);
-                self.term_end.update(id,term_end);
-                self.last_updated.update(id,chrono::Local::now().timestamp());
-                Some(id)
-            }
+            0
         }
     }
+    pub fn uuid_str(&self,id:u32)->String{
+        if let Some(v)=self.uuid.value(id){
+            uuid::Uuid::from_u128(v).to_string()
+        }else{
+            "".to_string()
+        }
+    }
+    pub fn activity(&self,id:u32)->bool{
+        if let Some(v)=self.activity.value(id){
+            v!=0
+        }else{
+            false
+        }
+    }
+    pub fn priority(&self,id:u32)->f64{
+        if let Some(v)=self.priority.value(id){
+            v.into()
+        }else{
+            0.0
+        }
+    }
+    pub fn term_begin(&self,id:u32)->i64{
+        if let Some(v)=self.term_begin.value(id){
+            v
+        }else{
+            0
+        }
+    }
+    pub fn term_end(&self,id:u32)->i64{
+        if let Some(v)=self.term_end.value(id){
+            v
+        }else{
+            0
+        }
+    }
+    pub fn last_updated(&self,id:u32)->i64{
+        if let Some(v)=self.last_updated.value(id){
+            v
+        }else{
+            0
+        }
+    }
+    pub fn field_str(&self,id:u32,name:&str)->&str{
+        if let Some(f)=self.field(name){
+            if let Some(v)=f.string(id){
+                v
+            }else{
+                ""
+            }
+        }else{
+            ""
+        }
+    }
+    pub fn field_num(&self,id:u32,name:&str)->f64{
+        if let Some(f)=self.field(name){
+            if let Some(f)=f.num(id){
+                f
+            }else{
+                0.0
+            }
+        }else{
+            0.0
+        }
+    }
+
     pub fn load_fields(&mut self){
         if let Ok(d)=std::fs::read_dir(self.data_dir.to_string()+"/fields/"){
             for p in d{
@@ -155,93 +266,24 @@ impl Data{
             }
         }
     }
-    pub fn delete(&mut self,id:u32){
-        self.serial.delete(id);
-        self.uuid.delete(id);
-        self.activity.delete(id);
-        self.term_begin.delete(id);
-        self.term_end.delete(id);
-        self.last_updated.delete(id);
-        self.load_fields();
-        for (_,v) in &mut self.fields_cache{
-            v.delete(id);
-        }
-    }
-    pub fn all(&self,result:&mut std::collections::HashSet<u32>){
-        for (_local_index,id,_d) in self.activity.triee().iter(){
-            result.replace(id);
-        }
-    }
-
-    pub fn uuid(&self,id:u32)->Option<u128>{
-        self.uuid.triee().entity_value(id).map(|v|*v)
-    }
-    pub fn uuid_str(&self,id:u32)->Option<String>{
-        self.uuid.triee().entity_value(id).map(|v|uuid::Uuid::from_u128(*v).to_string())
-    }
 
     pub fn activity_index(&self)->&IndexedDataFile<u8>{
         &self.activity
     }
-    pub fn activity(&self,id:u32)->Option<u8>{
-        self.activity.triee().entity_value(id).map(|v|*v)
-    }
-
-    pub fn priority(&self,id:u32)->Option<Priority>{
-        self.priority.triee().entity_value(id).map(|v|*v)
-    }
-
     pub fn term_begin_index(&self)->&IndexedDataFile<i64>{
         &self.term_begin
     }
-    pub fn term_begin(&self,id:u32)->Option<i64>{
-        self.term_begin.triee().entity_value(id).map(|v|*v)
-    }
-
     pub fn term_end_index(&self)->&IndexedDataFile<i64>{
         &self.term_end
     }
-    pub fn term_end(&self,id:u32)->Option<i64>{
-        self.term_end.triee().entity_value(id).map(|v|*v)
-    }
-
     pub fn last_updated_index(&self)->&IndexedDataFile<i64>{
         &self.last_updated
     }
-    pub fn last_updated(&self,id:u32)->Option<i64>{
-        self.last_updated.triee().entity_value(id).map(|v|*v)
-    }
-    pub fn field(&self,name:&str)->Option<&field::Field>{
+    
+    pub fn field(&self,name:&str)->Option<&Field>{
         self.fields_cache.get(name)
     }
-    pub fn update_field_with_ptr(&mut self,id:u32,field_name:&str,addr:*const i8){
-        if let Some(field)=self.field_mut(field_name,true){
-            field.update(id,addr);
-        }
-    }
-    pub fn update_field(&mut self,id:u32,field_name:&str,cont:impl Into<String>){
-        let c_string: CString = CString::new(cont.into()).unwrap();
-        self.update_field_with_ptr(id,field_name,c_string.as_ptr());
-    }
-    pub fn field_str(&self,id:u32,name:&str)->Option<&str>{
-        if let Some(f)=self.field(name){
-            f.string(id)
-        }else{
-            None
-        }
-    }
-    pub fn field_num(&self,id:u32,name:&str)->f64{
-        if let Some(f)=self.field(name){
-            if let Some(f)=f.num(id){
-                f
-            }else{
-                0.0
-            }
-        }else{
-            0.0
-        }
-    }
-    
+
     fn field_mut(&mut self,name:&str,create:bool)->Option<&mut Field>{
         if self.fields_cache.contains_key(name){
             self.fields_cache.get_mut(name)
