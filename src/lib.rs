@@ -9,8 +9,8 @@ use serial::SerialNumber;
 mod field;
 pub use field::Field;
 
-mod basic;
-pub use basic::{BasicData,Priority};
+mod priority;
+pub use priority::Priority;
 
 pub struct Data{
     data_dir:String
@@ -183,7 +183,7 @@ impl Data{
         self.activity.triee().entity_value(id).map(|v|*v)
     }
 
-    pub fn priority(&self,id:u32)->Option<basic::Priority>{
+    pub fn priority(&self,id:u32)->Option<Priority>{
         self.priority.triee().entity_value(id).map(|v|*v)
     }
 
