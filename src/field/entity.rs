@@ -4,16 +4,6 @@ pub struct FieldEntity{
     word:WordAddress
     ,num:f64
 }
-impl std::fmt::Debug for FieldEntity {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f
-            ,"[ string:{:?} , num:{} ]"
-            ,self.word
-            ,self.num
-        )
-    }
-}
 impl Copy for FieldEntity {}
 impl std::clone::Clone for FieldEntity {
     fn clone(&self) -> FieldEntity {

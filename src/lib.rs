@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use uuid::Uuid;
 use std::collections::HashMap;
 
@@ -130,13 +131,7 @@ impl Data{
             }
         }
     }
-    pub fn delete(&mut self,id:u32){
-        self.serial.delete(id);
-        self.uuid.delete(id);
-        self.activity.delete(id);
-        self.term_begin.delete(id);
-        self.term_end.delete(id);
-        self.last_updated.delete(id);
+    pub fn load_fields(&mut self){
         if let Ok(d)=std::fs::read_dir(self.data_dir.to_string()+"/fields/"){
             for p in d{
                 if let Ok(p)=p{
@@ -144,7 +139,7 @@ impl Data{
                     if path.is_dir(){
                         if let Some(fname)=path.file_name(){
                             if let Some(str_fname)=fname.to_str(){
-                                if self.fields_cache.contains_key(str_fname)==false{
+                                if !self.fields_cache.contains_key(str_fname){
                                     if let Some(p)=path.to_str(){
                                         if let Ok(field)=field::Field::new(&(p.to_string()+"/")){
                                             self.fields_cache.entry(String::from(str_fname)).or_insert(
@@ -159,6 +154,15 @@ impl Data{
                 }
             }
         }
+    }
+    pub fn delete(&mut self,id:u32){
+        self.serial.delete(id);
+        self.uuid.delete(id);
+        self.activity.delete(id);
+        self.term_begin.delete(id);
+        self.term_end.delete(id);
+        self.last_updated.delete(id);
+        self.load_fields();
         for (_,v) in &mut self.fields_cache{
             v.delete(id);
         }
@@ -207,34 +211,26 @@ impl Data{
     pub fn last_updated(&self,id:u32)->Option<i64>{
         self.last_updated.triee().entity_value(id).map(|v|*v)
     }
-    pub fn field(&mut self,name:&str)->Option<&field::Field>{
-        if let Some(f)=self.field_mut(name,false){
-            Some(f)
-        }else{
-            None
-        }
+    pub fn field(&self,name:&str)->Option<&field::Field>{
+        self.fields_cache.get(name)
     }
-    pub fn field_update(&mut self,id:u32,field_name:&str,addr:*const i8){
+    pub fn update_field_with_ptr(&mut self,id:u32,field_name:&str,addr:*const i8){
         if let Some(field)=self.field_mut(field_name,true){
             field.update(id,addr);
         }
     }
-    pub fn field_value(&mut self,id:u32,name:&str)->Option<&str>{
-        if let Some(f)=self.fields_cache.get(name){
-            return f.string(id)
-        }else{
-            let dir_name=self.data_dir.to_string()+"/fields/"+name+"/";
-            if std::path::Path::new(&dir_name).exists(){
-                if let Ok(field)=field::Field::new(&dir_name){
-                    return self.fields_cache.entry(String::from(name)).or_insert(
-                        field
-                    ).string(id);
-                }
-            }
-        }
-        None
+    pub fn update_field(&mut self,id:u32,field_name:&str,cont:impl Into<String>){
+        let c_string: CString = CString::new(cont.into()).unwrap();
+        self.update_field_with_ptr(id,field_name,c_string.as_ptr());
     }
-
+    pub fn field_value(&self,id:u32,name:&str)->Option<&str>{
+        if let Some(f)=self.field(name){
+            f.string(id)
+        }else{
+            None
+        }
+    }
+    
     fn field_mut(&mut self,name:&str,create:bool)->Option<&mut Field>{
         if self.fields_cache.contains_key(name){
             self.fields_cache.get_mut(name)
