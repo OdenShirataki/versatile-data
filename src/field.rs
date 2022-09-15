@@ -42,6 +42,13 @@ impl Field{
             None
         }
     }
+    pub fn num(&self,id:u32)->Option<f64>{
+        if let Some(e)=self.entity(id){
+            Some(e.num())
+        }else{
+            None
+        }
+    }
     pub fn search_match(&self,str:&str,and:Option<IdSet>)->IdSet{
         let mut r:IdSet=HashSet::default();
         let tree=self.index.triee();

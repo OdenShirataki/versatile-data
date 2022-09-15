@@ -223,11 +223,22 @@ impl Data{
         let c_string: CString = CString::new(cont.into()).unwrap();
         self.update_field_with_ptr(id,field_name,c_string.as_ptr());
     }
-    pub fn field_value(&self,id:u32,name:&str)->Option<&str>{
+    pub fn field_str(&self,id:u32,name:&str)->Option<&str>{
         if let Some(f)=self.field(name){
             f.string(id)
         }else{
             None
+        }
+    }
+    pub fn field_num(&self,id:u32,name:&str)->f64{
+        if let Some(f)=self.field(name){
+            if let Some(f)=f.num(id){
+                f
+            }else{
+                0.0
+            }
+        }else{
+            0.0
         }
     }
     

@@ -32,4 +32,7 @@ impl FieldEntity {
     pub fn string(&self)->&WordAddress{
         &self.word
     }
+    pub fn num(&self)->f64{
+        self.num
+    }
 }

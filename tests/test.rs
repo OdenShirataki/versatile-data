@@ -19,7 +19,9 @@ fn test() {
             }
         }
         data.load_fields();
+        let mut sam=0.0;
         for i in range.clone(){
+            sam+=data.field_num(i,"num");
             println!(
                 "{},{},{},{},{},{},{}"
                 ,data.activity(i).unwrap()
@@ -27,9 +29,10 @@ fn test() {
                 ,data.last_updated(i).unwrap()
                 ,data.term_begin(i).unwrap()
                 ,data.term_end(i).unwrap()
-                ,data.field_value(i,"num").unwrap()
-                ,data.field_value(i,"num_by3").unwrap()
+                ,data.field_str(i,"num").unwrap()
+                ,data.field_str(i,"num_by3").unwrap()
             );
         }
+        assert_eq!(sam,45.0);
     }
 }
