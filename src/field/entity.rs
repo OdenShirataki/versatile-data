@@ -29,7 +29,7 @@ impl FieldEntity {
     pub fn addr(&self)->isize{
         self.word.offset() as isize
     }
-    pub fn string(&self)->&WordAddress{
+    pub fn word(&self)->&WordAddress{
         &self.word
     }
     pub fn num(&self)->f64{

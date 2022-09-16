@@ -33,7 +33,7 @@ impl Field{
             None
         }
     }
-    pub fn string<'a>(&self,id:u32)->Option<&'a str>{
+    pub fn str<'a>(&self,id:u32)->Option<&'a str>{
         if let Some(e)=self.entity(id){
             Some(unsafe{std::ffi::CStr::from_ptr(
                 self.strings.offset(e.addr()) as *const libc::c_char
@@ -81,21 +81,17 @@ impl Field{
         r
     }
     
-    pub fn update(&mut self,id:u32,addr:*const i8) -> Option<u32>{
+    pub fn update(&mut self,id:u32,content:&[u8]) -> Option<u32>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
         if let RemoveResult::Unique(data)=self.index.delete(id){
-            self.strings.remove(&data.string());    //削除対象がユニークの場合は対象文字列を完全削除
+            self.strings.remove(&data.word());    //削除対象がユニークの場合は対象文字列を完全削除
         }
-        let cont=unsafe{
-            std::ffi::CStr::from_ptr(addr)
-        }.to_str().unwrap();
+        let cont=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_id)=tree.search_cb(|data|->Ordering{
-            let str2=unsafe{
-                std::ffi::CStr::from_ptr(
-                    self.strings.offset(data.addr()) as *const libc::c_char
-                )
-            }.to_str().unwrap();
+            let str2=self.strings.to_str(data.word());
+
+            let cmp=natord::compare(cont,str2);
             if cont==str2{
                 Ordering::Equal
             }else{

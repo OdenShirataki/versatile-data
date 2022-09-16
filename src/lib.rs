@@ -103,12 +103,8 @@ impl Data{
         }
     }
     pub fn update_field(&mut self,id:u32,field_name:&str,cont:impl Into<String>){
-        let c_string: CString = CString::new(cont.into()).unwrap();
-        self.update_field_with_ptr(id,field_name,c_string.as_ptr());
-    }
-    pub fn update_field_with_ptr(&mut self,id:u32,field_name:&str,addr:*const i8){
         if let Some(field)=self.field_mut(field_name,true){
-            field.update(id,addr);
+            field.update(id,cont.into().as_bytes());
         }
     }
     pub fn delete(&mut self,id:u32){
@@ -162,7 +158,10 @@ impl Data{
         result
     }
 
-    pub fn search(&self,activity:Option<bool>)->HashSet<u32>{
+    pub fn search(
+        &self
+        ,activity:Option<bool>
+    )->HashSet<u32>{
         let mut result=HashSet::new();
         for (_local_index,id,_d) in self.activity.triee().iter(){
             result.replace(id);
@@ -221,7 +220,7 @@ impl Data{
     }
     pub fn field_str(&self,id:u32,name:&str)->&str{
         if let Some(f)=self.field(name){
-            if let Some(v)=f.string(id){
+            if let Some(v)=f.str(id){
                 v
             }else{
                 ""
