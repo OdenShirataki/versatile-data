@@ -1,22 +1,26 @@
 use std::collections::HashSet;
 use std::cmp::Ordering;
 
-use indexed_data_file::*;
-use strings_set_file::*;
+use idx_sized::{
+    IdxSized
+    ,IdSet
+    ,RemoveResult
+};
+use various_data_file::VariousDataFile;
 
 pub mod entity;
 use entity::FieldEntity;
 
 pub struct Field{
-    index: IndexedDataFile<FieldEntity>
-    ,strings:StringsSetFile
+    index: IdxSized<FieldEntity>
+    ,strings:VariousDataFile
 }
 impl Field{
     pub fn new(path_prefix:&str) -> Result<Field,std::io::Error>{
-        match IndexedDataFile::new(&(path_prefix.to_string()+".i")){
+        match IdxSized::new(&(path_prefix.to_string()+".i")){
             Err(e)=>Err(e)
             ,Ok(index)=>{
-                match StringsSetFile::new(&(path_prefix.to_string()+".d")){
+                match VariousDataFile::new(&(path_prefix.to_string()+".d")){
                     Ok(strings)=>Ok(Field{
                         index
                         ,strings
@@ -89,9 +93,8 @@ impl Field{
         let cont=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_id)=tree.search_cb(|data|->Ordering{
-            let str2=self.strings.to_str(data.word());
+            let str2=std::str::from_utf8(self.strings.slice(data.word())).unwrap();
 
-            let cmp=natord::compare(cont,str2);
             if cont==str2{
                 Ordering::Equal
             }else{
@@ -108,7 +111,7 @@ impl Field{
             }
         }else{
             //新しく作る
-            if let Some(word)=self.strings.insert(cont){
+            if let Some(word)=self.strings.insert(content){
                 let e=FieldEntity::new(
                     word.address()
                     ,cont.parse().unwrap_or(0.0)

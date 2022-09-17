@@ -1,4 +1,4 @@
-use indexed_data_file::IndexedDataFile;
+use idx_sized::IdxSized;
 use file_mmap::FileMmap;
 
 struct Fragment{
@@ -14,7 +14,7 @@ impl Fragment{
         let init_size=(u32size + u32size) as u64;   //初期サイズはincrementとblank_list(0)の分
         let filemmap=FileMmap::new(path,init_size)?;
         let increment=filemmap.as_ptr() as *mut u32;
-        let blank_list=unsafe{(filemmap.as_ptr() as *mut u32).offset(1)};
+        let blank_list=filemmap.offset(u32size as isize) as *mut u32;
 
         let len=filemmap.len();
 
@@ -61,13 +61,13 @@ impl Fragment{
 }
 
 pub struct SerialNumber{
-    index:IndexedDataFile<u32>
+    index:IdxSized<u32>
     ,fragment:Fragment
 }
 impl SerialNumber{
     pub fn new(path:&str)->Result<SerialNumber,std::io::Error>{
         Ok(SerialNumber{
-            index:IndexedDataFile::new(&(path.to_string()+".i"))?
+            index:IdxSized::new(&(path.to_string()+".i"))?
             ,fragment:Fragment::new(&(path.to_string()+".f"))?
         })
     }

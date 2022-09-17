@@ -1,9 +1,8 @@
 use std::collections::HashSet;
-use std::ffi::CString;
 use uuid::Uuid;
 use std::collections::HashMap;
 
-use indexed_data_file::IndexedDataFile;
+use idx_sized::IdxSized;
 
 mod serial;
 use serial::SerialNumber;
@@ -17,12 +16,12 @@ pub use priority::Priority;
 pub struct Data{
     data_dir:String
     ,serial: SerialNumber
-    ,uuid: IndexedDataFile<u128>
-    ,activity: IndexedDataFile<u8>
-    ,priority: IndexedDataFile<Priority>
-    ,term_begin: IndexedDataFile<i64>
-    ,term_end: IndexedDataFile<i64>
-    ,last_updated: IndexedDataFile<i64>
+    ,uuid: IdxSized<u128>
+    ,activity: IdxSized<u8>
+    ,priority: IdxSized<Priority>
+    ,term_begin: IdxSized<i64>
+    ,term_end: IdxSized<i64>
+    ,last_updated: IdxSized<i64>
     ,fields_cache:HashMap<String,Field>
 }
 impl Data{
@@ -37,12 +36,12 @@ impl Data{
             ,Ok(last_updated)
         )=(
             SerialNumber::new(&(dir.to_string()+"/serial"))
-            ,IndexedDataFile::new(&(dir.to_string()+"/uuid.i"))
-            ,IndexedDataFile::new(&(dir.to_string()+"/activity.i"))
-            ,IndexedDataFile::new(&(dir.to_string()+"/priority.i"))
-            ,IndexedDataFile::new(&(dir.to_string()+"/term_begin.i"))
-            ,IndexedDataFile::new(&(dir.to_string()+"/term_end.i"))
-            ,IndexedDataFile::new(&(dir.to_string()+"/last_updated.i"))
+            ,IdxSized::new(&(dir.to_string()+"/uuid.i"))
+            ,IdxSized::new(&(dir.to_string()+"/activity.i"))
+            ,IdxSized::new(&(dir.to_string()+"/priority.i"))
+            ,IdxSized::new(&(dir.to_string()+"/term_begin.i"))
+            ,IdxSized::new(&(dir.to_string()+"/term_end.i"))
+            ,IdxSized::new(&(dir.to_string()+"/last_updated.i"))
         ){
             Some(Data{
                 data_dir:dir.to_string()
@@ -266,16 +265,16 @@ impl Data{
         }
     }
 
-    pub fn activity_index(&self)->&IndexedDataFile<u8>{
+    pub fn activity_index(&self)->&IdxSized<u8>{
         &self.activity
     }
-    pub fn term_begin_index(&self)->&IndexedDataFile<i64>{
+    pub fn term_begin_index(&self)->&IdxSized<i64>{
         &self.term_begin
     }
-    pub fn term_end_index(&self)->&IndexedDataFile<i64>{
+    pub fn term_end_index(&self)->&IdxSized<i64>{
         &self.term_end
     }
-    pub fn last_updated_index(&self)->&IndexedDataFile<i64>{
+    pub fn last_updated_index(&self)->&IdxSized<i64>{
         &self.last_updated
     }
     

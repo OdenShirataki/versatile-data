@@ -1,7 +1,7 @@
-use strings_set_file::WordAddress;
+use various_data_file::DataAddress;
 
 pub struct FieldEntity{
-    word:WordAddress
+    word:DataAddress
     ,num:f64
 }
 impl Copy for FieldEntity {}
@@ -13,14 +13,14 @@ impl std::clone::Clone for FieldEntity {
 impl std::default::Default for FieldEntity{
     fn default() -> FieldEntity {
         FieldEntity{
-            word:WordAddress::default()
+            word:DataAddress::default()
             ,num:0.0
         }
     }
 }
 
 impl FieldEntity {
-    pub fn new(word:WordAddress,num:f64)->FieldEntity{
+    pub fn new(word:DataAddress,num:f64)->FieldEntity{
         FieldEntity{
             word:word
             ,num
@@ -29,7 +29,7 @@ impl FieldEntity {
     pub fn addr(&self)->isize{
         self.word.offset() as isize
     }
-    pub fn word(&self)->&WordAddress{
+    pub fn word(&self)->&DataAddress{
         &self.word
     }
     pub fn num(&self)->f64{
