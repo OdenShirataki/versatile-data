@@ -49,9 +49,9 @@ impl Field{
     }
     pub fn str<'a>(&self,id:u32)->Option<&'a str>{
         if let Some(e)=self.entity(id){
-            Some(unsafe{std::ffi::CStr::from_ptr(
-                self.strings.offset(e.addr()) as *const libc::c_char
-            )}.to_str().unwrap())
+            std::str::from_utf8(unsafe{
+                std::slice::from_raw_parts(self.strings.offset(e.addr()) as *const u8,e.len())
+            }).ok()
         }else{
             None
         }
@@ -86,7 +86,7 @@ impl Field{
             ,SearchCondition::Range(min,max)=>{
                 self.search_range(min,max)
             }
-            ,_=>IdSet::default()
+            //,_=>IdSet::default()
         }
     }
     fn search_match(&self,cont:&[u8])->IdSet{
@@ -105,6 +105,7 @@ impl Field{
         let (_,max_found_id)=self.search_cb(max);
         for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
             r.insert(id);
+            self.index.triee().sames(&mut r, max_found_id);
         }
         r
     }
