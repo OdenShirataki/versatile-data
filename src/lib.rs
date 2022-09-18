@@ -1,3 +1,4 @@
+use idx_sized::IdSet;
 use std::collections::HashSet;
 use uuid::Uuid;
 use std::collections::HashMap;
@@ -8,10 +9,20 @@ mod serial;
 use serial::SerialNumber;
 
 mod field;
-pub use field::Field;
+pub use field::{
+    Field
+    ,SearchCondition
+};
 
 mod priority;
 pub use priority::Priority;
+
+mod search;
+pub use search::{
+    ConditionActivity
+    ,TermScope
+    ,Reducer
+};
 
 pub struct Data{
     data_dir:String
@@ -157,17 +168,6 @@ impl Data{
         result
     }
 
-    pub fn search(
-        &self
-        ,activity:Option<bool>
-    )->HashSet<u32>{
-        let mut result=HashSet::new();
-        for (_local_index,id,_d) in self.activity.triee().iter(){
-            result.replace(id);
-        }
-        result
-    }
-
     pub fn uuid(&self,id:u32)->u128{
         if let Some(v)=self.uuid.value(id){
             v
@@ -300,6 +300,18 @@ impl Data{
                 }
             }
             None
+        }
+    }
+
+    pub fn search_activity(&self,condition:ConditionActivity)->Reducer{
+        let activity=if condition==ConditionActivity::Active{ 1 }else{ 0 };
+        Reducer::new(self,self.activity.select_by_value_from_to(&activity,&activity))
+    }
+    pub fn search_field(&self,field_name:&str,condition:field::SearchCondition)->Reducer{
+        if let Some(field)=self.field(field_name){
+            Reducer::new(self,field.search(condition))
+        }else{
+            Reducer::new(self,IdSet::default())
         }
     }
 }

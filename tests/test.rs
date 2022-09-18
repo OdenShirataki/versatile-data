@@ -1,7 +1,11 @@
+use versatile_data::{
+    Data
+    ,ConditionActivity
+    ,SearchCondition
+};
+
 #[test]
 fn test() {
-    use versatile_data::Data;
-
     let dir="D:/vd-test/";
 
     if std::path::Path::new(dir).exists(){
@@ -18,6 +22,7 @@ fn test() {
                 data.update_field(id,"num_by3",(i*3).to_string());
             }
         }
+        data.update(3,false,0.0,0,0);
         data.load_fields();
         let mut sam=0.0;
         for i in range.clone(){
@@ -34,5 +39,10 @@ fn test() {
             );
         }
         assert_eq!(sam,45.0);
+
+        let r=data.search_activity(
+            ConditionActivity::Active
+        ).search_field("num",SearchCondition::Range(b"3",b"8")).get();
+        println!("{:?}",r);
     }
 }

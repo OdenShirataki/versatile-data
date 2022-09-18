@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::cmp::Ordering;
 
 use idx_sized::{
@@ -10,6 +9,17 @@ use various_data_file::VariousDataFile;
 
 pub mod entity;
 use entity::FieldEntity;
+
+#[derive(Clone)]
+pub enum SearchCondition<'a>{
+    Match(&'a [u8])
+    ,Range(&'a [u8],&'a [u8])
+    //,Partial(&'a str)
+    //,Forward(&'a str)
+    //,Backword(&'a str)
+    //,Min(&'a [u8])
+    //,Max(&'a [u8])
+}
 
 pub struct Field{
     index: IdxSized<FieldEntity>
@@ -53,34 +63,48 @@ impl Field{
             None
         }
     }
-    pub fn search_match(&self,str:&str,and:Option<IdSet>)->IdSet{
-        let mut r:IdSet=HashSet::default();
-        let tree=self.index.triee();
-        let (ord,found_id)=tree.search_cb(|data|->Ordering{
+    fn search_cb(&self,cont:&[u8])->(Ordering,u32){
+        self.index.triee().search_cb(|data|->Ordering{
             let str2=unsafe{
-                std::ffi::CStr::from_ptr(
-                    self.strings.offset(data.addr()) as *const libc::c_char
-                )
-            }.to_str().unwrap();
-            if str==str2{
+                std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
+            };
+            if cont==str2{
                 Ordering::Equal
             }else{
-                natord::compare(str,str2)
+                natord::compare(
+                    std::str::from_utf8(cont).unwrap()
+                    ,std::str::from_utf8(str2).unwrap()
+                )
             }
-        });
-        let found_id_i64=found_id as i64;
-        if let Some(and)=and{
-            if ord==Ordering::Equal{
-                if and.contains(&found_id_i64){
-                    r.insert(found_id_i64);
-                }
-                tree.sames_and(&mut r,&and, found_id);
+        })
+    }
+    pub fn search(&self,condition:SearchCondition)->IdSet{
+        match condition{
+            SearchCondition::Match(v)=>{
+                self.search_match(v)
             }
-        }else{
-            if ord==Ordering::Equal{
-                r.insert(found_id_i64);
-                tree.sames(&mut r, found_id);
+            ,SearchCondition::Range(min,max)=>{
+                self.search_range(min,max)
             }
+            ,_=>IdSet::default()
+        }
+    }
+    fn search_match(&self,cont:&[u8])->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let (ord,found_id)=self.search_cb(cont);
+        if ord==Ordering::Equal{
+            r.insert(found_id);
+            self.index.triee().sames(&mut r, found_id);
+        }
+        r
+    }
+    
+    fn search_range(&self,min:&[u8],max:&[u8])->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let (_,min_found_id)=self.search_cb(min);
+        let (_,max_found_id)=self.search_cb(max);
+        for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
+            r.insert(id);
         }
         r
     }

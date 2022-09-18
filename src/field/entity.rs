@@ -29,6 +29,9 @@ impl FieldEntity {
     pub fn addr(&self)->isize{
         self.word.offset() as isize
     }
+    pub fn len(&self)->usize{
+        self.word.len() as usize
+    }
     pub fn word(&self)->&DataAddress{
         &self.word
     }
