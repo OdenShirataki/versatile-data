@@ -10,11 +10,10 @@ pub enum ConditionActivity{
 }
 
 #[derive(Clone,Copy,PartialEq)]
-pub enum TermScope{
+pub enum ConditionTerm{
     In(i64)
     ,Past(i64)
     ,Future(i64)
-    ,All
 }
 
 #[derive(Clone)]
@@ -26,25 +25,42 @@ impl<'a> Reducer<'a>{
     pub fn new(data:&'a Data,result:IdSet)->Reducer{
         Reducer{
             data
-            ,result:result
+            ,result
         }
     }
     pub fn get(&self)->IdSet{
         self.result.clone()
     }
-    pub fn search_activity(&'a mut self,condition: ConditionActivity)->&'a Reducer{
-        let activity=if condition==ConditionActivity::Active{ 1 }else{ 0 };
-        let newset=self.data.activity.select_by_value_from_to(&activity,&activity);
-        self.reduce(newset);
+    pub fn search_activity(&'a mut self,condition: ConditionActivity)->&'a mut Reducer{
+        if self.result.len()>0{
+            let search=self.data.search_activity(condition);
+            self.reduce(search.result);
+        }
         self
     }
-    pub fn search_field(&'a mut self,field_name:&str,condition: SearchCondition)->&'a Reducer{
-        let newset=if let Some(field)=self.data.field(field_name){
-            field.search(condition)
-        }else{
-            IdSet::default()
-        };
-        self.reduce(newset);
+    pub fn search_field(&'a mut self,field_name:&str,condition: SearchCondition)->&'a mut Reducer{
+        if self.result.len()>0{
+            let search=self.data.search_field(field_name,condition);
+            self.reduce(search.result);
+        }
+        self
+    }
+    pub fn search_term(&'a mut self,condition:ConditionTerm)->&'a mut Reducer{
+        if self.result.len()>0{
+            let search=self.data.search_term(condition);
+            self.reduce(search.result);
+        }
+        self
+    }
+    pub fn reduce_default(&'a mut self)->&'a mut Reducer{
+        if self.result.len()>0{
+            self.reduce(
+                self.data.search_term(ConditionTerm::In(chrono::Local::now().timestamp())).result
+            );
+            self.reduce(
+                self.data.search_activity(ConditionActivity::Active).result
+            );
+        }
         self
     }
     fn reduce(&mut self,newset:IdSet){

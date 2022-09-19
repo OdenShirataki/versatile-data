@@ -2,6 +2,7 @@ use idx_sized::IdSet;
 use std::collections::HashSet;
 use uuid::Uuid;
 use std::collections::HashMap;
+use std::cmp::Ordering;
 
 use idx_sized::IdxSized;
 
@@ -20,7 +21,7 @@ pub use priority::Priority;
 mod search;
 pub use search::{
     ConditionActivity
-    ,TermScope
+    ,ConditionTerm
     ,Reducer
 };
 
@@ -307,11 +308,33 @@ impl Data{
         let activity=if condition==ConditionActivity::Active{ 1 }else{ 0 };
         Reducer::new(self,self.activity.select_by_value_from_to(&activity,&activity))
     }
-    pub fn search_field(&self,field_name:&str,condition:field::SearchCondition)->Reducer{
+    pub fn search_field(&self,field_name:&str,condition:SearchCondition)->Reducer{
         if let Some(field)=self.field(field_name){
             Reducer::new(self,field.search(condition))
         }else{
             Reducer::new(self,IdSet::default())
         }
+    }
+    pub fn search_term(&self,condition:ConditionTerm)->Reducer{
+        let mut result:IdSet=HashSet::default();
+        match condition{
+            ConditionTerm::In(base)=>{
+                let tmp=self.term_begin_index().select_by_value_to(&base);
+                let index_end=self.term_end_index();
+                for id in tmp{
+                    let end=index_end.value(id).unwrap_or(0);
+                    if end==0 || end>base {
+                        result.replace(id);
+                    }
+                }
+            }
+            ,ConditionTerm::Future(base)=>{ //公開開始が未来のもののみ
+                result=self.term_begin_index().select_by_value_from(&base);
+            }
+            ,ConditionTerm::Past(base)=>{   //公開終了のみ
+                result=self.term_end_index().select_by_value_from_to(&1,&base);
+            }
+        }
+        Reducer::new(self,result)
     }
 }

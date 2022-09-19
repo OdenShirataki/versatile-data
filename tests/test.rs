@@ -1,6 +1,7 @@
 use versatile_data::{
     Data
     ,ConditionActivity
+    ,ConditionTerm
     ,SearchCondition
 };
 
@@ -40,9 +41,13 @@ fn test() {
         }
         assert_eq!(sam,45.0);
 
-        let r=data.search_activity(
-            ConditionActivity::Active
-        ).search_field("num",SearchCondition::Range(b"3",b"8")).get();
+        let r=data
+            .search_field("num",SearchCondition::Range(b"3",b"8"))
+            .reduce_default()   //Automatic execution of the following two lines
+            //.search_term(ConditionTerm::In(chrono::Local::now().timestamp()))
+            //.search_activity(ConditionActivity::Active)
+            .get()
+        ;
         println!("{:?}",r);
     }
 }
