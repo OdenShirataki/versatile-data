@@ -34,17 +34,17 @@ impl<'a> Reducer<'a>{
             ,result
         }
     }
-    pub fn get(&self)->IdSet{
-        self.result.clone()
+    pub fn get(self)->IdSet{
+        self.result
     }
-    pub fn search(&'a mut self,condition: SearchCondition)->&'a mut Reducer{
+    pub fn search(mut self,condition: SearchCondition)->Self{
         if self.result.len()>0{
             let search=self.data.search(condition);
             self.reduce(search.result);
         }
         self
     }
-    pub fn reduce_default(&'a mut self)->&'a mut Reducer{
+    pub fn reduce_default(mut self)->Self{
         if self.result.len()>0{
             self.reduce(
                 self.data.search_term(ConditionTerm::In(chrono::Local::now().timestamp())).result
