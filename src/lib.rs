@@ -317,6 +317,15 @@ impl Data{
             }
         }
     }
+    pub fn search_default(&self)->Reducer{
+        let mut ret=IdSet::default();
+        let i=self.search_term_in(chrono::Local::now().timestamp());
+        let a=self.activity.select_by_value_from_to(&1,&1);
+        for id in i.intersection(&a){
+            ret.insert(*id);
+        }
+        Reducer::new(self,ret)
+    }
     fn search_activity(&self,condition:ConditionActivity)->Reducer{
         let activity=if condition==ConditionActivity::Active{ 1 }else{ 0 };
         Reducer::new(self,self.activity.select_by_value_from_to(&activity,&activity))
@@ -328,26 +337,29 @@ impl Data{
             Reducer::new(self,IdSet::default())
         }
     }
-    fn search_term(&self,condition:ConditionTerm)->Reducer{
-        let mut result:IdSet=HashSet::default();
-        match condition{
-            ConditionTerm::In(base)=>{
-                let tmp=self.term_begin_index().select_by_value_to(&base);
-                let index_end=self.term_end_index();
-                for id in tmp{
-                    let end=index_end.value(id).unwrap_or(0);
-                    if end==0 || end>base {
-                        result.replace(id);
-                    }
-                }
-            }
-            ,ConditionTerm::Future(base)=>{ //公開開始が未来のもののみ
-                result=self.term_begin_index().select_by_value_from(&base);
-            }
-            ,ConditionTerm::Past(base)=>{   //公開終了のみ
-                result=self.term_end_index().select_by_value_from_to(&1,&base);
+    fn search_term_in(&self,base:i64)->IdSet{
+        let mut result=IdSet::default();
+        let tmp=self.term_begin_index().select_by_value_to(&base);
+        let index_end=self.term_end_index();
+        for id in tmp{
+            let end=index_end.value(id).unwrap_or(0);
+            if end==0 || end>base {
+                result.replace(id);
             }
         }
-        Reducer::new(self,result)
+        result
+    }
+    fn search_term(&self,condition:ConditionTerm)->Reducer{
+        Reducer::new(self,match condition{
+            ConditionTerm::In(base)=>{
+                self.search_term_in(base)
+            }
+            ,ConditionTerm::Future(base)=>{ //公開開始が未来のもののみ
+                self.term_begin_index().select_by_value_from(&base)
+            }
+            ,ConditionTerm::Past(base)=>{   //公開終了のみ
+                self.term_end_index().select_by_value_from_to(&1,&base)
+            }
+        })
     }
 }

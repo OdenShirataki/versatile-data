@@ -57,18 +57,8 @@ impl<'a> Reducer<'a>{
     }
     fn reduce(&mut self,newset:IdSet){
         let mut ret=IdSet::default();
-        if newset.len()<self.result.len(){
-            for i in newset{
-                if self.result.contains(&i){
-                    ret.insert(i);
-                }
-            }
-        }else{
-            for i in &self.result{
-                if newset.contains(&i){
-                    ret.insert(*i);
-                }
-            }
+        for i in newset.intersection(&self.result){
+            ret.insert(*i);
         }
         self.result=ret;
     }
