@@ -11,7 +11,7 @@ pub mod entity;
 use entity::FieldEntity;
 
 #[derive(Clone)]
-pub enum SearchCondition<'a>{
+pub enum ConditionField<'a>{
     Match(&'a [u8])
     ,Range(&'a [u8],&'a [u8])
     //,Partial(&'a str)
@@ -78,12 +78,12 @@ impl Field{
             }
         })
     }
-    pub fn search(&self,condition:SearchCondition)->IdSet{
+    pub fn search(&self,condition:ConditionField)->IdSet{
         match condition{
-            SearchCondition::Match(v)=>{
+            ConditionField::Match(v)=>{
                 self.search_match(v)
             }
-            ,SearchCondition::Range(min,max)=>{
+            ,ConditionField::Range(min,max)=>{
                 self.search_range(min,max)
             }
             //,_=>IdSet::default()

@@ -2,7 +2,6 @@ use idx_sized::IdSet;
 use std::collections::HashSet;
 use uuid::Uuid;
 use std::collections::HashMap;
-use std::cmp::Ordering;
 
 use idx_sized::IdxSized;
 
@@ -12,7 +11,7 @@ use serial::SerialNumber;
 mod field;
 pub use field::{
     Field
-    ,SearchCondition
+    ,ConditionField
 };
 
 mod priority;
@@ -22,6 +21,7 @@ mod search;
 pub use search::{
     ConditionActivity
     ,ConditionTerm
+    ,SearchCondition
     ,Reducer
 };
 
@@ -304,18 +304,31 @@ impl Data{
         }
     }
 
-    pub fn search_activity(&self,condition:ConditionActivity)->Reducer{
+    pub fn search(&self,condition:SearchCondition)->Reducer{
+        match condition{
+            SearchCondition::Activity(condition)=>{
+                self.search_activity(condition)
+            }
+            ,SearchCondition::Term(condition)=>{
+                self.search_term(condition)
+            }
+            ,SearchCondition::Field(field_name,condition)=>{
+                self.search_field(field_name,condition)
+            }
+        }
+    }
+    fn search_activity(&self,condition:ConditionActivity)->Reducer{
         let activity=if condition==ConditionActivity::Active{ 1 }else{ 0 };
         Reducer::new(self,self.activity.select_by_value_from_to(&activity,&activity))
     }
-    pub fn search_field(&self,field_name:&str,condition:SearchCondition)->Reducer{
+    fn search_field(&self,field_name:&str,condition:ConditionField)->Reducer{
         if let Some(field)=self.field(field_name){
             Reducer::new(self,field.search(condition))
         }else{
             Reducer::new(self,IdSet::default())
         }
     }
-    pub fn search_term(&self,condition:ConditionTerm)->Reducer{
+    fn search_term(&self,condition:ConditionTerm)->Reducer{
         let mut result:IdSet=HashSet::default();
         match condition{
             ConditionTerm::In(base)=>{

@@ -1,6 +1,6 @@
 use idx_sized::IdSet;
 
-use crate::SearchCondition;
+use crate::ConditionField;
 use crate::Data;
 
 #[derive(Clone,Copy,PartialEq)]
@@ -14,6 +14,12 @@ pub enum ConditionTerm{
     In(i64)
     ,Past(i64)
     ,Future(i64)
+}
+
+pub enum SearchCondition<'a>{
+    Activity(ConditionActivity)
+    ,Term(ConditionTerm)
+    ,Field(&'a str,ConditionField<'a>)
 }
 
 #[derive(Clone)]
@@ -31,23 +37,9 @@ impl<'a> Reducer<'a>{
     pub fn get(&self)->IdSet{
         self.result.clone()
     }
-    pub fn search_activity(&'a mut self,condition: ConditionActivity)->&'a mut Reducer{
+    pub fn search(&'a mut self,condition: SearchCondition)->&'a mut Reducer{
         if self.result.len()>0{
-            let search=self.data.search_activity(condition);
-            self.reduce(search.result);
-        }
-        self
-    }
-    pub fn search_field(&'a mut self,field_name:&str,condition: SearchCondition)->&'a mut Reducer{
-        if self.result.len()>0{
-            let search=self.data.search_field(field_name,condition);
-            self.reduce(search.result);
-        }
-        self
-    }
-    pub fn search_term(&'a mut self,condition:ConditionTerm)->&'a mut Reducer{
-        if self.result.len()>0{
-            let search=self.data.search_term(condition);
+            let search=self.data.search(condition);
             self.reduce(search.result);
         }
         self
