@@ -16,9 +16,9 @@ pub enum ConditionField<'a>{
     ,Range(&'a [u8],&'a [u8])
     ,Min(&'a [u8])
     ,Max(&'a [u8])
-    //,Forward(&'a str)
-    //,Partial(&'a str)
-    //,Backword(&'a str)
+    ,Forward(&'a str)
+    ,Partial(&'a str)
+    ,Backward(&'a str)
 }
 
 pub struct Field{
@@ -66,13 +66,12 @@ impl Field{
     pub fn update(&mut self,id:u32,content:&[u8]) -> Option<u32>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
         if let RemoveResult::Unique(data)=self.index.delete(id){
-            self.strings.remove(&data.word());    //削除対象がユニークの場合は対象文字列を完全削除
+            self.strings.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
         }
         let cont=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_id)=tree.search_cb(|data|->Ordering{
-            let str2=std::str::from_utf8(self.strings.slice(data.word())).unwrap();
-
+            let str2=std::str::from_utf8(self.strings.slice(data.data_address())).unwrap();
             if cont==str2{
                 Ordering::Equal
             }else{
@@ -89,9 +88,9 @@ impl Field{
             }
         }else{
             //新しく作る
-            if let Some(word)=self.strings.insert(content){
+            if let Some(data_address)=self.strings.insert(content){
                 let e=FieldEntity::new(
-                    word.address()
+                    data_address.address()
                     ,cont.parse().unwrap_or(0.0)
                 );
                 if let Some(_entity)=self.index.triee().node(id){
@@ -130,15 +129,21 @@ impl Field{
             ,ConditionField::Range(min,max)=>{
                 self.search_range(min,max)
             }
-            /*,ConditionField::Forward(cont)=>{
+            ,ConditionField::Forward(cont)=>{
                 self.search_forward(cont)
-            }*/
+            }
+            ,ConditionField::Partial(cont)=>{
+                self.search_partial(cont)
+            }
+            ,ConditionField::Backward(cont)=>{
+                self.search_backward(cont)
+            }
             //,_=>IdSet::default()
         }
     }
     fn search_match(&self,cont:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (ord,found_id)=self.search_cb(cont);
+        let (ord,found_id)=self.search_cb(0,cont);
         if ord==Ordering::Equal{
             r.insert(found_id);
             self.index.triee().sames(&mut r, found_id);
@@ -147,7 +152,7 @@ impl Field{
     }
     fn search_min(&self,min:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (_,min_found_id)=self.search_cb(min);
+        let (_,min_found_id)=self.search_cb(0,min);
         for (_,id,_) in self.index.triee().iter_by_id_from(min_found_id){
             r.insert(id);
             self.index.triee().sames(&mut r, min_found_id);
@@ -156,7 +161,7 @@ impl Field{
     }
     fn search_max(&self,max:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (_,max_found_id)=self.search_cb(max);
+        let (_,max_found_id)=self.search_cb(0,max);
         for (_,id,_) in self.index.triee().iter_by_id_to(max_found_id){
             r.insert(id);
             self.index.triee().sames(&mut r, max_found_id);
@@ -165,40 +170,67 @@ impl Field{
     }
     fn search_range(&self,min:&[u8],max:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (_,min_found_id)=self.search_cb(min);
-        let (_,max_found_id)=self.search_cb(max);
+        let (_,min_found_id)=self.search_cb(0,min);
+        let (_,max_found_id)=self.search_cb(min_found_id,max);
         for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
             r.insert(id);
             self.index.triee().sames(&mut r, max_found_id);
         }
         r
     }
-    /*
     fn search_forward(&self,cont:&str)->IdSet{
         let mut r:IdSet=IdSet::default();
         let len=cont.len();
-        self.index.triee().search_cb(|data|->Ordering{
-            if len<data.len(){
-                Ordering::Less
-            }else{
+        for (_,id,v) in self.index.triee().iter(){
+            let data=v.value();
+            if len<=data.len(){
                 if let Ok(str2)=std::str::from_utf8(unsafe{
                     std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,len)
                 }){
                     if cont==str2{
-                        Ordering::Equal
-                    }else{
-                        cont.cmp(str2)
+                        r.insert(id);
                     }
-                }else{
-                    Ordering::Less
                 }
             }
-        });
-
+        }
         r
-    }*/
-    fn search_cb(&self,cont:&[u8])->(Ordering,u32){
-        self.index.triee().search_cb(|data|->Ordering{
+    }
+    fn search_partial(&self,cont:&str)->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let len=cont.len();
+        for (_,id,v) in self.index.triee().iter(){
+            let data=v.value();
+            if len<=data.len(){
+                if let Ok(str2)=std::str::from_utf8(unsafe{
+                    std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
+                }){
+                    if str2.contains(cont){
+                        r.insert(id);
+                    }
+                }
+            }
+        }
+        r
+    }
+    fn search_backward(&self,cont:&str)->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let len=cont.len();
+        for (_,id,v) in self.index.triee().iter(){
+            let data=v.value();
+            if len<=data.len(){
+                if let Ok(str2)=std::str::from_utf8(unsafe{
+                    std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
+                }){
+                    if str2.ends_with(cont){
+                        r.insert(id);
+                    }
+                }
+            }
+        }
+        r
+    }
+    fn search_cb(&self,from:u32,cont:&[u8])->(Ordering,u32){
+        self.index.triee().search_cb_from(from,|data|->Ordering{
             let str2=unsafe{
                 std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
             };

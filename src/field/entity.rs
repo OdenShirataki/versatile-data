@@ -1,7 +1,7 @@
 use various_data_file::DataAddress;
 
 pub struct FieldEntity{
-    word:DataAddress
+    data_address:DataAddress
     ,num:f64
 }
 impl Copy for FieldEntity {}
@@ -13,27 +13,27 @@ impl std::clone::Clone for FieldEntity {
 impl std::default::Default for FieldEntity{
     fn default() -> FieldEntity {
         FieldEntity{
-            word:DataAddress::default()
+            data_address:DataAddress::default()
             ,num:0.0
         }
     }
 }
 
 impl FieldEntity {
-    pub fn new(word:DataAddress,num:f64)->FieldEntity{
+    pub fn new(data_address:DataAddress,num:f64)->FieldEntity{
         FieldEntity{
-            word:word
+            data_address:data_address
             ,num
         }
     }
     pub fn addr(&self)->isize{
-        self.word.offset() as isize
+        self.data_address.offset() as isize
     }
     pub fn len(&self)->usize{
-        self.word.len() as usize
+        self.data_address.len() as usize
     }
-    pub fn word(&self)->&DataAddress{
-        &self.word
+    pub fn data_address(&self)->&DataAddress{
+        &self.data_address
     }
     pub fn num(&self)->f64{
         self.num

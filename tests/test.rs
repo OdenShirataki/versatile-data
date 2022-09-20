@@ -49,15 +49,33 @@ fn test() {
         ;
         println!("{:?}",r);
 
-        data.update_field(4,"hoge","ababa");
-        data.update_field(5,"hoge","abababi");
-        data.update_field(6,"hoge","bebebe");
+        
         data.update_field(2,"hoge","HAHA");
+        data.update_field(4,"hoge","agaba");
+        data.update_field(5,"hoge","agababi");
+        data.update_field(1,"hoge","ageabe");
+        data.update_field(7,"hoge","ageee");
+        data.update_field(6,"hoge","bebebe");
         let r=data
             .search(SearchCondition::Field("hoge",ConditionField::Match(b"HAHA")))
-            .reduce_default()   //Automatic execution of the following two lines
-            //.search(SearchCondition::Term(ConditionTerm::In(chrono::Local::now().timestamp())))
-            //.search(SearchCondition::Activity(ConditionActivity::Active))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        let r=data
+            .search(SearchCondition::Field("hoge",ConditionField::Forward("age")))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        let r=data
+            .search(SearchCondition::Field("hoge",ConditionField::Partial("eb")))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        let r=data
+            .search(SearchCondition::Field("hoge",ConditionField::Backward("be")))
             .get()
         ;
         println!("{:?}",r);
