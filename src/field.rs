@@ -16,7 +16,7 @@ pub enum ConditionField<'a>{
     ,Range(&'a [u8],&'a [u8])
     ,Min(&'a [u8])
     ,Max(&'a [u8])
-    ,Forward(&'a str)
+    //,Forward(&'a str)
     //,Partial(&'a str)
     //,Backword(&'a str)
 }
@@ -130,9 +130,9 @@ impl Field{
             ,ConditionField::Range(min,max)=>{
                 self.search_range(min,max)
             }
-            ,ConditionField::Forward(cont)=>{
+            /*,ConditionField::Forward(cont)=>{
                 self.search_forward(cont)
-            }
+            }*/
             //,_=>IdSet::default()
         }
     }
@@ -173,6 +173,7 @@ impl Field{
         }
         r
     }
+    /*
     fn search_forward(&self,cont:&str)->IdSet{
         let mut r:IdSet=IdSet::default();
         let len=cont.len();
@@ -195,7 +196,7 @@ impl Field{
         });
 
         r
-    }
+    }*/
     fn search_cb(&self,cont:&[u8])->(Ordering,u32){
         self.index.triee().search_cb(|data|->Ordering{
             let str2=unsafe{
