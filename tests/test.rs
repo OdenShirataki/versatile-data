@@ -1,7 +1,5 @@
 use versatile_data::{
     Data
-    ,ConditionActivity
-    ,ConditionTerm
     ,ConditionField
     ,SearchCondition
 };
@@ -44,6 +42,19 @@ fn test() {
 
         let r=data
             .search(SearchCondition::Field("num",ConditionField::Range(b"3",b"8")))
+            .reduce_default()   //Automatic execution of the following two lines
+            //.search(SearchCondition::Term(ConditionTerm::In(chrono::Local::now().timestamp())))
+            //.search(SearchCondition::Activity(ConditionActivity::Active))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        data.update_field(4,"hoge","ababa");
+        data.update_field(5,"hoge","abababi");
+        data.update_field(6,"hoge","bebebe");
+        data.update_field(2,"hoge","HAHA");
+        let r=data
+            .search(SearchCondition::Field("hoge",ConditionField::Match(b"HAHA")))
             .reduce_default()   //Automatic execution of the following two lines
             //.search(SearchCondition::Term(ConditionTerm::In(chrono::Local::now().timestamp())))
             //.search(SearchCondition::Activity(ConditionActivity::Active))

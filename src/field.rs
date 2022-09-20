@@ -14,11 +14,11 @@ use entity::FieldEntity;
 pub enum ConditionField<'a>{
     Match(&'a [u8])
     ,Range(&'a [u8],&'a [u8])
+    ,Min(&'a [u8])
+    ,Max(&'a [u8])
+    ,Forward(&'a str)
     //,Partial(&'a str)
-    //,Forward(&'a str)
     //,Backword(&'a str)
-    //,Min(&'a [u8])
-    //,Max(&'a [u8])
 }
 
 pub struct Field{
@@ -63,53 +63,6 @@ impl Field{
             None
         }
     }
-    fn search_cb(&self,cont:&[u8])->(Ordering,u32){
-        self.index.triee().search_cb(|data|->Ordering{
-            let str2=unsafe{
-                std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
-            };
-            if cont==str2{
-                Ordering::Equal
-            }else{
-                natord::compare(
-                    std::str::from_utf8(cont).unwrap()
-                    ,std::str::from_utf8(str2).unwrap()
-                )
-            }
-        })
-    }
-    pub fn search(&self,condition:ConditionField)->IdSet{
-        match condition{
-            ConditionField::Match(v)=>{
-                self.search_match(v)
-            }
-            ,ConditionField::Range(min,max)=>{
-                self.search_range(min,max)
-            }
-            //,_=>IdSet::default()
-        }
-    }
-    fn search_match(&self,cont:&[u8])->IdSet{
-        let mut r:IdSet=IdSet::default();
-        let (ord,found_id)=self.search_cb(cont);
-        if ord==Ordering::Equal{
-            r.insert(found_id);
-            self.index.triee().sames(&mut r, found_id);
-        }
-        r
-    }
-    
-    fn search_range(&self,min:&[u8],max:&[u8])->IdSet{
-        let mut r:IdSet=IdSet::default();
-        let (_,min_found_id)=self.search_cb(min);
-        let (_,max_found_id)=self.search_cb(max);
-        for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
-            r.insert(id);
-            self.index.triee().sames(&mut r, max_found_id);
-        }
-        r
-    }
-    
     pub fn update(&mut self,id:u32,content:&[u8]) -> Option<u32>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
         if let RemoveResult::Unique(data)=self.index.delete(id){
@@ -152,7 +105,7 @@ impl Field{
                     Some(id)
                 }else{
                     //追加
-                    self.index.insert_unique(e,found_id,ord)
+                    self.index.insert_unique(e,found_id,ord,id)    //idが1から始まるとは限らない
                 }
             }else{
                 None
@@ -162,4 +115,101 @@ impl Field{
     pub fn delete(&mut self,id:u32){
         self.index.delete(id);
     }
+    
+    pub fn search(&self,condition:ConditionField)->IdSet{
+        match condition{
+            ConditionField::Match(v)=>{
+                self.search_match(v)
+            }
+            ,ConditionField::Min(min)=>{
+                self.search_min(min)
+            }
+            ,ConditionField::Max(max)=>{
+                self.search_max(max)
+            }
+            ,ConditionField::Range(min,max)=>{
+                self.search_range(min,max)
+            }
+            ,ConditionField::Forward(cont)=>{
+                self.search_forward(cont)
+            }
+            //,_=>IdSet::default()
+        }
+    }
+    fn search_match(&self,cont:&[u8])->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let (ord,found_id)=self.search_cb(cont);
+        if ord==Ordering::Equal{
+            r.insert(found_id);
+            self.index.triee().sames(&mut r, found_id);
+        }
+        r
+    }
+    fn search_min(&self,min:&[u8])->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let (_,min_found_id)=self.search_cb(min);
+        for (_,id,_) in self.index.triee().iter_by_id_from(min_found_id){
+            r.insert(id);
+            self.index.triee().sames(&mut r, min_found_id);
+        }
+        r
+    }
+    fn search_max(&self,max:&[u8])->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let (_,max_found_id)=self.search_cb(max);
+        for (_,id,_) in self.index.triee().iter_by_id_to(max_found_id){
+            r.insert(id);
+            self.index.triee().sames(&mut r, max_found_id);
+        }
+        r
+    }
+    fn search_range(&self,min:&[u8],max:&[u8])->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let (_,min_found_id)=self.search_cb(min);
+        let (_,max_found_id)=self.search_cb(max);
+        for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
+            r.insert(id);
+            self.index.triee().sames(&mut r, max_found_id);
+        }
+        r
+    }
+    fn search_forward(&self,cont:&str)->IdSet{
+        let mut r:IdSet=IdSet::default();
+        let len=cont.len();
+        self.index.triee().search_cb(|data|->Ordering{
+            if len<data.len(){
+                Ordering::Less
+            }else{
+                if let Ok(str2)=std::str::from_utf8(unsafe{
+                    std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,len)
+                }){
+                    if cont==str2{
+                        Ordering::Equal
+                    }else{
+                        cont.cmp(str2)
+                    }
+                }else{
+                    Ordering::Less
+                }
+            }
+        });
+
+        r
+    }
+    fn search_cb(&self,cont:&[u8])->(Ordering,u32){
+        self.index.triee().search_cb(|data|->Ordering{
+            let str2=unsafe{
+                std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
+            };
+            if cont==str2{
+                Ordering::Equal
+            }else{
+                natord::compare(
+                    std::str::from_utf8(cont).unwrap()
+                    ,std::str::from_utf8(str2).unwrap()
+                )
+            }
+        })
+    }
+    
 }

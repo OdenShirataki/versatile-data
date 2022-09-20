@@ -16,6 +16,7 @@ pub enum ConditionTerm{
     ,Future(i64)
 }
 
+#[derive(Clone)]
 pub enum SearchCondition<'a>{
     Activity(ConditionActivity)
     ,Term(ConditionTerm)
