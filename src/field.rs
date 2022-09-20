@@ -84,7 +84,7 @@ impl Field{
                 self.index.triee_mut().update_same(found_id,id);
                 Some(id)
             }else{
-                self.index.insert_same(found_id)
+                self.index.insert_same(found_id,id)
             }
         }else{
             //新しく作る
@@ -104,7 +104,7 @@ impl Field{
                     Some(id)
                 }else{
                     //追加
-                    self.index.insert_unique(e,found_id,ord,id)    //idが1から始まるとは限らない
+                    self.index.insert_unique(e,found_id,ord,id)
                 }
             }else{
                 None
