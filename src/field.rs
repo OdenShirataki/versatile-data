@@ -11,14 +11,14 @@ pub mod entity;
 use entity::FieldEntity;
 
 #[derive(Clone)]
-pub enum ConditionField<'a>{
-    Match(&'a [u8])
-    ,Range(&'a [u8],&'a [u8])
-    ,Min(&'a [u8])
-    ,Max(&'a [u8])
-    ,Forward(&'a str)
-    ,Partial(&'a str)
-    ,Backward(&'a str)
+pub enum ConditionField{
+    Match(Vec<u8>)
+    ,Range(Vec<u8>,Vec<u8>)
+    ,Min(Vec<u8>)
+    ,Max(Vec<u8>)
+    ,Forward(String)
+    ,Partial(String)
+    ,Backward(String)
 }
 
 pub struct Field{
@@ -118,25 +118,25 @@ impl Field{
     pub fn search(&self,condition:ConditionField)->IdSet{
         match condition{
             ConditionField::Match(v)=>{
-                self.search_match(v)
+                self.search_match(&v)
             }
             ,ConditionField::Min(min)=>{
-                self.search_min(min)
+                self.search_min(&min)
             }
             ,ConditionField::Max(max)=>{
-                self.search_max(max)
+                self.search_max(&max)
             }
             ,ConditionField::Range(min,max)=>{
-                self.search_range(min,max)
+                self.search_range(&min,&max)
             }
             ,ConditionField::Forward(cont)=>{
-                self.search_forward(cont)
+                self.search_forward(&cont)
             }
             ,ConditionField::Partial(cont)=>{
-                self.search_partial(cont)
+                self.search_partial(&cont)
             }
             ,ConditionField::Backward(cont)=>{
-                self.search_backward(cont)
+                self.search_backward(&cont)
             }
             //,_=>IdSet::default()
         }

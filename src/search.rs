@@ -17,10 +17,10 @@ pub enum ConditionTerm{
 }
 
 #[derive(Clone)]
-pub enum SearchCondition<'a>{
+pub enum SearchCondition{
     Activity(ConditionActivity)
     ,Term(ConditionTerm)
-    ,Field(&'a str,ConditionField<'a>)
+    ,Field(String,ConditionField)
 }
 
 #[derive(Clone)]

@@ -313,7 +313,7 @@ impl Data{
                 self.search_term(condition)
             }
             ,SearchCondition::Field(field_name,condition)=>{
-                self.search_field(field_name,condition)
+                self.search_field(&field_name,condition)
             }
         }
     }
