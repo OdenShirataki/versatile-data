@@ -3,13 +3,13 @@ use idx_sized::IdSet;
 use crate::ConditionField;
 use crate::Data;
 
-#[derive(PartialEq)]
+#[derive(Clone,Copy,PartialEq)]
 pub enum ConditionActivity{
     Active
     ,Inactive
 }
 
-#[derive(PartialEq)]
+#[derive(Clone,Copy,PartialEq)]
 pub enum ConditionTerm{
     In(i64)
     ,Past(i64)
@@ -22,7 +22,6 @@ pub enum SearchCondition{
     ,Field(String,ConditionField)
 }
 
-#[derive(Clone)]
 pub struct Reducer<'a>{
     data:&'a Data
     ,result:IdSet
