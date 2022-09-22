@@ -145,7 +145,9 @@ impl Field{
         let (ord,found_id)=self.search_cb(0,cont);
         if ord==Ordering::Equal{
             r.insert(found_id);
-            self.index.triee().sames(&mut r, found_id);
+            for v in self.index.triee().sames(found_id){
+                r.insert(v);
+            }
         }
         r
     }
@@ -154,7 +156,9 @@ impl Field{
         let (_,min_found_id)=self.search_cb(0,min);
         for (_,id,_) in self.index.triee().iter_by_id_from(min_found_id){
             r.insert(id);
-            self.index.triee().sames(&mut r, min_found_id);
+            for v in self.index.triee().sames(min_found_id){
+                r.insert(v);
+            }
         }
         r
     }
@@ -163,7 +167,9 @@ impl Field{
         let (_,max_found_id)=self.search_cb(0,max);
         for (_,id,_) in self.index.triee().iter_by_id_to(max_found_id){
             r.insert(id);
-            self.index.triee().sames(&mut r, max_found_id);
+            for v in self.index.triee().sames(max_found_id){
+                r.insert(v);
+            }
         }
         r
     }
@@ -173,7 +179,9 @@ impl Field{
         let (_,max_found_id)=self.search_cb(min_found_id,max);
         for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
             r.insert(id);
-            self.index.triee().sames(&mut r, max_found_id);
+            for v in self.index.triee().sames(max_found_id){
+                r.insert(v);
+            }
         }
         r
     }
