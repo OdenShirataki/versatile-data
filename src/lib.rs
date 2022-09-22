@@ -304,7 +304,7 @@ impl Data{
         }
     }
 
-    pub fn search(&self,condition:SearchCondition)->Reducer{
+    pub fn search(&self,condition:&SearchCondition)->Reducer{
         match condition{
             SearchCondition::Activity(condition)=>{
                 self.search_activity(condition)
@@ -326,11 +326,11 @@ impl Data{
         }
         Reducer::new(self,ret)
     }
-    fn search_activity(&self,condition:ConditionActivity)->Reducer{
-        let activity=if condition==ConditionActivity::Active{ 1 }else{ 0 };
+    fn search_activity(&self,condition:&ConditionActivity)->Reducer{
+        let activity=if *condition==ConditionActivity::Active{ 1 }else{ 0 };
         Reducer::new(self,self.activity.select_by_value_from_to(&activity,&activity))
     }
-    fn search_field(&self,field_name:&str,condition:ConditionField)->Reducer{
+    fn search_field(&self,field_name:&str,condition:&ConditionField)->Reducer{
         if let Some(field)=self.field(field_name){
             Reducer::new(self,field.search(condition))
         }else{
@@ -349,10 +349,10 @@ impl Data{
         }
         result
     }
-    fn search_term(&self,condition:ConditionTerm)->Reducer{
+    fn search_term(&self,condition:&ConditionTerm)->Reducer{
         Reducer::new(self,match condition{
             ConditionTerm::In(base)=>{
-                self.search_term_in(base)
+                self.search_term_in(*base)
             }
             ,ConditionTerm::Future(base)=>{ //公開開始が未来のもののみ
                 self.term_begin_index().select_by_value_from(&base)

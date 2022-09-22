@@ -10,7 +10,6 @@ use various_data_file::VariousDataFile;
 pub mod entity;
 use entity::FieldEntity;
 
-#[derive(Clone)]
 pub enum ConditionField{
     Match(Vec<u8>)
     ,Range(Vec<u8>,Vec<u8>)
@@ -115,7 +114,7 @@ impl Field{
         self.index.delete(id);
     }
     
-    pub fn search(&self,condition:ConditionField)->IdSet{
+    pub fn search(&self,condition:&ConditionField)->IdSet{
         match condition{
             ConditionField::Match(v)=>{
                 self.search_match(&v)
