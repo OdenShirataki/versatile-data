@@ -68,10 +68,41 @@ if let Some(mut data)=Data::new(dir){
         assert_eq!(sam,45.0);
 
         let r=data
-            .search(SearchCondition::Field("num",ConditionField::Range(b"3",b"8")))
+            .search(&SearchCondition::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
             .reduce_default()   //Automatic execution of the following two lines
             //.search(SearchCondition::Term(ConditionTerm::In(chrono::Local::now().timestamp())))
             //.search(SearchCondition::Activity(ConditionActivity::Active))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        
+        data.update_field(2,"hoge","HAHA");
+        data.update_field(4,"hoge","agaba");
+        data.update_field(5,"hoge","agababi");
+        data.update_field(1,"hoge","ageabe");
+        data.update_field(7,"hoge","ageee");
+        data.update_field(6,"hoge","bebebe");
+        let r=data
+            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec())))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        let r=data
+            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Forward("age".to_string())))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        let r=data
+            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Partial("eb".to_string())))
+            .get()
+        ;
+        println!("{:?}",r);
+
+        let r=data
+            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
             .get()
         ;
         println!("{:?}",r);
