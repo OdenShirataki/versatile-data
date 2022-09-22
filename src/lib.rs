@@ -318,13 +318,12 @@ impl Data{
         }
     }
     pub fn search_default(&self)->Reducer{
-        let mut ret=IdSet::default();
-        let i=self.search_term_in(chrono::Local::now().timestamp());
-        let a=self.activity.select_by_value_from_to(&1,&1);
-        for id in i.intersection(&a){
-            ret.insert(*id);
-        }
-        Reducer::new(self,ret)
+        Reducer::new(
+            self
+            ,self.search_term_in(chrono::Local::now().timestamp()).intersection(
+                &self.activity.select_by_value_from_to(&1,&1)
+            ).map(|&x|x).collect()
+        )
     }
     fn search_activity(&self,condition:&ConditionActivity)->Reducer{
         let activity=if *condition==ConditionActivity::Active{ 1 }else{ 0 };

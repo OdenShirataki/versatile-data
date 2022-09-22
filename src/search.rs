@@ -56,10 +56,6 @@ impl<'a> Reducer<'a>{
         self
     }
     fn reduce(&mut self,newset:IdSet){
-        let mut ret=IdSet::default();
-        for i in newset.intersection(&self.result){
-            ret.insert(*i);
-        }
-        self.result=ret;
+        self.result=newset.intersection(&self.result).map(|&x|x).collect();
     }
 }
