@@ -317,7 +317,7 @@ impl Data{
                 self.search_row(condition)
             }
             ,SearchCondition::LastUpdated(condition)=>{
-                self.search_row(condition)
+                self.search_last_updated(condition)
             }
             ,SearchCondition::Priority(condition)=>{
                 self.search_priority(condition)
@@ -410,13 +410,38 @@ impl Data{
             }
         })
     }
+    fn search_last_updated(&self,condition:&ConditionNumber)->Reducer{
+        Reducer::new(self,match condition{
+            ConditionNumber::Min(v)=>{
+                self.last_updated.select_by_value_from(&(*v as i64))
+            }
+            ,ConditionNumber::Max(v)=>{
+                self.last_updated.select_by_value_to(&(*v as i64))
+            }
+            ,ConditionNumber::Range(range)=>{
+                self.last_updated.select_by_value_from_to(
+                    &(*range.start() as i64)
+                    ,&(*range.end() as i64)
+                )
+            }
+            ,ConditionNumber::In(rows)=>{
+                let mut r=RowSet::default();
+                for i in rows{
+                    for row in self.last_updated.select_by_value(&(*i as i64)){
+                        r.insert(row);
+                    }
+                }
+                r
+            }
+        })
+    }
     fn search_priority(&self,condition:&ConditionFloat)->Reducer{
         Reducer::new(self,match condition{
-            ConditionFloat::Min(row)=>{
-                self.priority.select_by_value_from(&Priority::new(*row))
+            ConditionFloat::Min(v)=>{
+                self.priority.select_by_value_from(&Priority::new(*v))
             }
-            ,ConditionFloat::Max(row)=>{
-                self.priority.select_by_value_to(&Priority::new(*row))
+            ,ConditionFloat::Max(v)=>{
+                self.priority.select_by_value_to(&Priority::new(*v))
             }
             ,ConditionFloat::Range(range)=>{
                 self.priority.select_by_value_from_to(
