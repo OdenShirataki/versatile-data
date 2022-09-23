@@ -381,7 +381,7 @@ impl Data{
                 r
             }
             ,ConditionRow::Range(range)=>{
-                for i in range.start..range.end{
+                for i in range.clone(){
                     if let Some(_)=self.serial.index().triee().node(i){
                         r.insert(i);
                     }

@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::ops::RangeInclusive;
 use idx_sized::RowSet;
 
 use crate::ConditionField;
@@ -20,7 +20,7 @@ pub enum ConditionTerm{
 pub enum ConditionRow{
     Min(u32)
     ,Max(u32)
-    ,Range(Range<u32>)
+    ,Range(RangeInclusive<u32>)
     ,In(Vec<u32>)
 }
 
