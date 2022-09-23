@@ -142,7 +142,7 @@ impl Field{
     }
     fn search_match(&self,cont:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (ord,found_id)=self.search_cb(0,cont);
+        let (ord,found_id)=self.search_cb(cont);
         if ord==Ordering::Equal{
             r.insert(found_id);
             for v in self.index.triee().sames(found_id){
@@ -153,7 +153,7 @@ impl Field{
     }
     fn search_min(&self,min:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (_,min_found_id)=self.search_cb(0,min);
+        let (_,min_found_id)=self.search_cb(min);
         for (_,id,_) in self.index.triee().iter_by_id_from(min_found_id){
             r.insert(id);
             for v in self.index.triee().sames(min_found_id){
@@ -164,7 +164,7 @@ impl Field{
     }
     fn search_max(&self,max:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (_,max_found_id)=self.search_cb(0,max);
+        let (_,max_found_id)=self.search_cb(max);
         for (_,id,_) in self.index.triee().iter_by_id_to(max_found_id){
             r.insert(id);
             for v in self.index.triee().sames(max_found_id){
@@ -175,8 +175,8 @@ impl Field{
     }
     fn search_range(&self,min:&[u8],max:&[u8])->IdSet{
         let mut r:IdSet=IdSet::default();
-        let (_,min_found_id)=self.search_cb(0,min);
-        let (_,max_found_id)=self.search_cb(min_found_id,max);
+        let (_,min_found_id)=self.search_cb(min);
+        let (_,max_found_id)=self.search_cb(max);
         for (_,id,_) in self.index.triee().iter_by_id_from_to(min_found_id,max_found_id){
             r.insert(id);
             for v in self.index.triee().sames(max_found_id){
@@ -236,8 +236,8 @@ impl Field{
         }
         r
     }
-    fn search_cb(&self,from:u32,cont:&[u8])->(Ordering,u32){
-        self.index.triee().search_cb_from(from,|data|->Ordering{
+    fn search_cb(&self,cont:&[u8])->(Ordering,u32){
+        self.index.triee().search_cb(|data|->Ordering{
             let str2=unsafe{
                 std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
             };
