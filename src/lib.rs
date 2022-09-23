@@ -1,9 +1,9 @@
-use idx_sized::IdSet;
 use std::collections::HashSet;
-use uuid::Uuid;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 use idx_sized::IdxSized;
+use idx_sized::RowSet;
 
 mod serial;
 use serial::SerialNumber;
@@ -21,6 +21,7 @@ mod search;
 pub use search::{
     ConditionActivity
     ,ConditionTerm
+    ,ConditionRow
     ,SearchCondition
     ,Reducer
 };
@@ -81,7 +82,7 @@ impl Data{
     }
     pub fn update(
         &mut self
-        ,id:u32
+        ,row:u32
         ,activity: bool
         ,priority: f64
         ,term_begin: i64
@@ -92,42 +93,59 @@ impl Data{
         }else{
             term_begin
         };
-        if !self.serial.exists_blank()&&id==0{   //0は新規作成
+        if !self.serial.exists_blank()&&row==0{   //0は新規作成
             self.update_new(activity,priority,term_begin,term_end)
         }else{
-            if let Some(id)=self.serial.pop_blank(){
-                self.uuid.update(id,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
-                self.activity.update(id,activity as u8);
-                self.priority.update(id,Priority::new(priority));
-                self.term_begin.update(id,term_begin);
-                self.term_end.update(id,term_end);
-                self.last_updated.update(id,chrono::Local::now().timestamp());
-                Some(id)
+            if let Some(row)=self.serial.pop_blank(){
+                self.uuid.update(row,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
+                self.activity.update(row,activity as u8);
+                self.priority.update(row,Priority::new(priority));
+                self.term_begin.update(row,term_begin);
+                self.term_end.update(row,term_end);
+                self.last_updated.update(row,chrono::Local::now().timestamp());
+                Some(row)
             }else{
-                self.activity.update(id,activity as u8);
-                self.priority.update(id,Priority::new(priority));
-                self.term_begin.update(id,term_begin);
-                self.term_end.update(id,term_end);
-                self.last_updated.update(id,chrono::Local::now().timestamp());
-                Some(id)
+                self.activity.update(row,activity as u8);
+                self.priority.update(row,Priority::new(priority));
+                self.term_begin.update(row,term_begin);
+                self.term_end.update(row,term_end);
+                self.last_updated.update(row,chrono::Local::now().timestamp());
+                Some(row)
             }
         }
     }
-    pub fn update_field(&mut self,id:u32,field_name:&str,cont:impl Into<String>){
-        if let Some(field)=self.field_mut(field_name,true){
-            field.update(id,cont.into().as_bytes());
+    pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
+        if let Some(field)=if self.fields_cache.contains_key(field_name){
+            self.fields_cache.get_mut(field_name)
+        }else{
+            self.create_field(field_name)
+        }{
+            field.update(row,cont.into().as_bytes());
         }
     }
-    pub fn delete(&mut self,id:u32){
-        self.serial.delete(id);
-        self.uuid.delete(id);
-        self.activity.delete(id);
-        self.term_begin.delete(id);
-        self.term_end.delete(id);
-        self.last_updated.delete(id);
+    fn create_field(&mut self,field_name:&str)->Option<&mut Field>{
+        let dir_name=self.data_dir.to_string()+"/fields/"+field_name+"/";
+        if let Ok(_)=std::fs::create_dir_all(dir_name.to_owned()){
+            if std::path::Path::new(&dir_name).exists(){
+                if let Ok(field)=field::Field::new(&dir_name){
+                    self.fields_cache.entry(String::from(field_name)).or_insert(
+                        field
+                    );
+                }
+            }
+        }
+        self.fields_cache.get_mut(field_name)
+    }
+    pub fn delete(&mut self,row:u32){
+        self.serial.delete(row);
+        self.uuid.delete(row);
+        self.activity.delete(row);
+        self.term_begin.delete(row);
+        self.term_end.delete(row);
+        self.last_updated.delete(row);
         self.load_fields();
         for (_,v) in &mut self.fields_cache{
-            v.delete(id);
+            v.delete(row);
         }
     }
 
@@ -138,24 +156,24 @@ impl Data{
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
-        let newid=self.serial.add()?;
+        let row=self.serial.add()?;
         if let(
             Ok(_),Ok(_),Ok(_),Ok(_),Ok(_),Ok(_)
         )=(
-            self.uuid.resize_to(newid)
-            ,self.activity.resize_to(newid)
-            ,self.priority.resize_to(newid)
-            ,self.term_begin.resize_to(newid)
-            ,self.term_end.resize_to(newid)
-            ,self.last_updated.resize_to(newid)
+            self.uuid.resize_to(row)
+            ,self.activity.resize_to(row)
+            ,self.priority.resize_to(row)
+            ,self.term_begin.resize_to(row)
+            ,self.term_end.resize_to(row)
+            ,self.last_updated.resize_to(row)
         ){
-            self.uuid.triee_mut().update(newid,Uuid::new_v4().as_u128());
-            self.activity.triee_mut().update(newid,activity as u8);
-            self.priority.triee_mut().update(newid,Priority::new(priority));
-            self.term_begin.triee_mut().update(newid,term_begin);
-            self.term_end.triee_mut().update(newid,term_end);
-            self.last_updated.triee_mut().update(newid,chrono::Local::now().timestamp());
-            Some(newid)
+            self.uuid.triee_mut().update(row,Uuid::new_v4().as_u128());
+            self.activity.triee_mut().update(row,activity as u8);
+            self.priority.triee_mut().update(row,Priority::new(priority));
+            self.term_begin.triee_mut().update(row,term_begin);
+            self.term_end.triee_mut().update(row,term_end);
+            self.last_updated.triee_mut().update(row,chrono::Local::now().timestamp());
+            Some(row)
         }else{
             None
         }
@@ -163,64 +181,64 @@ impl Data{
 
     pub fn all(&self)->HashSet<u32>{
         let mut result=HashSet::new();
-        for (_local_index,id,_d) in self.activity.triee().iter(){
-            result.replace(id);
+        for (_local_index,row,_d) in self.activity.triee().iter(){
+            result.replace(row);
         }
         result
     }
 
-    pub fn uuid(&self,id:u32)->u128{
-        if let Some(v)=self.uuid.value(id){
+    pub fn uuid(&self,row:u32)->u128{
+        if let Some(v)=self.uuid.value(row){
             v
         }else{
             0
         }
     }
-    pub fn uuid_str(&self,id:u32)->String{
-        if let Some(v)=self.uuid.value(id){
+    pub fn uuid_str(&self,row:u32)->String{
+        if let Some(v)=self.uuid.value(row){
             uuid::Uuid::from_u128(v).to_string()
         }else{
             "".to_string()
         }
     }
-    pub fn activity(&self,id:u32)->bool{
-        if let Some(v)=self.activity.value(id){
+    pub fn activity(&self,row:u32)->bool{
+        if let Some(v)=self.activity.value(row){
             v!=0
         }else{
             false
         }
     }
-    pub fn priority(&self,id:u32)->f64{
-        if let Some(v)=self.priority.value(id){
+    pub fn priority(&self,row:u32)->f64{
+        if let Some(v)=self.priority.value(row){
             v.into()
         }else{
             0.0
         }
     }
-    pub fn term_begin(&self,id:u32)->i64{
-        if let Some(v)=self.term_begin.value(id){
+    pub fn term_begin(&self,row:u32)->i64{
+        if let Some(v)=self.term_begin.value(row){
             v
         }else{
             0
         }
     }
-    pub fn term_end(&self,id:u32)->i64{
-        if let Some(v)=self.term_end.value(id){
+    pub fn term_end(&self,row:u32)->i64{
+        if let Some(v)=self.term_end.value(row){
             v
         }else{
             0
         }
     }
-    pub fn last_updated(&self,id:u32)->i64{
-        if let Some(v)=self.last_updated.value(id){
+    pub fn last_updated(&self,row:u32)->i64{
+        if let Some(v)=self.last_updated.value(row){
             v
         }else{
             0
         }
     }
-    pub fn field_str(&self,id:u32,name:&str)->&str{
+    pub fn field_str(&self,row:u32,name:&str)->&str{
         if let Some(f)=self.field(name){
-            if let Some(v)=f.str(id){
+            if let Some(v)=f.str(row){
                 v
             }else{
                 ""
@@ -229,9 +247,9 @@ impl Data{
             ""
         }
     }
-    pub fn field_num(&self,id:u32,name:&str)->f64{
+    pub fn field_num(&self,row:u32,name:&str)->f64{
         if let Some(f)=self.field(name){
-            if let Some(f)=f.num(id){
+            if let Some(f)=f.num(row){
                 f
             }else{
                 0.0
@@ -283,27 +301,6 @@ impl Data{
         self.fields_cache.get(name)
     }
 
-    fn field_mut(&mut self,name:&str,create:bool)->Option<&mut Field>{
-        if self.fields_cache.contains_key(name){
-            self.fields_cache.get_mut(name)
-        }else{
-            let dir_name=self.data_dir.to_string()+"/fields/"+name+"/";
-            if create{
-                match std::fs::create_dir_all(dir_name.to_owned()){
-                    _=>{}
-                }
-            }
-            if std::path::Path::new(&dir_name).exists(){
-                if let Ok(field)=field::Field::new(&dir_name){
-                    return Some(self.fields_cache.entry(String::from(name)).or_insert(
-                        field
-                    ));
-                }
-            }
-            None
-        }
-    }
-
     pub fn search(&self,condition:&SearchCondition)->Reducer{
         match condition{
             SearchCondition::Activity(condition)=>{
@@ -314,6 +311,9 @@ impl Data{
             }
             ,SearchCondition::Field(field_name,condition)=>{
                 self.search_field(&field_name,condition)
+            }
+            ,SearchCondition::Row(condition)=>{
+                self.search_row(condition)
             }
         }
     }
@@ -333,17 +333,17 @@ impl Data{
         if let Some(field)=self.field(field_name){
             Reducer::new(self,field.search(condition))
         }else{
-            Reducer::new(self,IdSet::default())
+            Reducer::new(self,RowSet::default())
         }
     }
-    fn search_term_in(&self,base:i64)->IdSet{
-        let mut result=IdSet::default();
+    fn search_term_in(&self,base:i64)->RowSet{
+        let mut result=RowSet::default();
         let tmp=self.term_begin_index().select_by_value_to(&base);
         let index_end=self.term_end_index();
-        for id in tmp{
-            let end=index_end.value(id).unwrap_or(0);
+        for row in tmp{
+            let end=index_end.value(row).unwrap_or(0);
             if end==0 || end>base {
-                result.replace(id);
+                result.replace(row);
             }
         }
         result
@@ -361,4 +361,42 @@ impl Data{
             }
         })
     }
+    fn search_row(&self,condition:&ConditionRow)->Reducer{
+        let mut r=RowSet::default();
+        Reducer::new(self,match condition{
+            ConditionRow::Min(row)=>{
+                for (_,i,_) in self.serial.index().triee().iter(){
+                    if i>=*row{
+                        r.insert(i);
+                    }
+                }
+                r
+            }
+            ,ConditionRow::Max(row)=>{
+                for (_,i,_) in self.serial.index().triee().iter(){
+                    if i<=*row{
+                        r.insert(i);
+                    }
+                }
+                r
+            }
+            ,ConditionRow::Range(range)=>{
+                for i in range.start..range.end{
+                    if let Some(_)=self.serial.index().triee().node(i){
+                        r.insert(i);
+                    }
+                }
+                r
+            }
+            ,ConditionRow::In(rows)=>{
+                for i in rows{
+                    if let Some(_)=self.serial.index().triee().node(*i){
+                        r.insert(*i);
+                    }
+                }
+                r
+            }
+        })
+    }
+    
 }

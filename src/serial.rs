@@ -71,24 +71,27 @@ impl SerialNumber{
             ,fragment:Fragment::new(&(path.to_string()+".f"))?
         })
     }
+    pub fn index(&self)->&IdxSized<u32>{
+        &self.index
+    }
     pub fn exists_blank(&self)->bool{
         self.fragment.blank_count>0
     }
-    pub fn add(&mut self)->Option<u32>{ //追加されたidを返す
+    pub fn add(&mut self)->Option<u32>{ //追加されたrowを返す
         let serial_number=self.fragment.increment();
-        let rowid=self.index.insert(serial_number)?;
-        Some(rowid)
+        let row=self.index.insert(serial_number)?;
+        Some(row)
     }
     pub fn pop_blank(&mut self)->Option<u32>{
-        if let Some(exists_id)=self.fragment.pop(){
+        if let Some(exists_row)=self.fragment.pop(){
             let serial_number=self.fragment.increment();
-            self.index.update(exists_id,serial_number);
-            Some(exists_id)
+            self.index.update(exists_row,serial_number);
+            Some(exists_row)
         }else{
             None
         }
     }
-    pub fn delete(&mut self,id:u32){
-        self.fragment.insert_blank(id);
+    pub fn delete(&mut self,row:u32){
+        self.fragment.insert_blank(row);
     }
 }

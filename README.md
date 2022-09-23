@@ -44,9 +44,9 @@ if let Some(mut data)=Data::new(dir){
     if let Some(mut data)=Data::new(dir){
         let range=1..10;
         for i in range.clone(){
-            if let Some(id)=data.insert(true,i.into(),0,0){
-                data.update_field(id,"num",i.to_string());
-                data.update_field(id,"num_by3",(i*3).to_string());
+            if let Some(row)=data.insert(true,i.into(),0,0){
+                data.update_field(row,"num",i.to_string());
+                data.update_field(row,"num_by3",(i*3).to_string());
             }
         }
         data.update(3,false,0.0,0,0);
@@ -76,6 +76,13 @@ if let Some(mut data)=Data::new(dir){
         ;
         println!("{:?}",r);
 
+        let r=data
+            .search(&SearchCondition::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
+            .search(&SearchCondition::Row(ConditionRow::Range(4..7)))
+            .reduce_default()
+            .get()
+        ;
+        println!("{:?}",r);
         
         data.update_field(2,"hoge","HAHA");
         data.update_field(4,"hoge","agaba");

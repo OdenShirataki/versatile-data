@@ -1,4 +1,5 @@
-use idx_sized::IdSet;
+use std::ops::Range;
+use idx_sized::RowSet;
 
 use crate::ConditionField;
 use crate::Data;
@@ -16,24 +17,32 @@ pub enum ConditionTerm{
     ,Future(i64)
 }
 
+pub enum ConditionRow{
+    Min(u32)
+    ,Max(u32)
+    ,Range(Range<u32>)
+    ,In(Vec<u32>)
+}
+
 pub enum SearchCondition{
     Activity(ConditionActivity)
     ,Term(ConditionTerm)
     ,Field(String,ConditionField)
+    ,Row(ConditionRow)
 }
 
 pub struct Reducer<'a>{
     data:&'a Data
-    ,result:IdSet
+    ,result:RowSet
 }
 impl<'a> Reducer<'a>{
-    pub fn new(data:&'a Data,result:IdSet)->Reducer{
+    pub fn new(data:&'a Data,result:RowSet)->Reducer{
         Reducer{
             data
             ,result
         }
     }
-    pub fn get(self)->IdSet{
+    pub fn get(self)->RowSet{
         self.result
     }
     pub fn search(mut self,condition:&SearchCondition)->Self{
@@ -54,7 +63,7 @@ impl<'a> Reducer<'a>{
         }
         self
     }
-    fn reduce(&mut self,newset:IdSet){
+    fn reduce(&mut self,newset:RowSet){
         self.result=newset.intersection(&self.result).map(|&x|x).collect();
     }
 }
