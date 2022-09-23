@@ -30,7 +30,7 @@ pub enum ConditionFloat{
     ,Range(RangeInclusive<f64>)
 }
 
-pub enum SearchCondition{
+pub enum Search{
     Activity(ConditionActivity)
     ,Term(ConditionTerm)
     ,Row(ConditionNumber)
@@ -54,7 +54,7 @@ impl<'a> Reducer<'a>{
     pub fn get(self)->RowSet{
         self.result
     }
-    pub fn search(mut self,condition:&SearchCondition)->Self{
+    pub fn search(mut self,condition:&Search)->Self{
         if self.result.len()>0{
             let search=self.data.search(condition);
             self.reduce(search.result);

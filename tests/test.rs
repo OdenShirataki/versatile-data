@@ -2,7 +2,7 @@ use versatile_data::{
     Data
     ,ConditionField
     ,ConditionNumber
-    ,SearchCondition
+    ,Search
 };
 
 #[test]
@@ -42,7 +42,7 @@ fn test() {
         assert_eq!(sam,45.0);
 
         let r=data
-            .search(&SearchCondition::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
+            .search(&Search::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
             .reduce_default()   //Automatic execution of the following two lines
             //.search(SearchCondition::Term(ConditionTerm::In(chrono::Local::now().timestamp())))
             //.search(SearchCondition::Activity(ConditionActivity::Active))
@@ -51,8 +51,8 @@ fn test() {
         println!("{:?}",r);
 
         let r=data
-            .search(&SearchCondition::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
-            .search(&SearchCondition::Row(ConditionNumber::Range(4..=7)))
+            .search(&Search::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
+            .search(&Search::Row(ConditionNumber::Range(4..=7)))
             .reduce_default()
             .get()
         ;
@@ -65,25 +65,25 @@ fn test() {
         data.update_field(7,"hoge","ageee");
         data.update_field(6,"hoge","bebebe");
         let r=data
-            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec())))
+            .search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec())))
             .get()
         ;
         println!("{:?}",r);
 
         let r=data
-            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Forward("age".to_string())))
+            .search(&Search::Field("hoge".to_string(),ConditionField::Forward("age".to_string())))
             .get()
         ;
         println!("{:?}",r);
 
         let r=data
-            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Partial("eb".to_string())))
+            .search(&Search::Field("hoge".to_string(),ConditionField::Partial("eb".to_string())))
             .get()
         ;
         println!("{:?}",r);
 
         let r=data
-            .search(&SearchCondition::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
+            .search(&Search::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
             .get()
         ;
         println!("{:?}",r);

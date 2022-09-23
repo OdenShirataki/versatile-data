@@ -23,7 +23,7 @@ pub use search::{
     ,ConditionTerm
     ,ConditionNumber
     ,ConditionFloat
-    ,SearchCondition
+    ,Search
     ,Reducer
 };
 
@@ -302,27 +302,27 @@ impl Data{
         self.fields_cache.get(name)
     }
 
-    pub fn search(&self,condition:&SearchCondition)->Reducer{
+    pub fn search(&self,condition:&Search)->Reducer{
         match condition{
-            SearchCondition::Activity(condition)=>{
+            Search::Activity(condition)=>{
                 self.search_activity(condition)
             }
-            ,SearchCondition::Term(condition)=>{
+            ,Search::Term(condition)=>{
                 self.search_term(condition)
             }
-            ,SearchCondition::Field(field_name,condition)=>{
+            ,Search::Field(field_name,condition)=>{
                 self.search_field(&field_name,condition)
             }
-            ,SearchCondition::Row(condition)=>{
+            ,Search::Row(condition)=>{
                 self.search_row(condition)
             }
-            ,SearchCondition::LastUpdated(condition)=>{
+            ,Search::LastUpdated(condition)=>{
                 self.search_last_updated(condition)
             }
-            ,SearchCondition::Priority(condition)=>{
+            ,Search::Priority(condition)=>{
                 self.search_priority(condition)
             }
-            ,SearchCondition::Uuid(uuid)=>{
+            ,Search::Uuid(uuid)=>{
                 Reducer::new(
                     self
                     ,self.uuid.select_by_value(uuid)
