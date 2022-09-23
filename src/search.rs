@@ -17,18 +17,27 @@ pub enum ConditionTerm{
     ,Future(i64)
 }
 
-pub enum ConditionRow{
-    Min(u32)
-    ,Max(u32)
-    ,Range(RangeInclusive<u32>)
-    ,In(Vec<u32>)
+pub enum ConditionNumber{
+    Min(isize)
+    ,Max(isize)
+    ,Range(RangeInclusive<isize>)
+    ,In(Vec<isize>)
+}
+
+pub enum ConditionFloat{
+    Min(f64)
+    ,Max(f64)
+    ,Range(RangeInclusive<f64>)
 }
 
 pub enum SearchCondition{
     Activity(ConditionActivity)
     ,Term(ConditionTerm)
+    ,Row(ConditionNumber)
+    ,Priority(ConditionFloat)
+    ,Uuid(u128)
+    ,LastUpdated(ConditionNumber)
     ,Field(String,ConditionField)
-    ,Row(ConditionRow)
 }
 
 pub struct Reducer<'a>{

@@ -21,7 +21,8 @@ mod search;
 pub use search::{
     ConditionActivity
     ,ConditionTerm
-    ,ConditionRow
+    ,ConditionNumber
+    ,ConditionFloat
     ,SearchCondition
     ,Reducer
 };
@@ -315,6 +316,18 @@ impl Data{
             ,SearchCondition::Row(condition)=>{
                 self.search_row(condition)
             }
+            ,SearchCondition::LastUpdated(condition)=>{
+                self.search_row(condition)
+            }
+            ,SearchCondition::Priority(condition)=>{
+                self.search_priority(condition)
+            }
+            ,SearchCondition::Uuid(uuid)=>{
+                Reducer::new(
+                    self
+                    ,self.uuid.select_by_value(uuid)
+                )
+            }
         }
     }
     pub fn search_default(&self)->Reducer{
@@ -338,10 +351,9 @@ impl Data{
     }
     fn search_term_in(&self,base:i64)->RowSet{
         let mut result=RowSet::default();
-        let tmp=self.term_begin_index().select_by_value_to(&base);
-        let index_end=self.term_end_index();
+        let tmp=self.term_begin.select_by_value_to(&base);
         for row in tmp{
-            let end=index_end.value(row).unwrap_or(0);
+            let end=self.term_end.value(row).unwrap_or(0);
             if end==0 || end>base {
                 result.replace(row);
             }
@@ -361,42 +373,57 @@ impl Data{
             }
         })
     }
-    fn search_row(&self,condition:&ConditionRow)->Reducer{
+    fn search_row(&self,condition:&ConditionNumber)->Reducer{
         let mut r=RowSet::default();
         Reducer::new(self,match condition{
-            ConditionRow::Min(row)=>{
+            ConditionNumber::Min(row)=>{
                 for (_,i,_) in self.serial.index().triee().iter(){
-                    if i>=*row{
+                    if i as isize>=*row{
                         r.insert(i);
                     }
                 }
                 r
             }
-            ,ConditionRow::Max(row)=>{
+            ,ConditionNumber::Max(row)=>{
                 for (_,i,_) in self.serial.index().triee().iter(){
-                    if i<=*row{
+                    if i as isize<=*row{
                         r.insert(i);
                     }
                 }
                 r
             }
-            ,ConditionRow::Range(range)=>{
+            ,ConditionNumber::Range(range)=>{
                 for i in range.clone(){
-                    if let Some(_)=self.serial.index().triee().node(i){
-                        r.insert(i);
+                    if let Some(_)=self.serial.index().triee().node(i as u32){
+                        r.insert(i as u32);
                     }
                 }
                 r
             }
-            ,ConditionRow::In(rows)=>{
+            ,ConditionNumber::In(rows)=>{
                 for i in rows{
-                    if let Some(_)=self.serial.index().triee().node(*i){
-                        r.insert(*i);
+                    if let Some(_)=self.serial.index().triee().node(*i as u32){
+                        r.insert(*i as u32);
                     }
                 }
                 r
             }
         })
     }
-    
+    fn search_priority(&self,condition:&ConditionFloat)->Reducer{
+        Reducer::new(self,match condition{
+            ConditionFloat::Min(row)=>{
+                self.priority.select_by_value_from(&Priority::new(*row))
+            }
+            ,ConditionFloat::Max(row)=>{
+                self.priority.select_by_value_to(&Priority::new(*row))
+            }
+            ,ConditionFloat::Range(range)=>{
+                self.priority.select_by_value_from_to(
+                    &Priority::new(*range.start())
+                    ,&Priority::new(*range.end())
+                )
+            }
+        })
+    }
 }

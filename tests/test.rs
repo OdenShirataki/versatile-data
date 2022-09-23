@@ -1,7 +1,7 @@
 use versatile_data::{
     Data
     ,ConditionField
-    ,ConditionRow
+    ,ConditionNumber
     ,SearchCondition
 };
 
@@ -52,7 +52,7 @@ fn test() {
 
         let r=data
             .search(&SearchCondition::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
-            .search(&SearchCondition::Row(ConditionRow::Range(4..=7)))
+            .search(&SearchCondition::Row(ConditionNumber::Range(4..=7)))
             .reduce_default()
             .get()
         ;
