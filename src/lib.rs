@@ -84,11 +84,11 @@ impl Data{
         }else{
             term_begin
         };
-        if !self.serial.exists_blank()&&row==0{   //0は新規作成
+        if !self.serial.exists_blank()&&row==0{   //0 is new 
             self.update_new(activity,term_begin,term_end)
         }else{
             if let Some(row)=self.serial.pop_blank(){
-                self.uuid.update(row,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
+                self.uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
                 self.activity.update(row,activity as u8);
                 self.term_begin.update(row,term_begin);
                 self.term_end.update(row,term_end);
@@ -356,10 +356,10 @@ impl Data{
             ConditionTerm::In(base)=>{
                 self.search_term_in(*base)
             }
-            ,ConditionTerm::Future(base)=>{ //公開開始が未来のもののみ
+            ,ConditionTerm::Future(base)=>{
                 self.term_begin_index().select_by_value_from(&base)
             }
-            ,ConditionTerm::Past(base)=>{   //公開終了のみ
+            ,ConditionTerm::Past(base)=>{
                 self.term_end_index().select_by_value_from_to(&1,&base)
             }
         }))

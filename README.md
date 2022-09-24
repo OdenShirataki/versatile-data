@@ -6,7 +6,7 @@ No table.
 
 It has data formatted like key-value, but with rows like data in Table format. Each row can have data in key-value format.
 In addition, as a field of commonly used concepts,
-Activity, priority, term_begin, term_end, last_updated
+Activity, term_begin, term_end, last_updated
 is fixed for each row.
 
 No need to design a table scheme like SQL.
