@@ -15,13 +15,18 @@ pub use field::{
 
 mod search;
 pub use search::{
-    ConditionActivity
-    ,ConditionTerm
+    ConditionTerm
     ,ConditionNumber
     ,Search
     ,Order
     ,SearchResult
 };
+
+#[derive(Clone,Copy,PartialEq)]
+pub enum Activity{
+    Inactive=0
+    ,Active=1
+}
 
 pub struct Data{
     data_dir:String
@@ -66,7 +71,7 @@ impl Data{
     }
     pub fn insert(
         &mut self
-        ,activity: bool
+        ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
@@ -75,7 +80,7 @@ impl Data{
     pub fn update(
         &mut self
         ,row:u32
-        ,activity: bool
+        ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
@@ -140,7 +145,7 @@ impl Data{
 
     fn update_new(
         &mut self
-        ,activity: bool
+        ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
@@ -165,14 +170,6 @@ impl Data{
         }
     }
 
-    pub fn all(&self)->RowSet{
-        let mut result=RowSet::default();
-        for (_local_index,row,_d) in self.serial_index().triee().iter(){
-            result.replace(row);
-        }
-        result
-    }
-
     pub fn serial(&self,row:u32)->u32{
         if let Some(v)=self.serial.index().value(row){
             v
@@ -194,11 +191,15 @@ impl Data{
             "".to_string()
         }
     }
-    pub fn activity(&self,row:u32)->bool{
+    pub fn activity(&self,row:u32)->Activity{
         if let Some(v)=self.activity.value(row){
-            v!=0
+            if v!=0{
+                Activity::Active
+            }else{
+                Activity::Inactive
+            }
         }else{
-            false
+            Activity::Inactive
         }
     }
     pub fn term_begin(&self,row:u32)->i64{
@@ -290,6 +291,15 @@ impl Data{
         self.fields_cache.get(name)
     }
 
+    pub fn all(&self)->RowSet{
+        self.serial_index().triee().iter().map(|(_,row,_)|row).collect()
+    }
+    pub fn search_all(&self)->SearchResult{
+        SearchResult::new(
+            self
+            ,None
+        )
+    }
     pub fn search(&self,condition:&Search)->SearchResult{
         match condition{
             Search::Activity(condition)=>{
@@ -315,12 +325,6 @@ impl Data{
             }
         }
     }
-    pub fn search_all(&self)->SearchResult{
-        SearchResult::new(
-            self
-            ,None
-        )
-    }
     pub fn search_default(&self)->SearchResult{
         SearchResult::new(
             self
@@ -329,8 +333,8 @@ impl Data{
             ).map(|&x|x).collect())
         )
     }
-    fn search_activity(&self,condition:&ConditionActivity)->SearchResult{
-        let activity=if *condition==ConditionActivity::Active{ 1 }else{ 0 };
+    fn search_activity(&self,condition:&Activity)->SearchResult{
+        let activity=*condition as u8;
         SearchResult::new(self,Some(self.activity.select_by_value_from_to(&activity,&activity)))
     }
     fn search_field(&self,field_name:&str,condition:&ConditionField)->SearchResult{

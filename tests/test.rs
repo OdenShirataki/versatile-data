@@ -1,5 +1,6 @@
 use versatile_data::{
     Data
+    ,Activity
     ,ConditionField
     ,ConditionNumber
     ,Search
@@ -19,12 +20,12 @@ fn test() {
     if let Some(mut data)=Data::new(dir){
         let range=1..=10;
         for i in range.clone(){
-            if let Some(row)=data.insert(true,0,0){
+            if let Some(row)=data.insert(Activity::Active,0,0){
                 data.update_field(row,"num",i.to_string());
                 data.update_field(row,"num_by3",(i*3).to_string());
             }
         }
-        data.update(3,false,0,0);
+        data.update(3,Activity::Inactive,0,0);
         data.load_fields();
         let mut sam=0.0;
         for i in range.clone(){
@@ -32,7 +33,11 @@ fn test() {
             println!(
                 "{},{},{},{},{},{},{},{}"
                 ,data.serial(i)
-                ,data.activity(i)
+                ,if data.activity(i)==Activity::Active{
+                    "Active"
+                }else{
+                    "Inactive"
+                }
                 ,data.uuid_str(i)
                 ,data.last_updated(i)
                 ,data.term_begin(i)

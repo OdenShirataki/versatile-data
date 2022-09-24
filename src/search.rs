@@ -1,14 +1,11 @@
 use std::ops::RangeInclusive;
 use idx_sized::RowSet;
 
-use crate::ConditionField;
-use crate::Data;
-
-#[derive(Clone,Copy,PartialEq)]
-pub enum ConditionActivity{
-    Active
-    ,Inactive
-}
+use crate::{
+    Data
+    ,Activity
+    ,ConditionField
+};
 
 #[derive(Clone,Copy,PartialEq)]
 pub enum ConditionTerm{
@@ -25,7 +22,7 @@ pub enum ConditionNumber{
 }
 
 pub enum Search{
-    Activity(ConditionActivity)
+    Activity(Activity)
     ,Term(ConditionTerm)
     ,Row(ConditionNumber)
     ,Uuid(u128)
@@ -79,13 +76,13 @@ impl<'a> SearchResult<'a>{
                 if let Some(sr)=self.data.search_term(&ConditionTerm::In(chrono::Local::now().timestamp())).result{
                     self.reduce(sr);
                 }
-                if let Some(sr)=self.data.search_activity(&ConditionActivity::Active).result{
+                if let Some(sr)=self.data.search_activity(&Activity::Active).result{
                     self.reduce(sr);
                 }
             }
         }else{
             self=self.data.search_term(&ConditionTerm::In(chrono::Local::now().timestamp()));
-            if let Some(sr)=self.data.search_activity(&ConditionActivity::Active).result{
+            if let Some(sr)=self.data.search_activity(&Activity::Active).result{
                 self.reduce(sr);
             }
         }
