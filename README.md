@@ -18,14 +18,7 @@ You don't have to think about which fields to index. it is done automatically.
 ## Example
 
 ```rust
-use versatile_data::{
-    Data
-    ,Activity
-    ,ConditionField
-    ,ConditionNumber
-    ,Search
-    ,Order
-};
+use versatile_data::prelude::*;
 
 let dir="D:/vd-test/";
 
