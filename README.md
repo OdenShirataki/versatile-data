@@ -20,6 +20,7 @@ You don't have to think about which fields to index. it is done automatically.
 ```rust
 use versatile_data::{
     Data
+    ,Activity
     ,ConditionField
     ,ConditionNumber
     ,Search

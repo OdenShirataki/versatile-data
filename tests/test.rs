@@ -1,14 +1,13 @@
-use versatile_data::{
-    Data
-    ,Activity
-    ,ConditionField
-    ,ConditionNumber
-    ,Search
-    ,Order
-};
-
 #[test]
 fn test() {
+    use versatile_data::{
+        Data
+        ,Activity
+        ,ConditionField
+        ,ConditionNumber
+        ,Search
+        ,Order
+    };
     let dir="D:/vd-test/";
 
     if std::path::Path::new(dir).exists(){
