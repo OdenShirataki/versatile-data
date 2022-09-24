@@ -40,6 +40,15 @@ pub enum Search{
     ,Field(String,ConditionField)
 }
 
+pub enum Order<'a>{
+    Serial
+    ,Priority
+    ,TermBegin
+    ,TermEnd
+    ,LastUpdated
+    ,Field(&'a str)
+}
+
 pub struct Reducer<'a>{
     data:&'a Data
     ,result:RowSet
@@ -71,6 +80,60 @@ impl<'a> Reducer<'a>{
             );
         }
         self
+    }
+    pub fn union(mut self,from:&Reducer)->Self{
+        self.result=self.result.union(&from.result).map(|&x|x).collect();
+        self
+    }
+    pub fn get_sorted(&self,o:&Order)->Vec<u32>{
+        let mut r=Vec::new();
+        match o{
+            Order::Serial=>{
+                for (_,row,_) in self.data.serial_index().triee().iter(){
+                    if self.result.contains(&row){
+                        r.push(row);
+                    }
+                }
+            }
+            ,Order::Priority=>{
+                for (_,row,_) in self.data.priority.triee().iter(){
+                    if self.result.contains(&row){
+                        r.push(row);
+                    }
+                }
+            }
+            ,Order::TermBegin=>{
+                for (_,row,_) in self.data.term_begin.triee().iter(){
+                    if self.result.contains(&row){
+                        r.push(row);
+                    }
+                }
+            }
+            ,Order::TermEnd=>{
+                for (_,row,_) in self.data.term_end.triee().iter(){
+                    if self.result.contains(&row){
+                        r.push(row);
+                    }
+                }
+            }
+            ,Order::LastUpdated=>{
+                for (_,row,_) in self.data.last_updated.triee().iter(){
+                    if self.result.contains(&row){
+                        r.push(row);
+                    }
+                }
+            }
+            ,Order::Field(field_name)=>{
+                if let Some(field)=self.data.field(field_name){
+                    for (_,row,_) in field.index().triee().iter(){
+                        if self.result.contains(&row){
+                            r.push(row);
+                        }
+                    }
+                }
+            }
+        }
+        r
     }
     fn reduce(&mut self,newset:RowSet){
         self.result=newset.intersection(&self.result).map(|&x|x).collect();

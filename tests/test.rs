@@ -3,6 +3,7 @@ use versatile_data::{
     ,ConditionField
     ,ConditionNumber
     ,Search
+    ,Order
 };
 
 #[test]
@@ -16,7 +17,7 @@ fn test() {
         std::fs::create_dir_all(&dir).unwrap();
     }
     if let Some(mut data)=Data::new(dir){
-        let range=1..10;
+        let range=1..=10;
         for i in range.clone(){
             if let Some(row)=data.insert(true,i.into(),0,0){
                 data.update_field(row,"num",i.to_string());
@@ -29,7 +30,8 @@ fn test() {
         for i in range.clone(){
             sam+=data.field_num(i,"num");
             println!(
-                "{},{},{},{},{},{},{}"
+                "{},{},{},{},{},{},{},{}"
+                ,data.serial(i)
                 ,data.activity(i)
                 ,data.uuid_str(i)
                 ,data.last_updated(i)
@@ -39,7 +41,7 @@ fn test() {
                 ,data.field_str(i,"num_by3")
             );
         }
-        assert_eq!(sam,45.0);
+        assert_eq!(sam,55.0);
 
         let r=data
             .search(&Search::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
@@ -49,6 +51,18 @@ fn test() {
             .get()
         ;
         println!("{:?}",r);
+
+        let r=data
+            .search_default() 
+            .get_sorted(&Order::Serial)
+        ;
+        println!("sorted-serial:{:?}",r);
+
+        let r=data
+            .search_default() 
+            .get_sorted(&Order::Field("num"))   //natural order
+        ;
+        println!("sorted-num:{:?}",r);
 
         let r=data
             .search(&Search::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
@@ -68,24 +82,31 @@ fn test() {
             .search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec())))
             .get()
         ;
-        println!("{:?}",r);
+        println!("match:{:?}",r);
 
         let r=data
             .search(&Search::Field("hoge".to_string(),ConditionField::Forward("age".to_string())))
             .get()
         ;
-        println!("{:?}",r);
+        println!("forward:{:?}",r);
 
         let r=data
             .search(&Search::Field("hoge".to_string(),ConditionField::Partial("eb".to_string())))
             .get()
         ;
-        println!("{:?}",r);
+        println!("pattial:{:?}",r);
 
         let r=data
             .search(&Search::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
             .get()
         ;
-        println!("{:?}",r);
+        println!("backward:{:?}",r);
+
+        let r=data
+            .search(&Search::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
+            .union(&data.search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec()))))
+            .get()
+        ;
+        println!("union:{:?}",r);
     }
 }

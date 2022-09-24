@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -24,8 +23,9 @@ pub use search::{
     ,ConditionNumber
     ,ConditionFloat
     ,Search
-    ,Reducer
+    ,Order
 };
+use search::Reducer;
 
 pub struct Data{
     data_dir:String
@@ -180,14 +180,21 @@ impl Data{
         }
     }
 
-    pub fn all(&self)->HashSet<u32>{
-        let mut result=HashSet::new();
+    pub fn all(&self)->RowSet{
+        let mut result=RowSet::default();
         for (_local_index,row,_d) in self.activity.triee().iter(){
             result.replace(row);
         }
         result
     }
 
+    pub fn serial(&self,row:u32)->u32{
+        if let Some(v)=self.serial.index().value(row){
+            v
+        }else{
+            0
+        }
+    }
     pub fn uuid(&self,row:u32)->u128{
         if let Some(v)=self.uuid.value(row){
             v
@@ -285,6 +292,9 @@ impl Data{
         }
     }
 
+    pub fn serial_index(&self)->&IdxSized<u32>{
+        &self.serial.index()
+    }
     pub fn activity_index(&self)->&IdxSized<u8>{
         &self.activity
     }

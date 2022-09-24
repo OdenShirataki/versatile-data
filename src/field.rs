@@ -62,6 +62,9 @@ impl Field{
             None
         }
     }
+    pub fn index(&self)->&IdxSized<FieldEntity>{
+        &self.index
+    }
     pub fn update(&mut self,row:u32,content:&[u8]) -> Option<u32>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
         if let RemoveResult::Unique(data)=self.index.delete(row){
