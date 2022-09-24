@@ -42,6 +42,7 @@ pub enum Search{
 
 pub enum Order<'a>{
     Serial
+    ,Row
     ,Priority
     ,TermBegin
     ,TermEnd
@@ -94,6 +95,9 @@ impl<'a> Reducer<'a>{
                         r.push(row);
                     }
                 }
+            }
+            ,Order::Row=>{
+                r=self.result.iter().map(|&x|x).collect::<Vec<u32>>();
             }
             ,Order::Priority=>{
                 for (_,row,_) in self.data.priority.triee().iter(){
