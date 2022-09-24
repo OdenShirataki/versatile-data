@@ -50,6 +50,7 @@ pub enum Order<'a>{
     ,Field(&'a str)
 }
 
+#[derive(Clone)]
 pub struct Reducer<'a>{
     data:&'a Data
     ,result:RowSet
