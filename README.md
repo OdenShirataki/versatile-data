@@ -20,8 +20,10 @@ You don't have to think about which fields to index. it is done automatically.
 ```rust
 use versatile_data::{
     Data
-    ,ConditionActivity
-    ,SearchCondition
+    ,ConditionField
+    ,ConditionNumber
+    ,Search
+    ,Order
 };
 
 let dir="D:/vd-test/";
@@ -35,12 +37,12 @@ if std::path::Path::new(dir).exists(){
 if let Some(mut data)=Data::new(dir){
     let range=1..=10;
     for i in range.clone(){
-        if let Some(row)=data.insert(true,i.into(),0,0){
+        if let Some(row)=data.insert(true,0,0){
             data.update_field(row,"num",i.to_string());
             data.update_field(row,"num_by3",(i*3).to_string());
         }
     }
-    data.update(3,false,0.0,0,0);
+    data.update(3,false,0,0);
     data.load_fields();
     let mut sam=0.0;
     for i in range.clone(){
@@ -120,9 +122,15 @@ if let Some(mut data)=Data::new(dir){
 
     let r=data
         .search(&Search::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
-        .union(&data.search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec()))))
+        .union(data.search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec()))))
         .get()
     ;
     println!("union:{:?}",r);
+
+    let r=data
+        .search_all()
+        .get()
+    ;
+    println!("all:{:?}",r);
 }
 ```

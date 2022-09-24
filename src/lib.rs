@@ -13,26 +13,21 @@ pub use field::{
     ,ConditionField
 };
 
-mod priority;
-pub use priority::Priority;
-
 mod search;
 pub use search::{
     ConditionActivity
     ,ConditionTerm
     ,ConditionNumber
-    ,ConditionFloat
     ,Search
     ,Order
+    ,SearchResult
 };
-use search::Reducer;
 
 pub struct Data{
     data_dir:String
     ,serial: SerialNumber
     ,uuid: IdxSized<u128>
     ,activity: IdxSized<u8>
-    ,priority: IdxSized<Priority>
     ,term_begin: IdxSized<i64>
     ,term_end: IdxSized<i64>
     ,last_updated: IdxSized<i64>
@@ -44,7 +39,6 @@ impl Data{
             Ok(serial)
             ,Ok(uuid)
             ,Ok(activity)
-            ,Ok(priority)
             ,Ok(term_begin)
             ,Ok(term_end)
             ,Ok(last_updated)
@@ -52,7 +46,6 @@ impl Data{
             SerialNumber::new(&(dir.to_string()+"/serial"))
             ,IdxSized::new(&(dir.to_string()+"/uuid.i"))
             ,IdxSized::new(&(dir.to_string()+"/activity.i"))
-            ,IdxSized::new(&(dir.to_string()+"/priority.i"))
             ,IdxSized::new(&(dir.to_string()+"/term_begin.i"))
             ,IdxSized::new(&(dir.to_string()+"/term_end.i"))
             ,IdxSized::new(&(dir.to_string()+"/last_updated.i"))
@@ -62,7 +55,6 @@ impl Data{
                 ,serial
                 ,uuid
                 ,activity
-                ,priority
                 ,term_begin
                 ,term_end
                 ,last_updated
@@ -75,17 +67,15 @@ impl Data{
     pub fn insert(
         &mut self
         ,activity: bool
-        ,priority: f64
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
-        self.update(0,activity,priority,term_begin,term_end)
+        self.update(0,activity,term_begin,term_end)
     }
     pub fn update(
         &mut self
         ,row:u32
         ,activity: bool
-        ,priority: f64
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
@@ -95,19 +85,17 @@ impl Data{
             term_begin
         };
         if !self.serial.exists_blank()&&row==0{   //0は新規作成
-            self.update_new(activity,priority,term_begin,term_end)
+            self.update_new(activity,term_begin,term_end)
         }else{
             if let Some(row)=self.serial.pop_blank(){
                 self.uuid.update(row,Uuid::new_v4().as_u128());             //serial_number使いまわしの場合uuid再発行
                 self.activity.update(row,activity as u8);
-                self.priority.update(row,Priority::new(priority));
                 self.term_begin.update(row,term_begin);
                 self.term_end.update(row,term_end);
                 self.last_updated.update(row,chrono::Local::now().timestamp());
                 Some(row)
             }else{
                 self.activity.update(row,activity as u8);
-                self.priority.update(row,Priority::new(priority));
                 self.term_begin.update(row,term_begin);
                 self.term_end.update(row,term_end);
                 self.last_updated.update(row,chrono::Local::now().timestamp());
@@ -153,24 +141,21 @@ impl Data{
     fn update_new(
         &mut self
         ,activity: bool
-        ,priority: f64
         ,term_begin: i64
         ,term_end: i64
     )->Option<u32>{
         let row=self.serial.add()?;
         if let(
-            Ok(_),Ok(_),Ok(_),Ok(_),Ok(_),Ok(_)
+            Ok(_),Ok(_),Ok(_),Ok(_),Ok(_)
         )=(
             self.uuid.resize_to(row)
             ,self.activity.resize_to(row)
-            ,self.priority.resize_to(row)
             ,self.term_begin.resize_to(row)
             ,self.term_end.resize_to(row)
             ,self.last_updated.resize_to(row)
         ){
             self.uuid.triee_mut().update(row,Uuid::new_v4().as_u128());
             self.activity.triee_mut().update(row,activity as u8);
-            self.priority.triee_mut().update(row,Priority::new(priority));
             self.term_begin.triee_mut().update(row,term_begin);
             self.term_end.triee_mut().update(row,term_end);
             self.last_updated.triee_mut().update(row,chrono::Local::now().timestamp());
@@ -182,7 +167,7 @@ impl Data{
 
     pub fn all(&self)->RowSet{
         let mut result=RowSet::default();
-        for (_local_index,row,_d) in self.activity.triee().iter(){
+        for (_local_index,row,_d) in self.serial_index().triee().iter(){
             result.replace(row);
         }
         result
@@ -214,13 +199,6 @@ impl Data{
             v!=0
         }else{
             false
-        }
-    }
-    pub fn priority(&self,row:u32)->f64{
-        if let Some(v)=self.priority.value(row){
-            v.into()
-        }else{
-            0.0
         }
     }
     pub fn term_begin(&self,row:u32)->i64{
@@ -312,7 +290,7 @@ impl Data{
         self.fields_cache.get(name)
     }
 
-    pub fn search(&self,condition:&Search)->Reducer{
+    pub fn search(&self,condition:&Search)->SearchResult{
         match condition{
             Search::Activity(condition)=>{
                 self.search_activity(condition)
@@ -329,34 +307,37 @@ impl Data{
             ,Search::LastUpdated(condition)=>{
                 self.search_last_updated(condition)
             }
-            ,Search::Priority(condition)=>{
-                self.search_priority(condition)
-            }
             ,Search::Uuid(uuid)=>{
-                Reducer::new(
+                SearchResult::new(
                     self
-                    ,self.uuid.select_by_value(uuid)
+                    ,Some(self.uuid.select_by_value(uuid))
                 )
             }
         }
     }
-    pub fn search_default(&self)->Reducer{
-        Reducer::new(
+    pub fn search_all(&self)->SearchResult{
+        SearchResult::new(
             self
-            ,self.search_term_in(chrono::Local::now().timestamp()).intersection(
-                &self.activity.select_by_value_from_to(&1,&1)
-            ).map(|&x|x).collect()
+            ,None
         )
     }
-    fn search_activity(&self,condition:&ConditionActivity)->Reducer{
-        let activity=if *condition==ConditionActivity::Active{ 1 }else{ 0 };
-        Reducer::new(self,self.activity.select_by_value_from_to(&activity,&activity))
+    pub fn search_default(&self)->SearchResult{
+        SearchResult::new(
+            self
+            ,Some(self.search_term_in(chrono::Local::now().timestamp()).intersection(
+                &self.activity.select_by_value_from_to(&1,&1)
+            ).map(|&x|x).collect())
+        )
     }
-    fn search_field(&self,field_name:&str,condition:&ConditionField)->Reducer{
+    fn search_activity(&self,condition:&ConditionActivity)->SearchResult{
+        let activity=if *condition==ConditionActivity::Active{ 1 }else{ 0 };
+        SearchResult::new(self,Some(self.activity.select_by_value_from_to(&activity,&activity)))
+    }
+    fn search_field(&self,field_name:&str,condition:&ConditionField)->SearchResult{
         if let Some(field)=self.field(field_name){
-            Reducer::new(self,field.search(condition))
+            SearchResult::new(self,Some(field.search(condition)))
         }else{
-            Reducer::new(self,RowSet::default())
+            SearchResult::new(self,Some(RowSet::default()))
         }
     }
     fn search_term_in(&self,base:i64)->RowSet{
@@ -370,8 +351,8 @@ impl Data{
         }
         result
     }
-    fn search_term(&self,condition:&ConditionTerm)->Reducer{
-        Reducer::new(self,match condition{
+    fn search_term(&self,condition:&ConditionTerm)->SearchResult{
+        SearchResult::new(self,Some(match condition{
             ConditionTerm::In(base)=>{
                 self.search_term_in(*base)
             }
@@ -381,11 +362,11 @@ impl Data{
             ,ConditionTerm::Past(base)=>{   //公開終了のみ
                 self.term_end_index().select_by_value_from_to(&1,&base)
             }
-        })
+        }))
     }
-    fn search_row(&self,condition:&ConditionNumber)->Reducer{
+    fn search_row(&self,condition:&ConditionNumber)->SearchResult{
         let mut r=RowSet::default();
-        Reducer::new(self,match condition{
+        SearchResult::new(self,Some(match condition{
             ConditionNumber::Min(row)=>{
                 for (_,i,_) in self.serial.index().triee().iter(){
                     if i as isize>=*row{
@@ -418,10 +399,10 @@ impl Data{
                 }
                 r
             }
-        })
+        }))
     }
-    fn search_last_updated(&self,condition:&ConditionNumber)->Reducer{
-        Reducer::new(self,match condition{
+    fn search_last_updated(&self,condition:&ConditionNumber)->SearchResult{
+        SearchResult::new(self,Some(match condition{
             ConditionNumber::Min(v)=>{
                 self.last_updated.select_by_value_from(&(*v as i64))
             }
@@ -443,22 +424,6 @@ impl Data{
                 }
                 r
             }
-        })
-    }
-    fn search_priority(&self,condition:&ConditionFloat)->Reducer{
-        Reducer::new(self,match condition{
-            ConditionFloat::Min(v)=>{
-                self.priority.select_by_value_from(&Priority::new(*v))
-            }
-            ,ConditionFloat::Max(v)=>{
-                self.priority.select_by_value_to(&Priority::new(*v))
-            }
-            ,ConditionFloat::Range(range)=>{
-                self.priority.select_by_value_from_to(
-                    &Priority::new(*range.start())
-                    ,&Priority::new(*range.end())
-                )
-            }
-        })
+        }))
     }
 }
