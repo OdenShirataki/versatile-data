@@ -2,8 +2,6 @@ use std::cmp::Ordering;
 use std::ops::RangeInclusive;
 use idx_sized::RowSet;
 
-
-use crate::FieldData;
 use crate::{
     Data
     ,Activity
