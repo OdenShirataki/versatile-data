@@ -161,118 +161,75 @@ impl<'a> Search<'a>{
         r
     }
     fn search_field(&self,field_name:&'a str,condition:&'a Field)->RowSet{
+        let mut r:RowSet=RowSet::default();
         if let Some(field)=self.data.field(field_name){
             match condition{
                 Field::Match(v)=>{
-                    Self::search_field_match(field,v)
+                    let (ord,found_row)=field.search_cb(v);
+                    if ord==Ordering::Equal{
+                        r.insert(found_row);
+                        r.append(&mut field.triee().sames(found_row).iter().map(|&x|x).collect());
+                    }
                 }
                 ,Field::Min(min)=>{
-                    Self::search_field_min(field,min)
+                    let (_,min_found_row)=field.search_cb(min);
+                    for (_,row,_) in field.triee().iter_by_row_from(min_found_row){
+                        r.insert(row);
+                        r.append(&mut field.triee().sames(row).iter().map(|&x|x).collect());
+                    }
                 }
                 ,Field::Max(max)=>{
-                    Self::search_field_max(field,max)
+                    let (_,max_found_row)=field.search_cb(max);
+                    for (_,row,_) in field.triee().iter_by_row_to(max_found_row){
+                        r.insert(row);
+                        r.append(&mut field.triee().sames(row).iter().map(|&x|x).collect());
+                    }
                 }
                 ,Field::Range(min,max)=>{
-                    Self::search_field_range(field,min,max)
+                    let (_,min_found_row)=field.search_cb(min);
+                    let (_,max_found_row)=field.search_cb(max);
+                    for (_,row,_) in field.triee().iter_by_row_from_to(min_found_row,max_found_row){
+                        r.insert(row);
+                        r.append(&mut field.triee().sames(row).iter().map(|&x|x).collect());
+                    }
                 }
                 ,Field::Forward(cont)=>{
-                    Self::search_field_forward(field,cont)
+                    let len=cont.len();
+                    for (_,row,v) in field.triee().iter(){
+                        let data=v.value();
+                        if len<=data.len(){
+                            if let Some(str2)=field.str(row){
+                                if cont==str2{
+                                    r.insert(row);
+                                }
+                            }
+                        }
+                    }
                 }
                 ,Field::Partial(cont)=>{
-                    Self::search_field_partial(field,cont)
+                    let len=cont.len();
+                    for (_,row,v) in field.triee().iter(){
+                        let data=v.value();
+                        if len<=data.len(){
+                            if let Some(str2)=field.str(row){
+                                if str2.contains(cont){
+                                    r.insert(row);
+                                }
+                            }
+                        }
+                    }
                 }
                 ,Field::Backward(cont)=>{
-                    Self::search_field_backward(field,cont)
-                }
-            }
-        }else{
-            RowSet::default()
-        }
-    }
-    fn search_field_match(field:&FieldData,cont:&[u8])->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let (ord,found_row)=field.search_cb(cont);
-        if ord==Ordering::Equal{
-            r.insert(found_row);
-            for v in field.triee().sames(found_row){
-                r.insert(v);
-            }
-        }
-        r
-    }
-    fn search_field_min(field:&FieldData,min:&[u8])->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let (_,min_found_row)=field.search_cb(min);
-        for (_,row,_) in field.triee().iter_by_row_from(min_found_row){
-            r.insert(row);
-            for v in field.triee().sames(min_found_row){
-                r.insert(v);
-            }
-        }
-        r
-    }
-    fn search_field_max(field:&FieldData,max:&[u8])->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let (_,max_found_row)=field.search_cb(max);
-        for (_,row,_) in field.triee().iter_by_row_to(max_found_row){
-            r.insert(row);
-            for v in field.triee().sames(max_found_row){
-                r.insert(v);
-            }
-        }
-        r
-    }
-    fn search_field_range(field:&FieldData,min:&[u8],max:&[u8])->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let (_,min_found_row)=field.search_cb(min);
-        let (_,max_found_row)=field.search_cb(max);
-        for (_,row,_) in field.triee().iter_by_row_from_to(min_found_row,max_found_row){
-            r.insert(row);
-            for v in field.triee().sames(max_found_row){
-                r.insert(v);
-            }
-        }
-        r
-    }
-    fn search_field_forward(field:&FieldData,cont:&str)->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let len=cont.len();
-        for (_,row,v) in field.triee().iter(){
-            let data=v.value();
-            if len<=data.len(){
-                if let Some(str2)=field.str(row){
-                    if cont==str2{
-                        r.insert(row);
-                    }
-                }
-            }
-        }
-        r
-    }
-    fn search_field_partial(field:&FieldData,cont:&str)->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let len=cont.len();
-        for (_,row,v) in field.triee().iter(){
-            let data=v.value();
-            if len<=data.len(){
-                if let Some(str2)=field.str(row){
-                    if str2.contains(cont){
-                        r.insert(row);
-                    }
-                }
-            }
-        }
-        r
-    }
-    fn search_field_backward(field:&FieldData,cont:&str)->RowSet{
-        let mut r:RowSet=RowSet::default();
-        let len=cont.len();
-        for (_,row,v) in field.triee().iter(){
-            let data=v.value();
-            if len<=data.len(){
-                if let Some(str2)=field.str(row){
-                    if str2.ends_with(cont){
-                        r.insert(row);
+                    let len=cont.len();
+                    for (_,row,v) in field.triee().iter(){
+                        let data=v.value();
+                        if len<=data.len(){
+                            if let Some(str2)=field.str(row){
+                                if str2.ends_with(cont){
+                                    r.insert(row);
+                                }
+                            }
+                        }
                     }
                 }
             }
