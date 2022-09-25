@@ -8,18 +8,16 @@ mod serial;
 use serial::SerialNumber;
 
 mod field;
-pub use field::{
-    Field
-    ,ConditionField
-};
+pub use field::FieldData;
+pub use search::Field;
 
 mod search;
 pub use search::{
-    ConditionTerm
-    ,ConditionNumber
+    Term
+    ,Number
     ,Search
+    ,Condition
     ,Order
-    ,SearchResult
 };
 
 pub mod prelude;
@@ -38,7 +36,7 @@ pub struct Data{
     ,term_begin: IdxSized<i64>
     ,term_end: IdxSized<i64>
     ,last_updated: IdxSized<i64>
-    ,fields_cache:HashMap<String,Field>
+    ,fields_cache:HashMap<String,FieldData>
 }
 impl Data{
     pub fn new(dir:&str)-> Option<Data>{
@@ -119,11 +117,11 @@ impl Data{
             field.update(row,cont.into().as_bytes());
         }
     }
-    fn create_field(&mut self,field_name:&str)->Option<&mut Field>{
+    fn create_field(&mut self,field_name:&str)->Option<&mut FieldData>{
         let dir_name=self.data_dir.to_string()+"/fields/"+field_name+"/";
         if let Ok(_)=std::fs::create_dir_all(dir_name.to_owned()){
             if std::path::Path::new(&dir_name).exists(){
-                if let Ok(field)=field::Field::new(&dir_name){
+                if let Ok(field)=FieldData::new(&dir_name){
                     self.fields_cache.entry(String::from(field_name)).or_insert(
                         field
                     );
@@ -258,7 +256,7 @@ impl Data{
                             if let Some(str_fname)=fname.to_str(){
                                 if !self.fields_cache.contains_key(str_fname){
                                     if let Some(p)=path.to_str(){
-                                        if let Ok(field)=field::Field::new(&(p.to_string()+"/")){
+                                        if let Ok(field)=FieldData::new(&(p.to_string()+"/")){
                                             self.fields_cache.entry(String::from(str_fname)).or_insert(
                                                 field
                                             );
@@ -289,147 +287,22 @@ impl Data{
         &self.last_updated
     }
     
-    pub fn field(&self,name:&str)->Option<&Field>{
+    pub fn field(&self,name:&str)->Option<&FieldData>{
         self.fields_cache.get(name)
     }
 
     pub fn all(&self)->RowSet{
         self.serial_index().triee().iter().map(|(_,row,_)|row).collect()
     }
-    pub fn search_all(&self)->SearchResult{
-        SearchResult::new(
-            self
-            ,None
-        )
+    pub fn begin_search(&self)->Search{
+        Search::new(self)
     }
-    pub fn search(&self,condition:&Search)->SearchResult{
-        match condition{
-            Search::Activity(condition)=>{
-                self.search_activity(condition)
-            }
-            ,Search::Term(condition)=>{
-                self.search_term(condition)
-            }
-            ,Search::Field(field_name,condition)=>{
-                self.search_field(&field_name,condition)
-            }
-            ,Search::Row(condition)=>{
-                self.search_row(condition)
-            }
-            ,Search::LastUpdated(condition)=>{
-                self.search_last_updated(condition)
-            }
-            ,Search::Uuid(uuid)=>{
-                SearchResult::new(
-                    self
-                    ,Some(self.uuid.select_by_value(uuid))
-                )
-            }
-        }
+    pub fn search(&self,condition:&Condition)->Search{
+        let r=Search::new(self);
+        r.search(condition)
     }
-    pub fn search_default(&self)->SearchResult{
-        SearchResult::new(
-            self
-            ,Some(self.search_term_in(chrono::Local::now().timestamp()).intersection(
-                &self.activity.select_by_value_from_to(&1,&1)
-            ).map(|&x|x).collect())
-        )
-    }
-    fn search_activity(&self,condition:&Activity)->SearchResult{
-        let activity=*condition as u8;
-        SearchResult::new(self,Some(self.activity.select_by_value_from_to(&activity,&activity)))
-    }
-    fn search_field(&self,field_name:&str,condition:&ConditionField)->SearchResult{
-        if let Some(field)=self.field(field_name){
-            SearchResult::new(self,Some(field.search(condition)))
-        }else{
-            SearchResult::new(self,Some(RowSet::default()))
-        }
-    }
-    fn search_term_in(&self,base:i64)->RowSet{
-        let mut result=RowSet::default();
-        let tmp=self.term_begin.select_by_value_to(&base);
-        for row in tmp{
-            let end=self.term_end.value(row).unwrap_or(0);
-            if end==0 || end>base {
-                result.replace(row);
-            }
-        }
-        result
-    }
-    fn search_term(&self,condition:&ConditionTerm)->SearchResult{
-        SearchResult::new(self,Some(match condition{
-            ConditionTerm::In(base)=>{
-                self.search_term_in(*base)
-            }
-            ,ConditionTerm::Future(base)=>{
-                self.term_begin_index().select_by_value_from(&base)
-            }
-            ,ConditionTerm::Past(base)=>{
-                self.term_end_index().select_by_value_from_to(&1,&base)
-            }
-        }))
-    }
-    fn search_row(&self,condition:&ConditionNumber)->SearchResult{
-        let mut r=RowSet::default();
-        SearchResult::new(self,Some(match condition{
-            ConditionNumber::Min(row)=>{
-                for (_,i,_) in self.serial.index().triee().iter(){
-                    if i as isize>=*row{
-                        r.insert(i);
-                    }
-                }
-                r
-            }
-            ,ConditionNumber::Max(row)=>{
-                for (_,i,_) in self.serial.index().triee().iter(){
-                    if i as isize<=*row{
-                        r.insert(i);
-                    }
-                }
-                r
-            }
-            ,ConditionNumber::Range(range)=>{
-                for i in range.clone(){
-                    if let Some(_)=self.serial.index().triee().node(i as u32){
-                        r.insert(i as u32);
-                    }
-                }
-                r
-            }
-            ,ConditionNumber::In(rows)=>{
-                for i in rows{
-                    if let Some(_)=self.serial.index().triee().node(*i as u32){
-                        r.insert(*i as u32);
-                    }
-                }
-                r
-            }
-        }))
-    }
-    fn search_last_updated(&self,condition:&ConditionNumber)->SearchResult{
-        SearchResult::new(self,Some(match condition{
-            ConditionNumber::Min(v)=>{
-                self.last_updated.select_by_value_from(&(*v as i64))
-            }
-            ,ConditionNumber::Max(v)=>{
-                self.last_updated.select_by_value_to(&(*v as i64))
-            }
-            ,ConditionNumber::Range(range)=>{
-                self.last_updated.select_by_value_from_to(
-                    &(*range.start() as i64)
-                    ,&(*range.end() as i64)
-                )
-            }
-            ,ConditionNumber::In(rows)=>{
-                let mut r=RowSet::default();
-                for i in rows{
-                    for row in self.last_updated.select_by_value(&(*i as i64)){
-                        r.insert(row);
-                    }
-                }
-                r
-            }
-        }))
+    pub fn search_default(&self)->Search{
+        let r=Search::new(self);
+        r.search_default()
     }
 }

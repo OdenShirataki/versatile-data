@@ -42,31 +42,31 @@ fn test() {
         assert_eq!(sam,55.0);
 
         let r=data
-            .search(&Search::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
-            .reduce_default()   //Automatic execution of the following two lines
-            //.search(SearchCondition::Term(ConditionTerm::In(chrono::Local::now().timestamp())))
-            //.search(SearchCondition::Activity(ConditionActivity::Active))
-            .get()
+            .search(&Condition::Field("num".to_string(),Field::Range(b"3".to_vec(),b"8".to_vec())))
+            .search_default()   //Automatic execution of the following two lines
+            //.search(SearchCondition::Term(Term::In(chrono::Local::now().timestamp())))
+            //.search(SearchCondition::Activity(Activity::Active))
+            .result()
         ;
         println!("{:?}",r);
 
         let r=data
             .search_default() 
-            .get_sorted(&Order::Serial)
+            .result_with_sort(&Order::Serial)
         ;
         println!("sorted-serial:{:?}",r);
 
         let r=data
             .search_default() 
-            .get_sorted(&Order::Field("num"))   //natural order
+            .result_with_sort(&Order::Field("num"))   //natural order
         ;
         println!("sorted-num:{:?}",r);
 
         let r=data
-            .search(&Search::Field("num".to_string(),ConditionField::Range(b"3".to_vec(),b"8".to_vec())))
-            .search(&Search::Row(ConditionNumber::Range(4..=7)))
-            .reduce_default()
-            .get()
+            .search(&Condition::Field("num".to_string(),Field::Range(b"3".to_vec(),b"8".to_vec())))
+            .search(&Condition::Row(Number::Range(4..=7)))
+            .search_default()
+            .result()
         ;
         println!("{:?}",r);
         
@@ -77,39 +77,39 @@ fn test() {
         data.update_field(7,"hoge","ageee");
         data.update_field(6,"hoge","bebebe");
         let r=data
-            .search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec())))
-            .get()
+            .search(&Condition::Field("hoge".to_string(),Field::Match(b"HAHA".to_vec())))
+            .result()
         ;
         println!("match:{:?}",r);
 
         let r=data
-            .search(&Search::Field("hoge".to_string(),ConditionField::Forward("age".to_string())))
-            .get()
+            .search(&Condition::Field("hoge".to_string(),Field::Forward("age".to_string())))
+            .result()
         ;
         println!("forward:{:?}",r);
 
         let r=data
-            .search(&Search::Field("hoge".to_string(),ConditionField::Partial("eb".to_string())))
-            .get()
+            .search(&Condition::Field("hoge".to_string(),Field::Partial("eb".to_string())))
+            .result()
         ;
         println!("pattial:{:?}",r);
 
         let r=data
-            .search(&Search::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
-            .get()
+            .search(&Condition::Field("hoge".to_string(),Field::Backward("be".to_string())))
+            .result()
         ;
         println!("backward:{:?}",r);
 
         let r=data
-            .search(&Search::Field("hoge".to_string(),ConditionField::Backward("be".to_string())))
-            .union(data.search(&Search::Field("hoge".to_string(),ConditionField::Match(b"HAHA".to_vec()))))
-            .get()
+            .search(&Condition::Field("hoge".to_string(),Field::Backward("be".to_string())))
+            .union(data.search(&Condition::Field("hoge".to_string(),Field::Match(b"HAHA".to_vec()))))
+            .result()
         ;
         println!("union:{:?}",r);
 
         let r=data
-            .search_all()
-            .get()
+            .begin_search()
+            .result()
         ;
         println!("all:{:?}",r);
     }

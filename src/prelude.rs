@@ -1,10 +1,10 @@
 pub use crate::{
     Data
     ,Activity
-    ,ConditionField
-    ,ConditionTerm
-    ,ConditionNumber
+    ,Field
+    ,Term
+    ,Number
+    ,Condition
     ,Search
-    ,SearchResult
     ,Order
 };

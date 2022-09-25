@@ -1,33 +1,45 @@
+use std::cmp::Ordering;
 use std::ops::RangeInclusive;
 use idx_sized::RowSet;
 
+
+use crate::FieldData;
 use crate::{
     Data
     ,Activity
-    ,ConditionField
 };
 
 #[derive(Clone,Copy,PartialEq)]
-pub enum ConditionTerm{
+pub enum Term{
     In(i64)
     ,Past(i64)
     ,Future(i64)
 }
 
-pub enum ConditionNumber{
+pub enum Number{
     Min(isize)
     ,Max(isize)
     ,Range(RangeInclusive<isize>)
     ,In(Vec<isize>)
 }
 
-pub enum Search{
+pub enum Field{
+    Match(Vec<u8>)
+    ,Range(Vec<u8>,Vec<u8>)
+    ,Min(Vec<u8>)
+    ,Max(Vec<u8>)
+    ,Forward(String)
+    ,Partial(String)
+    ,Backward(String)
+}
+
+pub enum Condition{
     Activity(Activity)
-    ,Term(ConditionTerm)
-    ,Row(ConditionNumber)
+    ,Term(Term)
+    ,Row(Number)
     ,Uuid(u128)
-    ,LastUpdated(ConditionNumber)
-    ,Field(String,ConditionField)
+    ,LastUpdated(Number)
+    ,Field(String,Field)
 }
 
 pub enum Order<'a>{
@@ -40,55 +52,262 @@ pub enum Order<'a>{
 }
 
 #[derive(Clone)]
-pub struct SearchResult<'a>{
+pub struct Search<'a>{
     data:&'a Data
     ,result:Option<RowSet>
 }
-impl<'a> SearchResult<'a>{
-    pub fn new(data:&'a Data,result:Option<RowSet>)->SearchResult{
-        SearchResult{
+impl<'a> Search<'a>{
+    pub fn new(data:&'a Data)->Search{
+        Search{
             data
-            ,result
+            ,result:None
         }
     }
-    pub fn get(self)->RowSet{
-        if let Some(r)=self.result{
-            r
-        }else{
-            self.data.all()
-        }
-    }
-    pub fn search(mut self,condition:&Search)->Self{
-        if let Some(ref r)=self.result{
-            if r.len()>0{
-                if let Some(sr)=self.data.search(condition).result{
-                    self.reduce(sr);
-                }
-            }
-        }else{
-            self=self.data.search(condition);
-        }
+    pub fn search_default(mut self)->Self{
+        self.reduce(self.search_term(&Term::In(chrono::Local::now().timestamp())));
+        self.reduce(self.search_activity(&Activity::Active));
         self
     }
-    pub fn reduce_default(mut self)->Self{
-        if let Some(ref r)=self.result{
-            if r.len()>0{
-                if let Some(sr)=self.data.search_term(&ConditionTerm::In(chrono::Local::now().timestamp())).result{
-                    self.reduce(sr);
+    pub fn search(mut self,condition:&Condition)->Self{
+        self.reduce(match condition{
+            Condition::Activity(condition)=>{
+                self.search_activity(&condition)
+            }
+            ,Condition::Term(condition)=>{
+                self.search_term(&condition)
+            }
+            ,Condition::Field(field_name,condition)=>{
+                self.search_field(&field_name,&condition)
+            }
+            ,Condition::Row(condition)=>{
+                self.search_row(&condition)
+            }
+            ,Condition::LastUpdated(condition)=>{
+                self.search_last_updated(&condition)
+            }
+            ,Condition::Uuid(uuid)=>{
+                self.search_uuid(&uuid)
+            }
+        });
+        self
+    }
+    fn reduce(&mut self,newset:RowSet){
+        if let Some(r)=&self.result{
+            self.result=Some(newset.intersection(&r).map(|&x|x).collect());
+        }else{
+            self.result=Some(newset);
+        }
+    }
+    fn search_activity(&self,condition:&'a Activity)->RowSet{
+        let activity=*condition as u8;
+        self.data.activity.select_by_value_from_to(&activity,&activity)
+    }
+    fn search_term_in(&self,base:i64)->RowSet{
+        let mut result=RowSet::default();
+        let tmp=self.data.term_begin.select_by_value_to(&base);
+        for row in tmp{
+            let end=self.data.term_end.value(row).unwrap_or(0);
+            if end==0 || end>base {
+                result.replace(row);
+            }
+        }
+        result
+    }
+    fn search_term(&self,condition:&'a Term)->RowSet{
+        match condition{
+            Term::In(base)=>{
+                self.search_term_in(*base)
+            }
+            ,Term::Future(base)=>{
+                self.data.term_begin_index().select_by_value_from(&base)
+            }
+            ,Term::Past(base)=>{
+                self.data.term_end_index().select_by_value_from_to(&1,&base)
+            }
+        }
+    }
+    fn search_row(&self,condition:&'a Number)->RowSet{
+        let mut r=RowSet::default();
+        match condition{
+            Number::Min(row)=>{
+                for (_,i,_) in self.data.serial.index().triee().iter(){
+                    if i as isize>=*row{
+                        r.insert(i);
+                    }
                 }
-                if let Some(sr)=self.data.search_activity(&Activity::Active).result{
-                    self.reduce(sr);
+            }
+            ,Number::Max(row)=>{
+                for (_,i,_) in self.data.serial.index().triee().iter(){
+                    if i as isize<=*row{
+                        r.insert(i);
+                    }
+                }
+            }
+            ,Number::Range(range)=>{
+                for i in range.clone(){
+                    if let Some(_)=self.data.serial.index().triee().node(i as u32){
+                        r.insert(i as u32);
+                    }
+                }
+            }
+            ,Number::In(rows)=>{
+                for i in rows{
+                    if let Some(_)=self.data.serial.index().triee().node(*i as u32){
+                        r.insert(*i as u32);
+                    }
+                }
+            }
+        };
+        r
+    }
+    fn search_field(&self,field_name:&'a str,condition:&'a Field)->RowSet{
+        if let Some(field)=self.data.field(field_name){
+            match condition{
+                Field::Match(v)=>{
+                    Self::search_field_match(field,v)
+                }
+                ,Field::Min(min)=>{
+                    Self::search_field_min(field,min)
+                }
+                ,Field::Max(max)=>{
+                    Self::search_field_max(field,max)
+                }
+                ,Field::Range(min,max)=>{
+                    Self::search_field_range(field,min,max)
+                }
+                ,Field::Forward(cont)=>{
+                    Self::search_field_forward(field,cont)
+                }
+                ,Field::Partial(cont)=>{
+                    Self::search_field_partial(field,cont)
+                }
+                ,Field::Backward(cont)=>{
+                    Self::search_field_backward(field,cont)
                 }
             }
         }else{
-            self=self.data.search_term(&ConditionTerm::In(chrono::Local::now().timestamp()));
-            if let Some(sr)=self.data.search_activity(&Activity::Active).result{
-                self.reduce(sr);
+            RowSet::default()
+        }
+    }
+    fn search_field_match(field:&FieldData,cont:&[u8])->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let (ord,found_row)=field.search_cb(cont);
+        if ord==Ordering::Equal{
+            r.insert(found_row);
+            for v in field.triee().sames(found_row){
+                r.insert(v);
             }
         }
-        self
+        r
     }
-    pub fn union(mut self,from:SearchResult)->Self{
+    fn search_field_min(field:&FieldData,min:&[u8])->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let (_,min_found_row)=field.search_cb(min);
+        for (_,row,_) in field.triee().iter_by_row_from(min_found_row){
+            r.insert(row);
+            for v in field.triee().sames(min_found_row){
+                r.insert(v);
+            }
+        }
+        r
+    }
+    fn search_field_max(field:&FieldData,max:&[u8])->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let (_,max_found_row)=field.search_cb(max);
+        for (_,row,_) in field.triee().iter_by_row_to(max_found_row){
+            r.insert(row);
+            for v in field.triee().sames(max_found_row){
+                r.insert(v);
+            }
+        }
+        r
+    }
+    fn search_field_range(field:&FieldData,min:&[u8],max:&[u8])->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let (_,min_found_row)=field.search_cb(min);
+        let (_,max_found_row)=field.search_cb(max);
+        for (_,row,_) in field.triee().iter_by_row_from_to(min_found_row,max_found_row){
+            r.insert(row);
+            for v in field.triee().sames(max_found_row){
+                r.insert(v);
+            }
+        }
+        r
+    }
+    fn search_field_forward(field:&FieldData,cont:&str)->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let len=cont.len();
+        for (_,row,v) in field.triee().iter(){
+            let data=v.value();
+            if len<=data.len(){
+                if let Some(str2)=field.str(row){
+                    if cont==str2{
+                        r.insert(row);
+                    }
+                }
+            }
+        }
+        r
+    }
+    fn search_field_partial(field:&FieldData,cont:&str)->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let len=cont.len();
+        for (_,row,v) in field.triee().iter(){
+            let data=v.value();
+            if len<=data.len(){
+                if let Some(str2)=field.str(row){
+                    if str2.contains(cont){
+                        r.insert(row);
+                    }
+                }
+            }
+        }
+        r
+    }
+    fn search_field_backward(field:&FieldData,cont:&str)->RowSet{
+        let mut r:RowSet=RowSet::default();
+        let len=cont.len();
+        for (_,row,v) in field.triee().iter(){
+            let data=v.value();
+            if len<=data.len(){
+                if let Some(str2)=field.str(row){
+                    if str2.ends_with(cont){
+                        r.insert(row);
+                    }
+                }
+            }
+        }
+        r
+    }
+    fn search_last_updated(&self,condition:&'a Number)->RowSet{
+        match condition{
+            Number::Min(v)=>{
+                self.data.last_updated.select_by_value_from(&(*v as i64))
+            }
+            ,Number::Max(v)=>{
+                self.data.last_updated.select_by_value_to(&(*v as i64))
+            }
+            ,Number::Range(range)=>{
+                self.data.last_updated.select_by_value_from_to(
+                    &(*range.start() as i64)
+                    ,&(*range.end() as i64)
+                )
+            }
+            ,Number::In(rows)=>{
+                let mut r=RowSet::default();
+                for i in rows{
+                    for row in self.data.last_updated.select_by_value(&(*i as i64)){
+                        r.insert(row);
+                    }
+                }
+                r
+            }
+        }
+    }
+    pub fn search_uuid(&self,uuid:&'a u128)->RowSet{
+        self.data.uuid.select_by_value(uuid)
+    }
+    pub fn union(mut self,from:Search)->Self{
         if let Some(ref r)=self.result{
             if let Some(fr)=from.result{
                 self.result=Some(r.union(&fr).map(|&x|x).collect());
@@ -100,7 +319,14 @@ impl<'a> SearchResult<'a>{
         }
         self
     }
-    pub fn get_sorted(&self,o:&Order)->Vec<u32>{
+    pub fn result(self)->RowSet{
+        if let Some(r)=self.result{
+            r
+        }else{
+            self.data.all()
+        }
+    }
+    pub fn result_with_sort(&self,o:&Order)->Vec<u32>{
         let mut ret=Vec::new();
         if let Some(r)=&self.result{
             match o{
@@ -147,12 +373,5 @@ impl<'a> SearchResult<'a>{
             }
         }
         ret
-    }
-    fn reduce(&mut self,newset:RowSet){
-        if let Some(r)=&self.result{
-            self.result=Some(newset.intersection(&r).map(|&x|x).collect());
-        }else{
-            self.result=Some(newset);
-        }
     }
 }
