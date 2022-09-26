@@ -40,6 +40,9 @@ pub struct Data{
 }
 impl Data{
     pub fn new(dir:&str)-> Option<Data>{
+        if !std::path::Path::new(dir).exists(){
+            std::fs::create_dir_all(dir).unwrap();
+        }
         if let (
             Ok(serial)
             ,Ok(uuid)

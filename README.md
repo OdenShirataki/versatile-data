@@ -24,9 +24,6 @@ let dir="D:/vd-test/";
 
 if std::path::Path::new(dir).exists(){
     std::fs::remove_dir_all(dir).unwrap();
-    std::fs::create_dir_all(dir).unwrap();
-}else{
-    std::fs::create_dir_all(dir).unwrap();
 }
 if let Some(mut data)=Data::new(dir){
     let range=1..=10;
