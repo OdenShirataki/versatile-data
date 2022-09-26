@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use idx_sized::IdxSized;
-use idx_sized::RowSet;
+pub use idx_sized::{
+    IdxSized
+    ,RowSet
+};
 
 mod serial;
 use serial::SerialNumber;
