@@ -9,10 +9,10 @@ fn test() {
     if let Some(mut data)=Data::new(dir){
         let range=1..=10;
         for i in range.clone(){
-            if let Some(row)=data.insert(Activity::Active,0,0){
-                data.update_field(row,"num",i.to_string());
-                data.update_field(row,"num_by3",(i*3).to_string());
-            }
+            data.insert(Activity::Active,0,0,&vec![
+                ("num".to_string(),i.to_string())
+                ,("num_by3".to_string(),(i*3).to_string())
+            ]);
         }
         data.update(3,Activity::Inactive,0,0);
         data.load_fields();

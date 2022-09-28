@@ -79,8 +79,15 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
+        ,fields:&Vec<(String,String)>
     )->Option<u32>{
-        self.update(0,activity,term_begin,term_end)
+        let u=self.update(0,activity,term_begin,term_end);
+        if let Some(row)=u{
+            for (fk,fv) in fields.iter(){
+                self.update_field(row,fk,fv);
+            }
+        }
+        u
     }
     pub fn update(
         &mut self
