@@ -10,12 +10,11 @@ fn test() {
         let range=1..=10;
         for i in range.clone(){
             data.insert(Activity::Active,0,0,&vec![
-                ("num".to_string(),i.to_string())
-                ,("num_by3".to_string(),(i*3).to_string())
+                ("num",i.to_string())
+                ,("num_by3",(i*3).to_string())
             ]);
         }
-        data.update(3,Activity::Inactive,0,0);
-        data.load_fields();
+        data.update_activity(3,Activity::Inactive);
         let mut sam=0.0;
         for i in range.clone(){
             sam+=data.field_num(i,"num");

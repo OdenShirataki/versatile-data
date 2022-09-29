@@ -30,6 +30,8 @@ pub enum Activity{
     ,Active=1
 }
 
+type KeyValu<'a>=(&'a str,String);
+
 pub struct Data{
     data_dir:String
     ,serial: SerialNumber
@@ -79,15 +81,9 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
-        ,fields:&Vec<(String,String)>
+        ,fields:&Vec<KeyValu>
     )->Option<u32>{
-        let u=self.update(0,activity,term_begin,term_end);
-        if let Some(row)=u{
-            for (fk,fv) in fields.iter(){
-                self.update_field(row,fk,fv);
-            }
-        }
-        u
+        self.update(0,activity,term_begin,term_end,fields)
     }
     pub fn update(
         &mut self
@@ -95,6 +91,7 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
+        ,fields:&Vec<KeyValu>
     )->Option<u32>{
         let term_begin=if term_begin==0{
             chrono::Local::now().timestamp()
@@ -102,7 +99,7 @@ impl Data{
             term_begin
         };
         if !self.serial.exists_blank()&&row==0{   //0 is new 
-            self.update_new(activity,term_begin,term_end)
+            self.update_new(activity,term_begin,term_end,fields)
         }else{
             if let Some(row)=self.serial.pop_blank(){
                 self.uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
@@ -110,14 +107,33 @@ impl Data{
                 self.term_begin.update(row,term_begin);
                 self.term_end.update(row,term_end);
                 self.last_updated.update(row,chrono::Local::now().timestamp());
+                self.update_fields(row,fields);
                 Some(row)
             }else{
                 self.activity.update(row,activity as u8);
                 self.term_begin.update(row,term_begin);
                 self.term_end.update(row,term_end);
                 self.last_updated.update(row,chrono::Local::now().timestamp());
+                self.update_fields(row,fields);
                 Some(row)
             }
+        }
+    }
+    pub fn update_activity(&mut self,row:u32,activity: Activity){
+        self.activity.update(row,activity as u8);
+        self.last_updated.update(row,chrono::Local::now().timestamp());
+    }
+    pub fn update_term_begin(&mut self,row:u32,from: i64){
+        self.term_begin.update(row,from);
+        self.last_updated.update(row,chrono::Local::now().timestamp());
+    }
+    pub fn update_term_end(&mut self,row:u32,to: i64){
+        self.term_end.update(row,to);
+        self.last_updated.update(row,chrono::Local::now().timestamp());
+    }
+    pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValu>){
+        for (fk,fv) in fields.iter(){
+            self.update_field(row,fk,fv);
         }
     }
     pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
@@ -160,6 +176,7 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
+        ,fields:&Vec<KeyValu>
     )->Option<u32>{
         let row=self.serial.add()?;
         if let(
@@ -176,6 +193,7 @@ impl Data{
             self.term_begin.triee_mut().update(row,term_begin);
             self.term_end.triee_mut().update(row,term_end);
             self.last_updated.triee_mut().update(row,chrono::Local::now().timestamp());
+            self.update_fields(row,fields);
             Some(row)
         }else{
             None
