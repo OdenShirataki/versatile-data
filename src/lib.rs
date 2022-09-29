@@ -30,7 +30,7 @@ pub enum Activity{
     ,Active=1
 }
 
-type KeyValu<'a>=(&'a str,String);
+pub type KeyValue<'a>=(&'a str,String);
 
 pub struct Data{
     data_dir:String
@@ -81,7 +81,7 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
-        ,fields:&Vec<KeyValu>
+        ,fields:&Vec<KeyValue>
     )->Option<u32>{
         self.update(0,activity,term_begin,term_end,fields)
     }
@@ -91,7 +91,7 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
-        ,fields:&Vec<KeyValu>
+        ,fields:&Vec<KeyValue>
     )->Option<u32>{
         let term_begin=if term_begin==0{
             chrono::Local::now().timestamp()
@@ -131,7 +131,7 @@ impl Data{
         self.term_end.update(row,to);
         self.last_updated.update(row,chrono::Local::now().timestamp());
     }
-    pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValu>){
+    pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>){
         for (fk,fv) in fields.iter(){
             self.update_field(row,fk,fv);
         }
@@ -176,7 +176,7 @@ impl Data{
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
-        ,fields:&Vec<KeyValu>
+        ,fields:&Vec<KeyValue>
     )->Option<u32>{
         let row=self.serial.add()?;
         if let(

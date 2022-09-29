@@ -7,4 +7,5 @@ pub use crate::{
     ,Condition
     ,Search
     ,Order
+    ,KeyValue
 };
