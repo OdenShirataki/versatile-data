@@ -9,7 +9,7 @@ fn test() {
     if let Some(mut data)=Data::new(dir){
         let range=1..=10;
         for i in range.clone(){
-            data.insert(Activity::Active,0,0,&vec![
+            data.update(Update::New,Activity::Active,0,0,&vec![
                 ("num",i.to_string())
                 ,("num_by3",(i*3).to_string())
             ]);

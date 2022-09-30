@@ -8,4 +8,5 @@ pub use crate::{
     ,Search
     ,Order
     ,KeyValue
+    ,Update
 };

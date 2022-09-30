@@ -30,6 +30,12 @@ pub enum Activity{
     ,Active=1
 }
 
+#[derive(Clone,Copy)]
+pub enum Update{
+    New
+    ,Row(u32)
+}
+
 pub type KeyValue<'a>=(&'a str,String);
 
 pub struct Data{
@@ -76,18 +82,9 @@ impl Data{
             None
         }
     }
-    pub fn insert(
-        &mut self
-        ,activity: Activity
-        ,term_begin: i64
-        ,term_end: i64
-        ,fields:&Vec<KeyValue>
-    )->Option<u32>{
-        self.update(0,activity,term_begin,term_end,fields)
-    }
     pub fn update(
         &mut self
-        ,row:u32
+        ,update:Update
         ,activity: Activity
         ,term_begin: i64
         ,term_end: i64
@@ -98,18 +95,25 @@ impl Data{
         }else{
             term_begin
         };
-        if !self.serial.exists_blank()&&row==0{   //0 is new 
-            self.update_new(activity,term_begin,term_end,fields)
-        }else{
-            if let Some(row)=self.serial.pop_blank(){
-                self.uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
-                self.activity.update(row,activity as u8);
-                self.term_begin.update(row,term_begin);
-                self.term_end.update(row,term_end);
-                self.last_updated.update(row,chrono::Local::now().timestamp());
-                self.update_fields(row,fields);
-                Some(row)
-            }else{
+        match update{
+            Update::New=>{
+                if self.serial.exists_blank(){
+                    if let Some(row)=self.serial.pop_blank(){
+                        self.uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+                        self.activity.update(row,activity as u8);
+                        self.term_begin.update(row,term_begin);
+                        self.term_end.update(row,term_end);
+                        self.last_updated.update(row,chrono::Local::now().timestamp());
+                        self.update_fields(row,fields);
+                        Some(row)
+                    }else{
+                        None
+                    }
+                }else{
+                    self.update_new(activity,term_begin,term_end,fields)
+                }
+            }
+            ,Update::Row(row)=>{
                 self.activity.update(row,activity as u8);
                 self.term_begin.update(row,term_begin);
                 self.term_end.update(row,term_end);
