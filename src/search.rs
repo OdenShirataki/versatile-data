@@ -21,23 +21,23 @@ pub enum Number{
     ,In(Vec<isize>)
 }
 
-pub enum Field{
+pub enum Field<'a>{
     Match(Vec<u8>)
     ,Range(Vec<u8>,Vec<u8>)
     ,Min(Vec<u8>)
     ,Max(Vec<u8>)
-    ,Forward(String)
-    ,Partial(String)
-    ,Backward(String)
+    ,Forward(&'a str)
+    ,Partial(&'a str)
+    ,Backward(&'a str)
 }
 
-pub enum Condition{
+pub enum Condition<'a>{
     Activity(Activity)
     ,Term(Term)
     ,Row(Number)
     ,Uuid(u128)
     ,LastUpdated(Number)
-    ,Field(String,Field)
+    ,Field(&'a str,Field<'a>)
 }
 
 pub enum Order<'a>{
