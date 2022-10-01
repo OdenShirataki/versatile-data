@@ -1,3 +1,8 @@
+use std::sync::{
+    Arc,
+    RwLock
+};
+use std::thread;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -41,7 +46,7 @@ pub type KeyValue<'a>=(&'a str,String);
 pub struct Data{
     data_dir:String
     ,serial: SerialNumber
-    ,uuid: IdxSized<u128>
+    ,uuid: Arc<RwLock<IdxSized<u128>>>
     ,activity: IdxSized<u8>
     ,term_begin: IdxSized<i64>
     ,term_end: IdxSized<i64>
@@ -71,7 +76,7 @@ impl Data{
             Some(Data{
                 data_dir:dir.to_string()
                 ,serial
-                ,uuid
+                ,uuid:Arc::new(RwLock::new(uuid))
                 ,activity
                 ,term_begin
                 ,term_end
@@ -99,7 +104,9 @@ impl Data{
             Update::New=>{
                 if self.serial.exists_blank(){
                     if let Some(row)=self.serial.pop_blank(){
-                        self.uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+                        if let Ok(mut uuid)=self.uuid.write(){
+                            uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+                        }
                         self.activity.update(row,activity as u8);
                         self.term_begin.update(row,term_begin);
                         self.term_end.update(row,term_end);
@@ -164,7 +171,9 @@ impl Data{
     }
     pub fn delete(&mut self,row:u32){
         self.serial.delete(row);
-        self.uuid.delete(row);
+        if let Ok(mut uuid)=self.uuid.write(){
+            uuid.delete(row);
+        }
         self.activity.delete(row);
         self.term_begin.delete(row);
         self.term_end.delete(row);
@@ -182,23 +191,30 @@ impl Data{
         ,term_end: i64
         ,fields:&Vec<KeyValue>
     )->Option<u32>{
-        let row=self.serial.add()?;
-        if let(
-            Ok(_),Ok(_),Ok(_),Ok(_),Ok(_)
-        )=(
-            self.uuid.resize_to(row)
-            ,self.activity.resize_to(row)
-            ,self.term_begin.resize_to(row)
-            ,self.term_end.resize_to(row)
-            ,self.last_updated.resize_to(row)
-        ){
-            self.uuid.triee_mut().update(row,Uuid::new_v4().as_u128());
-            self.activity.triee_mut().update(row,activity as u8);
-            self.term_begin.triee_mut().update(row,term_begin);
-            self.term_end.triee_mut().update(row,term_end);
-            self.last_updated.triee_mut().update(row,chrono::Local::now().timestamp());
-            self.update_fields(row,fields);
-            Some(row)
+        if let Some(row)=self.serial.add(){
+            if let Ok(mut uuid_mut)=self.uuid.write(){
+                if let Ok(_)=uuid_mut.resize_to(row){
+                    uuid_mut.triee_mut().update(row,Uuid::new_v4().as_u128());
+                }
+            };
+        
+            if let(
+                Ok(_),Ok(_),Ok(_),Ok(_)
+            )=(
+                self.activity.resize_to(row)
+                ,self.term_begin.resize_to(row)
+                ,self.term_end.resize_to(row)
+                ,self.last_updated.resize_to(row)
+            ){
+                self.activity.triee_mut().update(row,activity as u8);
+                self.term_begin.triee_mut().update(row,term_begin);
+                self.term_end.triee_mut().update(row,term_end);
+                self.last_updated.triee_mut().update(row,chrono::Local::now().timestamp());
+                self.update_fields(row,fields);
+                Some(row)
+            }else{
+                None
+            }
         }else{
             None
         }
@@ -212,15 +228,24 @@ impl Data{
         }
     }
     pub fn uuid(&self,row:u32)->u128{
-        if let Some(v)=self.uuid.value(row){
-            v
+        if let Ok(uuid)=self.uuid.read(){
+            if let Some(v)=uuid.value(row){
+                v
+            }else{
+                0
+            }
         }else{
             0
         }
+        
     }
     pub fn uuid_str(&self,row:u32)->String{
-        if let Some(v)=self.uuid.value(row){
-            uuid::Uuid::from_u128(v).to_string()
+        if let Ok(uuid)=self.uuid.read(){
+            if let Some(v)=uuid.value(row){
+                uuid::Uuid::from_u128(v).to_string()
+            }else{
+                "".to_string()
+            }
         }else{
             "".to_string()
         }

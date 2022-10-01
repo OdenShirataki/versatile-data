@@ -79,8 +79,7 @@ impl SerialNumber{
     }
     pub fn add(&mut self)->Option<u32>{ //追加されたrowを返す
         let serial_number=self.fragment.increment();
-        let row=self.index.insert(serial_number)?;
-        Some(row)
+        self.index.insert(serial_number)
     }
     pub fn pop_blank(&mut self)->Option<u32>{
         if let Some(exists_row)=self.fragment.pop(){

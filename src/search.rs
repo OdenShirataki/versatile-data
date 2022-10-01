@@ -133,6 +133,7 @@ impl<'a> Search<'a>{
                         r.insert(i);
                     }
                 }
+                
             }
             ,Number::Max(row)=>{
                 for (_,i,_) in self.data.serial.index().triee().iter(){
@@ -197,7 +198,7 @@ impl<'a> Search<'a>{
                         let data=v.value();
                         if len<=data.len(){
                             if let Some(str2)=field.str(row){
-                                if cont==str2{
+                                if str2.starts_with(cont){
                                     r.insert(row);
                                 }
                             }
@@ -260,7 +261,11 @@ impl<'a> Search<'a>{
         }
     }
     pub fn search_uuid(&self,uuid:&'a u128)->RowSet{
-        self.data.uuid.select_by_value(uuid)
+        if let Ok(index)=self.data.uuid.read(){
+            index.select_by_value(uuid)
+        }else{
+            RowSet::default()
+        }
     }
     pub fn union(mut self,from:Search)->Self{
         if let Some(ref r)=self.result{
@@ -291,6 +296,7 @@ impl<'a> Search<'a>{
                             ret.push(row);
                         }
                     }
+                    
                 }
                 ,Order::Row=>{
                     ret=r.iter().map(|&x|x).collect::<Vec<u32>>();

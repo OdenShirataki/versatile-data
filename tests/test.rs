@@ -87,7 +87,7 @@ fn test() {
             .search(&Condition::Field("hoge".to_string(),Field::Partial("eb".to_string())))
             .result()
         ;
-        println!("pattial:{:?}",r);
+        println!("partial:{:?}",r);
 
         let r=data
             .search(&Condition::Field("hoge".to_string(),Field::Backward("be".to_string())))
