@@ -47,10 +47,10 @@ pub struct Data{
     data_dir:String
     ,serial: SerialNumber
     ,uuid: Arc<RwLock<IdxSized<u128>>>
-    ,activity: IdxSized<u8>
-    ,term_begin: IdxSized<i64>
-    ,term_end: IdxSized<i64>
-    ,last_updated: IdxSized<i64>
+    ,activity: Arc<RwLock<IdxSized<u8>>>
+    ,term_begin: Arc<RwLock<IdxSized<i64>>>
+    ,term_end: Arc<RwLock<IdxSized<i64>>>
+    ,last_updated: Arc<RwLock<IdxSized<i64>>>
     ,fields_cache:HashMap<String,FieldData>
 }
 impl Data{
@@ -77,10 +77,10 @@ impl Data{
                 data_dir:dir.to_string()
                 ,serial
                 ,uuid:Arc::new(RwLock::new(uuid))
-                ,activity
-                ,term_begin
-                ,term_end
-                ,last_updated
+                ,activity:Arc::new(RwLock::new(activity))
+                ,term_begin:Arc::new(RwLock::new(term_begin))
+                ,term_end:Arc::new(RwLock::new(term_end))
+                ,last_updated:Arc::new(RwLock::new(last_updated))
                 ,fields_cache:HashMap::new()
             })
         }else{
@@ -104,13 +104,17 @@ impl Data{
             Update::New=>{
                 if self.serial.exists_blank(){
                     if let Some(row)=self.serial.pop_blank(){
-                        if let Ok(mut uuid)=self.uuid.write(){
-                            uuid.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
-                        }
-                        self.activity.update(row,activity as u8);
-                        self.term_begin.update(row,term_begin);
-                        self.term_end.update(row,term_end);
-                        self.last_updated.update(row,chrono::Local::now().timestamp());
+                        let index=self.uuid.clone();
+                        thread::spawn(move||{
+                            if let Ok(mut index)=index.write(){
+                                index.update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+                            }
+                        });
+                        
+                        self.update_activity_async(row,activity);
+                        self.update_term_begin_async(row,term_begin);
+                        self.update_term_endasync(row,term_end);
+
                         self.update_fields(row,fields);
                         Some(row)
                     }else{
@@ -121,31 +125,61 @@ impl Data{
                 }
             }
             ,Update::Row(row)=>{
-                self.activity.update(row,activity as u8);
-                self.term_begin.update(row,term_begin);
-                self.term_end.update(row,term_end);
-                self.last_updated.update(row,chrono::Local::now().timestamp());
+                self.update_activity_async(row,activity);
+                self.update_term_begin_async(row,term_begin);
+                self.update_term_endasync(row,term_end);
+
                 self.update_fields(row,fields);
                 Some(row)
             }
         }
     }
+    fn last_update_now(&mut self,row:u32){
+        if let Ok(mut index)=self.last_updated.write(){
+            index.update(row,chrono::Local::now().timestamp());
+        }
+    } 
+    fn update_activity_async(&mut self,row:u32,activity:Activity){
+        let index=self.activity.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.update(row,activity as u8);
+            }
+        });
+    }
     pub fn update_activity(&mut self,row:u32,activity: Activity){
-        self.activity.update(row,activity as u8);
-        self.last_updated.update(row,chrono::Local::now().timestamp());
+        self.update_activity_async(row,activity);
+        self.last_update_now(row);
+    }
+    fn update_term_begin_async(&mut self,row:u32,from:i64){
+        let index=self.term_begin.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.update(row,from);
+            }
+        });
     }
     pub fn update_term_begin(&mut self,row:u32,from: i64){
-        self.term_begin.update(row,from);
-        self.last_updated.update(row,chrono::Local::now().timestamp());
+        self.update_term_begin_async(row,from);
+        self.last_update_now(row);
+    }
+    fn update_term_endasync(&mut self,row:u32,to:i64){
+        let index=self.term_end.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.update(row,to);
+            }
+        });
     }
     pub fn update_term_end(&mut self,row:u32,to: i64){
-        self.term_end.update(row,to);
-        self.last_updated.update(row,chrono::Local::now().timestamp());
+        self.update_term_endasync(row,to);
+        self.last_update_now(row);
     }
     pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>){
         for (fk,fv) in fields.iter(){
             self.update_field(row,fk,fv);
         }
+        self.last_update_now(row);
     }
     pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
         if let Some(field)=if self.fields_cache.contains_key(field_name){
@@ -171,13 +205,42 @@ impl Data{
     }
     pub fn delete(&mut self,row:u32){
         self.serial.delete(row);
-        if let Ok(mut uuid)=self.uuid.write(){
-            uuid.delete(row);
-        }
-        self.activity.delete(row);
-        self.term_begin.delete(row);
-        self.term_end.delete(row);
-        self.last_updated.delete(row);
+
+        let index=self.uuid.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.delete(row);
+            }
+        });
+
+        let index=self.activity.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.delete(row);
+            }
+        });
+
+        let index=self.term_begin.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.delete(row);
+            }
+        });
+
+        let index=self.term_end.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.delete(row);
+            }
+        });
+
+        let index=self.last_updated.clone();
+        thread::spawn(move||{
+            if let Ok(mut index)=index.write(){
+                index.delete(row);
+            }
+        });
+
         self.load_fields();
         for (_,v) in &mut self.fields_cache{
             v.delete(row);
@@ -192,29 +255,45 @@ impl Data{
         ,fields:&Vec<KeyValue>
     )->Option<u32>{
         if let Some(row)=self.serial.add(){
-            if let Ok(mut uuid_mut)=self.uuid.write(){
-                if let Ok(_)=uuid_mut.resize_to(row){
-                    uuid_mut.triee_mut().update(row,Uuid::new_v4().as_u128());
-                }
-            };
-        
-            if let(
-                Ok(_),Ok(_),Ok(_),Ok(_)
-            )=(
-                self.activity.resize_to(row)
-                ,self.term_begin.resize_to(row)
-                ,self.term_end.resize_to(row)
-                ,self.last_updated.resize_to(row)
-            ){
-                self.activity.triee_mut().update(row,activity as u8);
-                self.term_begin.triee_mut().update(row,term_begin);
-                self.term_end.triee_mut().update(row,term_end);
-                self.last_updated.triee_mut().update(row,chrono::Local::now().timestamp());
-                self.update_fields(row,fields);
-                Some(row)
-            }else{
-                None
-            }
+            let index=self.uuid.clone();
+            thread::spawn(move||{
+                if let Ok(mut index)=index.write(){
+                    if let Ok(_)=index.resize_to(row){
+                        index.triee_mut().update(row,Uuid::new_v4().as_u128());
+                    }
+                };
+            });
+
+            let index=self.activity.clone();
+            thread::spawn(move||{
+                if let Ok(mut index)=index.write(){
+                    if let Ok(_)=index.resize_to(row){
+                        index.triee_mut().update(row,activity as u8);
+                    }
+                };
+            });
+
+            let index=self.term_begin.clone();
+            thread::spawn(move||{
+                if let Ok(mut index)=index.write(){
+                    if let Ok(_)=index.resize_to(row){
+                        index.triee_mut().update(row,term_begin);
+                    }
+                };
+            });
+
+            let index=self.term_end.clone();
+            thread::spawn(move||{
+                if let Ok(mut index)=index.write(){
+                    if let Ok(_)=index.resize_to(row){
+                        index.triee_mut().update(row,term_end);
+                    }
+                };
+            });
+
+            self.update_fields(row,fields);
+
+            Some(row)
         }else{
             None
         }
@@ -251,9 +330,13 @@ impl Data{
         }
     }
     pub fn activity(&self,row:u32)->Activity{
-        if let Some(v)=self.activity.value(row){
-            if v!=0{
-                Activity::Active
+        if let Ok(index)=self.activity.read(){
+            if let Some(v)=index.value(row){
+                if v!=0{
+                    Activity::Active
+                }else{
+                    Activity::Inactive
+                }
             }else{
                 Activity::Inactive
             }
@@ -262,22 +345,34 @@ impl Data{
         }
     }
     pub fn term_begin(&self,row:u32)->i64{
-        if let Some(v)=self.term_begin.value(row){
-            v
+        if let Ok(index)=self.term_begin.read(){
+            if let Some(v)=index.value(row){
+                v
+            }else{
+                0
+            }
         }else{
             0
         }
     }
     pub fn term_end(&self,row:u32)->i64{
-        if let Some(v)=self.term_end.value(row){
-            v
+        if let Ok(index)=self.term_end.read(){
+            if let Some(v)=index.value(row){
+                v
+            }else{
+                0
+            }
         }else{
             0
         }
     }
     pub fn last_updated(&self,row:u32)->i64{
-        if let Some(v)=self.last_updated.value(row){
-            v
+        if let Ok(index)=self.last_updated.read(){
+            if let Some(v)=index.value(row){
+                v
+            }else{
+                0
+            }
         }else{
             0
         }
@@ -333,16 +428,16 @@ impl Data{
     pub fn serial_index(&self)->&IdxSized<u32>{
         &self.serial.index()
     }
-    pub fn activity_index(&self)->&IdxSized<u8>{
+    pub fn activity_index(&self)->&Arc<RwLock<IdxSized<u8>>>{
         &self.activity
     }
-    pub fn term_begin_index(&self)->&IdxSized<i64>{
+    pub fn term_begin_index(&self)->&Arc<RwLock<IdxSized<i64>>>{
         &self.term_begin
     }
-    pub fn term_end_index(&self)->&IdxSized<i64>{
+    pub fn term_end_index(&self)->&Arc<RwLock<IdxSized<i64>>>{
         &self.term_end
     }
-    pub fn last_updated_index(&self)->&IdxSized<i64>{
+    pub fn last_updated_index(&self)->&Arc<RwLock<IdxSized<i64>>>{
         &self.last_updated
     }
     

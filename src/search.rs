@@ -98,15 +98,23 @@ impl<'a> Search<'a>{
     }
     fn search_activity(&self,condition:&'a Activity)->RowSet{
         let activity=*condition as u8;
-        self.data.activity.select_by_value_from_to(&activity,&activity)
+        if let Ok(index)=self.data.activity.read(){
+            index.select_by_value_from_to(&activity,&activity)
+        }else{
+            RowSet::default()
+        }
     }
     fn search_term_in(&self,base:i64)->RowSet{
         let mut result=RowSet::default();
-        let tmp=self.data.term_begin.select_by_value_to(&base);
-        for row in tmp{
-            let end=self.data.term_end.value(row).unwrap_or(0);
-            if end==0 || end>base {
-                result.replace(row);
+        if let Ok(index)=self.data.term_begin.read(){
+            let tmp=index.select_by_value_to(&base);
+            for row in tmp{
+                if let Ok(index)=self.data.term_end.read(){
+                    let end=index.value(row).unwrap_or(0);
+                    if end==0 || end>base {
+                        result.replace(row);
+                    }
+                }
             }
         }
         result
@@ -117,10 +125,18 @@ impl<'a> Search<'a>{
                 self.search_term_in(*base)
             }
             ,Term::Future(base)=>{
-                self.data.term_begin_index().select_by_value_from(&base)
+                if let Ok(index)=self.data.term_begin.read(){
+                    index.select_by_value_from(&base)
+                }else{
+                    RowSet::default()
+                }
             }
             ,Term::Past(base)=>{
-                self.data.term_end_index().select_by_value_from_to(&1,&base)
+                if let Ok(index)=self.data.term_end.read(){
+                    index.select_by_value_from_to(&1,&base)
+                }else{
+                    RowSet::default()
+                }
             }
         }
     }
@@ -238,22 +254,36 @@ impl<'a> Search<'a>{
     fn search_last_updated(&self,condition:&'a Number)->RowSet{
         match condition{
             Number::Min(v)=>{
-                self.data.last_updated.select_by_value_from(&(*v as i64))
+                if let Ok(index)=self.data.last_updated.read(){
+                    index.select_by_value_from(&(*v as i64))
+                }else{
+                    RowSet::default()
+                }
             }
             ,Number::Max(v)=>{
-                self.data.last_updated.select_by_value_to(&(*v as i64))
+                if let Ok(index)=self.data.last_updated.read(){
+                    index.select_by_value_to(&(*v as i64))
+                }else{
+                    RowSet::default()
+                }
             }
             ,Number::Range(range)=>{
-                self.data.last_updated.select_by_value_from_to(
-                    &(*range.start() as i64)
-                    ,&(*range.end() as i64)
-                )
+                if let Ok(index)=self.data.last_updated.read(){
+                    index.select_by_value_from_to(
+                        &(*range.start() as i64)
+                        ,&(*range.end() as i64)
+                    )
+                }else{
+                    RowSet::default()
+                }
             }
             ,Number::In(rows)=>{
                 let mut r=RowSet::default();
                 for i in rows{
-                    for row in self.data.last_updated.select_by_value(&(*i as i64)){
-                        r.insert(row);
+                    if let Ok(index)=self.data.last_updated.read(){
+                        for row in index.select_by_value(&(*i as i64)){
+                            r.insert(row);
+                        }
                     }
                 }
                 r
@@ -302,23 +332,29 @@ impl<'a> Search<'a>{
                     ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
                 }
                 ,Order::TermBegin=>{
-                    for (_,row,_) in self.data.term_begin.triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
+                    if let Ok(index)=self.data.term_begin.read(){
+                        for (_,row,_) in index.triee().iter(){
+                            if r.contains(&row){
+                                ret.push(row);
+                            }
                         }
                     }
                 }
                 ,Order::TermEnd=>{
-                    for (_,row,_) in self.data.term_end.triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
+                    if let Ok(index)=self.data.term_end.read(){
+                        for (_,row,_) in index.triee().iter(){
+                            if r.contains(&row){
+                                ret.push(row);
+                            }
                         }
                     }
                 }
                 ,Order::LastUpdated=>{
-                    for (_,row,_) in self.data.last_updated.triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
+                    if let Ok(index)=self.data.last_updated.read(){
+                        for (_,row,_) in index.triee().iter(){
+                            if r.contains(&row){
+                                ret.push(row);
+                            }
                         }
                     }
                 }
