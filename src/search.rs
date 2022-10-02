@@ -7,7 +7,6 @@ use crate::{
     ,Activity
 };
 
-#[derive(Clone,Copy,PartialEq)]
 pub enum Term{
     In(i64)
     ,Past(i64)
@@ -21,23 +20,23 @@ pub enum Number{
     ,In(Vec<isize>)
 }
 
-pub enum Field<'a>{
+pub enum Field{
     Match(Vec<u8>)
     ,Range(Vec<u8>,Vec<u8>)
     ,Min(Vec<u8>)
     ,Max(Vec<u8>)
-    ,Forward(&'a str)
-    ,Partial(&'a str)
-    ,Backward(&'a str)
+    ,Forward(String)
+    ,Partial(String)
+    ,Backward(String)
 }
 
-pub enum Condition<'a>{
+pub enum Condition{
     Activity(Activity)
     ,Term(Term)
     ,Row(Number)
     ,Uuid(u128)
     ,LastUpdated(Number)
-    ,Field(&'a str,Field<'a>)
+    ,Field(String,Field)
 }
 
 pub enum Order<'a>{
@@ -49,45 +48,113 @@ pub enum Order<'a>{
     ,Field(&'a str)
 }
 
-#[derive(Clone)]
 pub struct Search<'a>{
     data:&'a Data
+    ,conditions:Vec<Condition>
     ,result:Option<RowSet>
 }
 impl<'a> Search<'a>{
     pub fn new(data:&'a Data)->Search{
         Search{
             data
+            ,conditions:Vec::new()
             ,result:None
         }
     }
     pub fn search_default(mut self)->Self{
-        self.reduce(self.search_term(&Term::In(chrono::Local::now().timestamp())));
-        self.reduce(self.search_activity(&Activity::Active));
+        self.conditions.push(Condition::Term(Term::In(chrono::Local::now().timestamp())));
+        self.conditions.push(Condition::Activity(Activity::Active));
         self
     }
-    pub fn search(mut self,condition:&Condition)->Self{
-        self.reduce(match condition{
-            Condition::Activity(condition)=>{
-                self.search_activity(&condition)
-            }
-            ,Condition::Term(condition)=>{
-                self.search_term(&condition)
-            }
-            ,Condition::Field(field_name,condition)=>{
-                self.search_field(&field_name,&condition)
-            }
-            ,Condition::Row(condition)=>{
-                self.search_row(&condition)
-            }
-            ,Condition::LastUpdated(condition)=>{
-                self.search_last_updated(&condition)
-            }
-            ,Condition::Uuid(uuid)=>{
-                self.search_uuid(&uuid)
-            }
-        });
+    pub fn search(mut self,condition:Condition)->Self{
+        self.conditions.push(condition);
         self
+    }
+    fn search_exec(&mut self){
+        let mut r=Vec::new();
+        for c in &self.conditions{
+            r.push(match c{
+                Condition::Activity(condition)=>{
+                    self.search_activity(&condition)
+                }
+                ,Condition::Term(condition)=>{
+                    self.search_term(&condition)
+                }
+                ,Condition::Field(field_name,condition)=>{
+                    self.search_field(&field_name,&condition)
+                }
+                ,Condition::Row(condition)=>{
+                    self.search_row(&condition)
+                }
+                ,Condition::LastUpdated(condition)=>{
+                    self.search_last_updated(&condition)
+                }
+                ,Condition::Uuid(uuid)=>{
+                    self.search_uuid(&uuid)
+                }
+            });
+        }
+        for r in r{
+            self.reduce(r);
+        }
+    }
+    pub fn result(mut self)->RowSet{
+        self.search_exec();
+        if let Some(r)=self.result{
+            r
+        }else{
+            self.data.all()
+        }
+    }
+    pub fn result_with_sort(&mut self,o:&Order)->Vec<u32>{
+        self.search_exec();
+        let mut ret=Vec::new();
+        if let Some(r)=&self.result{
+            match o{
+                Order::Serial=>{
+                    for (_,row,_) in self.data.serial.read().unwrap().index().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
+                        }
+                    }
+                    
+                }
+                ,Order::Row=>{
+                    ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
+                }
+                ,Order::TermBegin=>{
+                    for (_,row,_) in self.data.term_begin.read().unwrap().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
+                        }
+                    }
+                }
+                ,Order::TermEnd=>{
+                    for (_,row,_) in self.data.term_end.read().unwrap().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
+                        }
+                    }
+                }
+                ,Order::LastUpdated=>{
+                    for (_,row,_) in self.data.last_updated.read().unwrap().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
+                        }
+                    }
+                }
+                ,Order::Field(field_name)=>{
+                    if let Some(field)=self.data.field(field_name){
+                        for (_,row,_) in field.read().unwrap().index().triee().iter(){
+                            if r.contains(&row){
+                                ret.push(row);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ret
     }
     fn reduce(&mut self,newset:RowSet){
         if let Some(r)=&self.result{
@@ -279,60 +346,5 @@ impl<'a> Search<'a>{
         }
         self
     }
-    pub fn result(self)->RowSet{
-        if let Some(r)=self.result{
-            r
-        }else{
-            self.data.all()
-        }
-    }
-    pub fn result_with_sort(&self,o:&Order)->Vec<u32>{
-        let mut ret=Vec::new();
-        if let Some(r)=&self.result{
-            match o{
-                Order::Serial=>{
-                    for (_,row,_) in self.data.serial.read().unwrap().index().triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
-                    }
-                    
-                }
-                ,Order::Row=>{
-                    ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
-                }
-                ,Order::TermBegin=>{
-                    for (_,row,_) in self.data.term_begin.read().unwrap().triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
-                    }
-                }
-                ,Order::TermEnd=>{
-                    for (_,row,_) in self.data.term_end.read().unwrap().triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
-                    }
-                }
-                ,Order::LastUpdated=>{
-                    for (_,row,_) in self.data.last_updated.read().unwrap().triee().iter(){
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
-                    }
-                }
-                ,Order::Field(field_name)=>{
-                    if let Some(field)=self.data.field(field_name){
-                        for (_,row,_) in field.read().unwrap().index().triee().iter(){
-                            if r.contains(&row){
-                                ret.push(row);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        ret
-    }
+    
 }

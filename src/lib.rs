@@ -432,7 +432,7 @@ impl Data{
     pub fn begin_search(&self)->Search{
         Search::new(self)
     }
-    pub fn search(&self,condition:&Condition)->Search{
+    pub fn search(&self,condition:Condition)->Search{
         let r=Search::new(self);
         r.search(condition)
     }
