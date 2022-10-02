@@ -105,16 +105,19 @@ impl Data{
                 if self.serial.read().unwrap().exists_blank(){
                     let row=self.serial.write().unwrap().pop_blank();
                     if let Some(row)=row{
-                        let index=self.uuid.clone();
-                        thread::spawn(move||{
-                            index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
-                        });
-                        
-                        self.update_activity_async(row,activity);
-                        self.update_term_begin_async(row,term_begin);
-                        self.update_term_endasync(row,term_end);
+                        let mut handles=Vec::new();
 
-                        let handles=self.update_fields(row,fields);
+                        let index=self.uuid.clone();
+                        handles.push(thread::spawn(move||{
+                            index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+                        }));
+
+                        handles.push(self.update_activity_async(row,activity));
+                        handles.push(self.update_term_begin_async(row,term_begin));
+                        handles.push(self.update_term_endasync(row,term_end));
+
+                        handles.append(&mut self.update_fields(row,fields));
+
                         for h in handles{
                             h.join().unwrap();
                         }
@@ -127,11 +130,14 @@ impl Data{
                 }
             }
             ,Update::Row(row)=>{
-                self.update_activity_async(row,activity);
-                self.update_term_begin_async(row,term_begin);
-                self.update_term_endasync(row,term_end);
+                let mut handles=Vec::new();
 
-                let handles=self.update_fields(row,fields);
+                handles.push(self.update_activity_async(row,activity));
+                handles.push(self.update_term_begin_async(row,term_begin));
+                handles.push(self.update_term_endasync(row,term_end));
+
+                handles.append(&mut self.update_fields(row,fields));
+
                 for h in handles{
                     h.join().unwrap();
                 }
@@ -140,69 +146,61 @@ impl Data{
         }
         
     }
-    fn last_update_now(&mut self,row:u32){
+    fn last_update_now(&mut self,row:u32)->thread::JoinHandle<()>{
         let index=self.last_updated.clone();
         thread::spawn(move||{
             index.write().unwrap().update(row,chrono::Local::now().timestamp());
-        });
+        })
     } 
-    fn update_activity_async(&mut self,row:u32,activity:Activity){
+    fn update_activity_async(&mut self,row:u32,activity:Activity)->thread::JoinHandle<()>{
         let index=self.activity.clone();
         thread::spawn(move||{
             index.write().unwrap().update(row,activity as u8);
-        });
+        })
     }
     pub fn update_activity(&mut self,row:u32,activity: Activity){
         self.update_activity_async(row,activity);
         self.last_update_now(row);
     }
-    fn update_term_begin_async(&mut self,row:u32,from:i64){
+    fn update_term_begin_async(&mut self,row:u32,from:i64)->thread::JoinHandle<()>{
         let index=self.term_begin.clone();
         thread::spawn(move||{
             index.write().unwrap().update(row,from);
-        });
+        })
     }
     pub fn update_term_begin(&mut self,row:u32,from: i64){
         self.update_term_begin_async(row,from);
         self.last_update_now(row);
     }
-    fn update_term_endasync(&mut self,row:u32,to:i64){
+    fn update_term_endasync(&mut self,row:u32,to:i64)->thread::JoinHandle<()>{
         let index=self.term_end.clone();
         thread::spawn(move||{
             index.write().unwrap().update(row,to);
-        });
+        })
     }
     pub fn update_term_end(&mut self,row:u32,to: i64){
         self.update_term_endasync(row,to);
         self.last_update_now(row);
     }
-    pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>)->Vec<std::thread::JoinHandle<()>>{
+    pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>)->Vec<thread::JoinHandle<()>>{
         let mut handles=Vec::new();
-
         for (fk,fv) in fields.iter(){
-            if let Some(h)=self.update_field_async(row,fk,fv){
-                handles.push(h);
-            }
+            handles.push(self.update_field_async(row,fk,fv));
         }
-        self.last_update_now(row);
-
+        handles.push(self.last_update_now(row));
         handles
     }
-    pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:impl Into<String>)->Option<std::thread::JoinHandle<()>>{
-        let mut handle=None;
-
-        if let Some(field)=if self.fields_cache.contains_key(field_name){
+    pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:impl Into<String>)->thread::JoinHandle<()>{
+        let field=if self.fields_cache.contains_key(field_name){
             self.fields_cache.get_mut(field_name)
         }else{
             self.create_field(field_name)
-        }{
-            let index=field.clone();
-            let cont=cont.into();
-            handle=Some(thread::spawn(move||{
-                index.write().unwrap().update(row,cont.as_bytes());
-            }));
-        }
-        handle
+        }.unwrap();
+        let cont=cont.into();
+        let index=field.clone();
+        thread::spawn(move||{
+            index.write().unwrap().update(row,cont.as_bytes());
+        })
     }
     pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
         if let Some(field)=if self.fields_cache.contains_key(field_name){
@@ -220,9 +218,8 @@ impl Data{
         if let Ok(_)=std::fs::create_dir_all(dir_name.to_owned()){
             if std::path::Path::new(&dir_name).exists(){
                 if let Ok(field)=FieldData::new(&dir_name){
-                    let field=Arc::new(RwLock::new(field));
                     self.fields_cache.entry(String::from(field_name)).or_insert(
-                        field
+                        Arc::new(RwLock::new(field))
                     );
                 }
             }
@@ -278,39 +275,42 @@ impl Data{
     )->Option<u32>{
         let row=self.serial.write().unwrap().add();
         if let Some(row)=row{
+            let mut handles=Vec::new();
+
             let index=self.uuid.clone();
-            thread::spawn(move||{
+            handles.push(thread::spawn(move||{
                 let mut index=index.write().unwrap();
                 if let Ok(_)=index.resize_to(row){
                     index.triee_mut().update(row,Uuid::new_v4().as_u128());
                 }
-            });
+            }));
 
             let index=self.activity.clone();
-            thread::spawn(move||{
+            handles.push(thread::spawn(move||{
                 let mut index=index.write().unwrap();
                 if let Ok(_)=index.resize_to(row){
                     index.triee_mut().update(row,activity as u8);
                 }
-            });
+            }));
 
             let index=self.term_begin.clone();
-            thread::spawn(move||{
+            handles.push(thread::spawn(move||{
                 let mut index=index.write().unwrap();
                 if let Ok(_)=index.resize_to(row){
                     index.triee_mut().update(row,term_begin);
                 }
-            });
+            }));
 
             let index=self.term_end.clone();
-            thread::spawn(move||{
+            handles.push(thread::spawn(move||{
                 let mut index=index.write().unwrap();
                 if let Ok(_)=index.resize_to(row){
                     index.triee_mut().update(row,term_end);
                 }
-            });
+            }));
 
-            let handles=self.update_fields(row,fields);
+            handles.append(&mut self.update_fields(row,fields));
+
             for h in handles{
                 h.join().unwrap();
             }
