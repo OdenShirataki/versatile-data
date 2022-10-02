@@ -98,23 +98,15 @@ impl<'a> Search<'a>{
     }
     fn search_activity(&self,condition:&'a Activity)->RowSet{
         let activity=*condition as u8;
-        if let Ok(index)=self.data.activity.read(){
-            index.select_by_value_from_to(&activity,&activity)
-        }else{
-            RowSet::default()
-        }
+        self.data.activity.read().unwrap().select_by_value_from_to(&activity,&activity)
     }
     fn search_term_in(&self,base:i64)->RowSet{
         let mut result=RowSet::default();
-        if let Ok(index)=self.data.term_begin.read(){
-            let tmp=index.select_by_value_to(&base);
-            for row in tmp{
-                if let Ok(index)=self.data.term_end.read(){
-                    let end=index.value(row).unwrap_or(0);
-                    if end==0 || end>base {
-                        result.replace(row);
-                    }
-                }
+        let tmp=self.data.term_begin.read().unwrap().select_by_value_to(&base);
+        for row in tmp{
+            let end=self.data.term_end.read().unwrap().value(row).unwrap_or(0);
+            if end==0 || end>base {
+                result.replace(row);
             }
         }
         result
@@ -125,18 +117,10 @@ impl<'a> Search<'a>{
                 self.search_term_in(*base)
             }
             ,Term::Future(base)=>{
-                if let Ok(index)=self.data.term_begin.read(){
-                    index.select_by_value_from(&base)
-                }else{
-                    RowSet::default()
-                }
+                self.data.term_begin.read().unwrap().select_by_value_from(&base)
             }
             ,Term::Past(base)=>{
-                if let Ok(index)=self.data.term_end.read(){
-                    index.select_by_value_from_to(&1,&base)
-                }else{
-                    RowSet::default()
-                }
+                self.data.term_end.read().unwrap().select_by_value_from_to(&1,&base)
             }
         }
     }
@@ -144,7 +128,7 @@ impl<'a> Search<'a>{
         let mut r=RowSet::default();
         match condition{
             Number::Min(row)=>{
-                for (_,i,_) in self.data.serial.index().triee().iter(){
+                for (_,i,_) in self.data.serial.read().unwrap().index().triee().iter(){
                     if i as isize>=*row{
                         r.insert(i);
                     }
@@ -152,7 +136,7 @@ impl<'a> Search<'a>{
                 
             }
             ,Number::Max(row)=>{
-                for (_,i,_) in self.data.serial.index().triee().iter(){
+                for (_,i,_) in self.data.serial.read().unwrap().index().triee().iter(){
                     if i as isize<=*row{
                         r.insert(i);
                     }
@@ -160,14 +144,14 @@ impl<'a> Search<'a>{
             }
             ,Number::Range(range)=>{
                 for i in range.clone(){
-                    if let Some(_)=self.data.serial.index().triee().node(i as u32){
+                    if let Some(_)=self.data.serial.read().unwrap().index().triee().node(i as u32){
                         r.insert(i as u32);
                     }
                 }
             }
             ,Number::In(rows)=>{
                 for i in rows{
-                    if let Some(_)=self.data.serial.index().triee().node(*i as u32){
+                    if let Some(_)=self.data.serial.read().unwrap().index().triee().node(*i as u32){
                         r.insert(*i as u32);
                     }
                 }
@@ -180,40 +164,40 @@ impl<'a> Search<'a>{
         if let Some(field)=self.data.field(field_name){
             match condition{
                 Field::Match(v)=>{
-                    let (ord,found_row)=field.search_cb(v);
+                    let (ord,found_row)=field.read().unwrap().search_cb(v);
                     if ord==Ordering::Equal{
                         r.insert(found_row);
-                        r.append(&mut field.triee().sames(found_row).iter().map(|&x|x).collect());
+                        r.append(&mut field.read().unwrap().triee().sames(found_row).iter().map(|&x|x).collect());
                     }
                 }
                 ,Field::Min(min)=>{
-                    let (_,min_found_row)=field.search_cb(min);
-                    for (_,row,_) in field.triee().iter_by_row_from(min_found_row){
+                    let (_,min_found_row)=field.read().unwrap().search_cb(min);
+                    for (_,row,_) in field.read().unwrap().triee().iter_by_row_from(min_found_row){
                         r.insert(row);
-                        r.append(&mut field.triee().sames(row).iter().map(|&x|x).collect());
+                        r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
                     }
                 }
                 ,Field::Max(max)=>{
-                    let (_,max_found_row)=field.search_cb(max);
-                    for (_,row,_) in field.triee().iter_by_row_to(max_found_row){
+                    let (_,max_found_row)=field.read().unwrap().search_cb(max);
+                    for (_,row,_) in field.read().unwrap().triee().iter_by_row_to(max_found_row){
                         r.insert(row);
-                        r.append(&mut field.triee().sames(row).iter().map(|&x|x).collect());
+                        r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
                     }
                 }
                 ,Field::Range(min,max)=>{
-                    let (_,min_found_row)=field.search_cb(min);
-                    let (_,max_found_row)=field.search_cb(max);
-                    for (_,row,_) in field.triee().iter_by_row_from_to(min_found_row,max_found_row){
+                    let (_,min_found_row)=field.read().unwrap().search_cb(min);
+                    let (_,max_found_row)=field.read().unwrap().search_cb(max);
+                    for (_,row,_) in field.read().unwrap().triee().iter_by_row_from_to(min_found_row,max_found_row){
                         r.insert(row);
-                        r.append(&mut field.triee().sames(row).iter().map(|&x|x).collect());
+                        r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
                     }
                 }
                 ,Field::Forward(cont)=>{
                     let len=cont.len();
-                    for (_,row,v) in field.triee().iter(){
+                    for (_,row,v) in field.read().unwrap().triee().iter(){
                         let data=v.value();
                         if len<=data.len(){
-                            if let Some(str2)=field.str(row){
+                            if let Some(str2)=field.read().unwrap().str(row){
                                 if str2.starts_with(cont){
                                     r.insert(row);
                                 }
@@ -223,10 +207,10 @@ impl<'a> Search<'a>{
                 }
                 ,Field::Partial(cont)=>{
                     let len=cont.len();
-                    for (_,row,v) in field.triee().iter(){
+                    for (_,row,v) in field.read().unwrap().triee().iter(){
                         let data=v.value();
                         if len<=data.len(){
-                            if let Some(str2)=field.str(row){
+                            if let Some(str2)=field.read().unwrap().str(row){
                                 if str2.contains(cont){
                                     r.insert(row);
                                 }
@@ -236,10 +220,10 @@ impl<'a> Search<'a>{
                 }
                 ,Field::Backward(cont)=>{
                     let len=cont.len();
-                    for (_,row,v) in field.triee().iter(){
+                    for (_,row,v) in field.read().unwrap().triee().iter(){
                         let data=v.value();
                         if len<=data.len(){
-                            if let Some(str2)=field.str(row){
+                            if let Some(str2)=field.read().unwrap().str(row){
                                 if str2.ends_with(cont){
                                     r.insert(row);
                                 }
@@ -254,36 +238,22 @@ impl<'a> Search<'a>{
     fn search_last_updated(&self,condition:&'a Number)->RowSet{
         match condition{
             Number::Min(v)=>{
-                if let Ok(index)=self.data.last_updated.read(){
-                    index.select_by_value_from(&(*v as i64))
-                }else{
-                    RowSet::default()
-                }
+                self.data.last_updated.read().unwrap().select_by_value_from(&(*v as i64))
             }
             ,Number::Max(v)=>{
-                if let Ok(index)=self.data.last_updated.read(){
-                    index.select_by_value_to(&(*v as i64))
-                }else{
-                    RowSet::default()
-                }
+                self.data.last_updated.read().unwrap().select_by_value_to(&(*v as i64))
             }
             ,Number::Range(range)=>{
-                if let Ok(index)=self.data.last_updated.read(){
-                    index.select_by_value_from_to(
-                        &(*range.start() as i64)
-                        ,&(*range.end() as i64)
-                    )
-                }else{
-                    RowSet::default()
-                }
+                self.data.last_updated.read().unwrap().select_by_value_from_to(
+                    &(*range.start() as i64)
+                    ,&(*range.end() as i64)
+                )
             }
             ,Number::In(rows)=>{
                 let mut r=RowSet::default();
                 for i in rows{
-                    if let Ok(index)=self.data.last_updated.read(){
-                        for row in index.select_by_value(&(*i as i64)){
-                            r.insert(row);
-                        }
+                    for row in self.data.last_updated.read().unwrap().select_by_value(&(*i as i64)){
+                        r.insert(row);
                     }
                 }
                 r
@@ -321,7 +291,7 @@ impl<'a> Search<'a>{
         if let Some(r)=&self.result{
             match o{
                 Order::Serial=>{
-                    for (_,row,_) in self.data.serial_index().triee().iter(){
+                    for (_,row,_) in self.data.serial.read().unwrap().index().triee().iter(){
                         if r.contains(&row){
                             ret.push(row);
                         }
@@ -332,35 +302,29 @@ impl<'a> Search<'a>{
                     ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
                 }
                 ,Order::TermBegin=>{
-                    if let Ok(index)=self.data.term_begin.read(){
-                        for (_,row,_) in index.triee().iter(){
-                            if r.contains(&row){
-                                ret.push(row);
-                            }
+                    for (_,row,_) in self.data.term_begin.read().unwrap().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
                         }
                     }
                 }
                 ,Order::TermEnd=>{
-                    if let Ok(index)=self.data.term_end.read(){
-                        for (_,row,_) in index.triee().iter(){
-                            if r.contains(&row){
-                                ret.push(row);
-                            }
+                    for (_,row,_) in self.data.term_end.read().unwrap().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
                         }
                     }
                 }
                 ,Order::LastUpdated=>{
-                    if let Ok(index)=self.data.last_updated.read(){
-                        for (_,row,_) in index.triee().iter(){
-                            if r.contains(&row){
-                                ret.push(row);
-                            }
+                    for (_,row,_) in self.data.last_updated.read().unwrap().triee().iter(){
+                        if r.contains(&row){
+                            ret.push(row);
                         }
                     }
                 }
                 ,Order::Field(field_name)=>{
                     if let Some(field)=self.data.field(field_name){
-                        for (_,row,_) in field.index().triee().iter(){
+                        for (_,row,_) in field.read().unwrap().index().triee().iter(){
                             if r.contains(&row){
                                 ret.push(row);
                             }

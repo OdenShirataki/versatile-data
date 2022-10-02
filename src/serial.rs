@@ -3,8 +3,8 @@ use file_mmap::FileMmap;
 
 struct Fragment{
     filemmap:FileMmap
-    ,increment: *mut u32
-    ,blank_list: *mut u32
+    ,increment: Vec<u32>
+    ,blank_list: Vec<u32>
     ,blank_count: u32
 }
 impl Fragment{
@@ -26,28 +26,28 @@ impl Fragment{
         
         Ok(Fragment{
             filemmap
-            ,increment
-            ,blank_list
+            ,increment:unsafe {Vec::from_raw_parts(increment,1,0)}
+            ,blank_list:unsafe {Vec::from_raw_parts(blank_list,1,0)}
             ,blank_count
         })
     }
     pub fn increment(&mut self)->u32{
-        unsafe{
-            *self.increment+=1;
-            *self.increment
-        }
+        self.increment[0]+=1;
+        self.increment[0]
     }
     pub fn insert_blank(&mut self,id:u32){
         self.filemmap.append(
             &[0,0,0,0]
         );
-        unsafe{*(self.blank_list.offset(self.blank_count as isize))=id;}
+        unsafe{
+            *(self.blank_list.as_ptr() as *mut u32).offset(self.blank_count as isize)=id;
+        }
         self.blank_count+=1;
     }
     pub fn pop(&mut self)->Option<u32>{
         if self.blank_count>0{
             let p=unsafe{
-                self.blank_list.offset(self.blank_count as isize - 1)
+                (self.blank_list.as_ptr() as *mut u32).offset(self.blank_count as isize - 1)
             };
             let last=unsafe{*p};
             unsafe{*p=0;}
