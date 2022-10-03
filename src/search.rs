@@ -1,3 +1,5 @@
+use std::thread;
+use std::sync::mpsc::Sender;
 use std::cmp::Ordering;
 use std::ops::RangeInclusive;
 use idx_sized::RowSet;
@@ -71,31 +73,35 @@ impl<'a> Search<'a>{
         self
     }
     fn search_exec(&mut self){
-        let mut r=Vec::new();
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let mut thread_count=0;
         for c in &self.conditions{
-            r.push(match c{
+            let tx=tx.clone();
+            thread_count+=1;
+            match c{
                 Condition::Activity(condition)=>{
-                    self.search_activity(&condition)
+                    self.search_activity(condition,tx)
                 }
                 ,Condition::Term(condition)=>{
-                    self.search_term(&condition)
+                    self.search_term(condition,tx)
                 }
                 ,Condition::Field(field_name,condition)=>{
-                    self.search_field(&field_name,&condition)
+                    self.search_field(field_name,condition,tx)
                 }
                 ,Condition::Row(condition)=>{
-                    self.search_row(&condition)
+                    self.search_row(condition,tx)
                 }
                 ,Condition::LastUpdated(condition)=>{
-                    self.search_last_updated(&condition)
+                    self.search_last_updated(condition,tx)
                 }
                 ,Condition::Uuid(uuid)=>{
-                    self.search_uuid(&uuid)
+                    self.search_uuid(uuid,tx)
                 }
-            });
+            };
         }
-        for r in r{
-            self.reduce(r);
+        for _ in 0..thread_count{
+            self.reduce(rx.recv().unwrap());
         }
     }
     pub fn result(mut self)->RowSet{
@@ -117,7 +123,6 @@ impl<'a> Search<'a>{
                             ret.push(row);
                         }
                     }
-                    
                 }
                 ,Order::Row=>{
                     ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
@@ -163,176 +168,254 @@ impl<'a> Search<'a>{
             self.result=Some(newset);
         }
     }
-    fn search_activity(&self,condition:&'a Activity)->RowSet{
+    fn search_activity(&self,condition:&Activity,tx:Sender<RowSet>){
         let activity=*condition as u8;
-        self.data.activity.read().unwrap().select_by_value_from_to(&activity,&activity)
+        let index=self.data.activity.clone();
+        thread::spawn(move||{
+            tx.send(index.read().unwrap().select_by_value_from_to(&activity,&activity)).unwrap();
+        });
     }
-    fn search_term_in(&self,base:i64)->RowSet{
-        let mut result=RowSet::default();
-        let tmp=self.data.term_begin.read().unwrap().select_by_value_to(&base);
-        for row in tmp{
-            let end=self.data.term_end.read().unwrap().value(row).unwrap_or(0);
-            if end==0 || end>base {
-                result.replace(row);
+    fn search_term_in(&self,base:i64,tx:Sender<RowSet>){
+        let term_begin=self.data.term_begin.clone();
+        let term_end=self.data.term_end.clone();
+
+        thread::spawn(move||{
+            let mut result=RowSet::default();
+            let tmp=term_begin.read().unwrap().select_by_value_to(&base);
+            for row in tmp{
+                let end=term_end.read().unwrap().value(row).unwrap_or(0);
+                if end==0 || end>base {
+                    result.replace(row);
+                }
             }
-        }
-        result
+            tx.send(result).unwrap();
+        });
     }
-    fn search_term(&self,condition:&'a Term)->RowSet{
+    fn search_term(&self,condition:&Term,tx:Sender<RowSet>){
         match condition{
             Term::In(base)=>{
-                self.search_term_in(*base)
+                self.search_term_in(*base,tx);
             }
             ,Term::Future(base)=>{
-                self.data.term_begin.read().unwrap().select_by_value_from(&base)
+                let index=self.data.term_begin.clone();
+                let base=base.clone();
+                std::thread::spawn(move||{
+                    tx.send(index.read().unwrap().select_by_value_from(&base)).unwrap();
+                });
             }
             ,Term::Past(base)=>{
-                self.data.term_end.read().unwrap().select_by_value_from_to(&1,&base)
+                let index=self.data.term_end.clone();
+                let base=base.clone();
+                std::thread::spawn(move||{
+                    tx.send(index.read().unwrap().select_by_value_from_to(&1,&base)).unwrap();
+                });
             }
         }
     }
-    fn search_row(&self,condition:&'a Number)->RowSet{
+    fn search_row(&self,condition:&Number,tx:Sender<RowSet>){
+        let serial=self.data.serial.clone();
         let mut r=RowSet::default();
         match condition{
             Number::Min(row)=>{
-                for (_,i,_) in self.data.serial.read().unwrap().index().triee().iter(){
-                    if i as isize>=*row{
-                        r.insert(i);
+                let row=row.clone();
+                thread::spawn(move||{
+                    for (_,i,_) in serial.read().unwrap().index().triee().iter(){
+                        if i as isize>=row{
+                            r.insert(i);
+                        }
                     }
-                }
-                
+                    tx.send(r).unwrap();
+                });
             }
             ,Number::Max(row)=>{
-                for (_,i,_) in self.data.serial.read().unwrap().index().triee().iter(){
-                    if i as isize<=*row{
-                        r.insert(i);
+                let row=row.clone();
+                std::thread::spawn(move||{
+                    for (_,i,_) in serial.read().unwrap().index().triee().iter(){
+                        if i as isize<=row{
+                            r.insert(i);
+                        }
                     }
-                }
+                    tx.send(r).unwrap();
+                });
             }
             ,Number::Range(range)=>{
-                for i in range.clone(){
-                    if let Some(_)=self.data.serial.read().unwrap().index().triee().node(i as u32){
-                        r.insert(i as u32);
+                let range=range.clone();
+                std::thread::spawn(move||{
+                    for i in range{
+                        if let Some(_)=serial.read().unwrap().index().triee().node(i as u32){
+                            r.insert(i as u32);
+                        }
                     }
-                }
+                    tx.send(r).unwrap();
+                });
             }
             ,Number::In(rows)=>{
-                for i in rows{
-                    if let Some(_)=self.data.serial.read().unwrap().index().triee().node(*i as u32){
-                        r.insert(*i as u32);
+                let rows=rows.clone();
+                std::thread::spawn(move||{
+                    for i in rows{
+                        if let Some(_)=serial.read().unwrap().index().triee().node(i as u32){
+                            r.insert(i as u32);
+                        }
                     }
-                }
+                    tx.send(r).unwrap();
+                });
             }
-        };
-        r
+        }
     }
-    fn search_field(&self,field_name:&'a str,condition:&'a Field)->RowSet{
-        let mut r:RowSet=RowSet::default();
+    fn search_field(&self,field_name:&'a str,condition:&Field,tx:Sender<RowSet>){
         if let Some(field)=self.data.field(field_name){
+            let field=field.clone();
+            let mut r:RowSet=RowSet::default();
             match condition{
                 Field::Match(v)=>{
-                    let (ord,found_row)=field.read().unwrap().search_cb(v);
-                    if ord==Ordering::Equal{
-                        r.insert(found_row);
-                        r.append(&mut field.read().unwrap().triee().sames(found_row).iter().map(|&x|x).collect());
-                    }
+                    let v=v.clone();
+                    std::thread::spawn(move||{
+                        let (ord,found_row)=field.read().unwrap().search_cb(&v);
+                        if ord==Ordering::Equal{
+                            r.insert(found_row);
+                            r.append(&mut field.read().unwrap().triee().sames(found_row).iter().map(|&x|x).collect());
+                        }
+                        tx.send(r).unwrap();
+                    });
                 }
                 ,Field::Min(min)=>{
-                    let (_,min_found_row)=field.read().unwrap().search_cb(min);
-                    for (_,row,_) in field.read().unwrap().triee().iter_by_row_from(min_found_row){
-                        r.insert(row);
-                        r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
-                    }
+                    let min=min.clone();
+                    std::thread::spawn(move||{
+                        let (_,min_found_row)=field.read().unwrap().search_cb(&min);
+                        for (_,row,_) in field.read().unwrap().triee().iter_by_row_from(min_found_row){
+                            r.insert(row);
+                            r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
+                        }
+                        tx.send(r).unwrap();
+                    });
                 }
                 ,Field::Max(max)=>{
-                    let (_,max_found_row)=field.read().unwrap().search_cb(max);
-                    for (_,row,_) in field.read().unwrap().triee().iter_by_row_to(max_found_row){
-                        r.insert(row);
-                        r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
-                    }
+                    let max=max.clone();
+                    std::thread::spawn(move||{
+                        let (_,max_found_row)=field.read().unwrap().search_cb(&max);
+                        for (_,row,_) in field.read().unwrap().triee().iter_by_row_to(max_found_row){
+                            r.insert(row);
+                            r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
+                        }
+                        tx.send(r).unwrap();
+                    });
                 }
                 ,Field::Range(min,max)=>{
-                    let (_,min_found_row)=field.read().unwrap().search_cb(min);
-                    let (_,max_found_row)=field.read().unwrap().search_cb(max);
-                    for (_,row,_) in field.read().unwrap().triee().iter_by_row_from_to(min_found_row,max_found_row){
-                        r.insert(row);
-                        r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
-                    }
+                    let min=min.clone();
+                    let max=max.clone();
+                    std::thread::spawn(move||{
+                        let (_,min_found_row)=field.read().unwrap().search_cb(&min);
+                        let (_,max_found_row)=field.read().unwrap().search_cb(&max);
+                        for (_,row,_) in field.read().unwrap().triee().iter_by_row_from_to(min_found_row,max_found_row){
+                            r.insert(row);
+                            r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
+                        }
+                        tx.send(r).unwrap();
+                    });
                 }
                 ,Field::Forward(cont)=>{
-                    let len=cont.len();
-                    for (_,row,v) in field.read().unwrap().triee().iter(){
-                        let data=v.value();
-                        if len<=data.len(){
-                            if let Some(str2)=field.read().unwrap().str(row){
-                                if str2.starts_with(cont){
-                                    r.insert(row);
+                    let cont=cont.clone();
+                    std::thread::spawn(move||{
+                        let len=cont.len();
+                        for (_,row,v) in field.read().unwrap().triee().iter(){
+                            let data=v.value();
+                            if len<=data.len(){
+                                if let Some(str2)=field.read().unwrap().str(row){
+                                    if str2.starts_with(&cont){
+                                        r.insert(row);
+                                    }
                                 }
                             }
                         }
-                    }
+                        tx.send(r).unwrap();
+                    });
                 }
                 ,Field::Partial(cont)=>{
-                    let len=cont.len();
-                    for (_,row,v) in field.read().unwrap().triee().iter(){
-                        let data=v.value();
-                        if len<=data.len(){
-                            if let Some(str2)=field.read().unwrap().str(row){
-                                if str2.contains(cont){
-                                    r.insert(row);
+                    let cont=cont.clone();
+                    std::thread::spawn(move||{
+                        let len=cont.len();
+                        for (_,row,v) in field.read().unwrap().triee().iter(){
+                            let data=v.value();
+                            if len<=data.len(){
+                                if let Some(str2)=field.read().unwrap().str(row){
+                                    if str2.contains(&cont){
+                                        r.insert(row);
+                                    }
                                 }
                             }
                         }
-                    }
+                        tx.send(r).unwrap();
+                    });
                 }
                 ,Field::Backward(cont)=>{
-                    let len=cont.len();
-                    for (_,row,v) in field.read().unwrap().triee().iter(){
-                        let data=v.value();
-                        if len<=data.len(){
-                            if let Some(str2)=field.read().unwrap().str(row){
-                                if str2.ends_with(cont){
-                                    r.insert(row);
+                    let cont=cont.clone();
+                    std::thread::spawn(move||{
+                        let len=cont.len();
+                        for (_,row,v) in field.read().unwrap().triee().iter(){
+                            let data=v.value();
+                            if len<=data.len(){
+                                if let Some(str2)=field.read().unwrap().str(row){
+                                    if str2.ends_with(&cont){
+                                        r.insert(row);
+                                    }
                                 }
                             }
                         }
-                    }
+                        tx.send(r).unwrap();
+                    });
                 }
             }
         }
-        r
     }
-    fn search_last_updated(&self,condition:&'a Number)->RowSet{
+    fn search_last_updated(&self,condition:&'a Number,tx:Sender<RowSet>){
+        let index=self.data.last_updated.clone();
         match condition{
             Number::Min(v)=>{
-                self.data.last_updated.read().unwrap().select_by_value_from(&(*v as i64))
+                let v=v.clone();
+                std::thread::spawn(move||{
+                    tx.send(index.read().unwrap().select_by_value_from(&(v as i64))).unwrap();
+                });
             }
             ,Number::Max(v)=>{
-                self.data.last_updated.read().unwrap().select_by_value_to(&(*v as i64))
+                let v=v.clone();
+                std::thread::spawn(move||{
+                    tx.send(index.read().unwrap().select_by_value_to(&(v as i64))).unwrap();
+                });
             }
             ,Number::Range(range)=>{
-                self.data.last_updated.read().unwrap().select_by_value_from_to(
-                    &(*range.start() as i64)
-                    ,&(*range.end() as i64)
-                )
+                let range=range.clone();
+                std::thread::spawn(move||{
+                    tx.send(index.read().unwrap().select_by_value_from_to(
+                        &(*range.start() as i64)
+                        ,&(*range.end() as i64)
+                    )).unwrap();
+                });
             }
             ,Number::In(rows)=>{
-                let mut r=RowSet::default();
-                for i in rows{
-                    for row in self.data.last_updated.read().unwrap().select_by_value(&(*i as i64)){
-                        r.insert(row);
+                let rows=rows.clone();
+                std::thread::spawn(move||{
+                    let mut r=RowSet::default();
+                    for i in rows{
+                        for row in index.read().unwrap().select_by_value(&(i as i64)){
+                            r.insert(row);
+                        }
                     }
-                }
-                r
+                    tx.send(r).unwrap();
+                });
             }
         }
+        
     }
-    pub fn search_uuid(&self,uuid:&'a u128)->RowSet{
-        if let Ok(index)=self.data.uuid.read(){
-            index.select_by_value(uuid)
-        }else{
-            RowSet::default()
-        }
+    pub fn search_uuid(&self,uuid:&'a u128,tx:Sender<RowSet>){
+        let index=self.data.uuid.clone();
+        let uuid=uuid.clone();
+        std::thread::spawn(move||{
+            tx.send(if let Ok(index)=index.read(){
+                index.select_by_value(&uuid)
+            }else{
+                RowSet::default()
+            }).unwrap();
+        });
     }
     pub fn union(mut self,from:Search)->Self{
         if let Some(ref r)=self.result{

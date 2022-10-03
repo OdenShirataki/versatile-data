@@ -39,8 +39,8 @@ fn test() {
         let r=data
             .search(Condition::Field("num".to_string(),Field::Range(b"3".to_vec(),b"8".to_vec())))
             .search_default()   //Automatic execution of the following two lines
-            //.search(SearchCondition::Term(Term::In(chrono::Local::now().timestamp())))
-            //.search(SearchCondition::Activity(Activity::Active))
+            //.search(Condition::Term(Term::In(chrono::Local::now().timestamp())))
+            //.search(Condition::Activity(Activity::Active))
             .result()
         ;
         println!("{:?}",r);
