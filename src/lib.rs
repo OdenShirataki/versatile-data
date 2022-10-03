@@ -159,8 +159,10 @@ impl Data{
         })
     }
     pub fn update_activity(&mut self,row:u32,activity: Activity){
-        self.update_activity_async(row,activity);
-        self.last_update_now(row);
+        let h1=self.update_activity_async(row,activity);
+        let h2=self.last_update_now(row);
+        h1.join().unwrap();
+        h2.join().unwrap();
     }
     fn update_term_begin_async(&mut self,row:u32,from:i64)->thread::JoinHandle<()>{
         let index=self.term_begin.clone();
@@ -169,8 +171,10 @@ impl Data{
         })
     }
     pub fn update_term_begin(&mut self,row:u32,from: i64){
-        self.update_term_begin_async(row,from);
-        self.last_update_now(row);
+        let h1=self.update_term_begin_async(row,from);
+        let h2=self.last_update_now(row);
+        h1.join().unwrap();
+        h2.join().unwrap();
     }
     fn update_term_endasync(&mut self,row:u32,to:i64)->thread::JoinHandle<()>{
         let index=self.term_end.clone();
@@ -179,8 +183,10 @@ impl Data{
         })
     }
     pub fn update_term_end(&mut self,row:u32,to: i64){
-        self.update_term_endasync(row,to);
-        self.last_update_now(row);
+        let h1=self.update_term_endasync(row,to);
+        let h2=self.last_update_now(row);
+        h1.join().unwrap();
+        h2.join().unwrap();
     }
     pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>)->Vec<thread::JoinHandle<()>>{
         let mut handles=Vec::new();
@@ -227,42 +233,47 @@ impl Data{
         self.fields_cache.get_mut(field_name)
     }
     pub fn delete(&mut self,row:u32){
+        let mut handles=Vec::new();
         let index=self.serial.clone();
-        thread::spawn(move||{
+        handles.push(thread::spawn(move||{
             index.write().unwrap().delete(row);
-        });
+        }));
         
         let index=self.uuid.clone();
-        thread::spawn(move||{
+        handles.push(thread::spawn(move||{
             index.write().unwrap().delete(row);
-        });
+        }));
 
         let index=self.activity.clone();
-        thread::spawn(move||{
+        handles.push(thread::spawn(move||{
             index.write().unwrap().delete(row);
-        });
+        }));
 
         let index=self.term_begin.clone();
-        thread::spawn(move||{
+        handles.push(thread::spawn(move||{
             index.write().unwrap().delete(row);
-        });
+        }));
 
         let index=self.term_end.clone();
-        thread::spawn(move||{
+        handles.push(thread::spawn(move||{
             index.write().unwrap().delete(row);
-        });
+        }));
 
         let index=self.last_updated.clone();
-        thread::spawn(move||{
+        handles.push(thread::spawn(move||{
             index.write().unwrap().delete(row);
-        });
+        }));
 
         self.load_fields();
         for (_,v) in &mut self.fields_cache{
             let index=v.clone();
-            thread::spawn(move||{
+            handles.push(thread::spawn(move||{
                 index.write().unwrap().delete(row);
-            });
+            }));
+        }
+
+        for h in handles{
+            h.join().unwrap();
         }
     }
 
