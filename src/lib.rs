@@ -146,11 +146,8 @@ impl Data{
         }
         
     }
-    fn last_update_now(&mut self,row:u32)->thread::JoinHandle<()>{
-        let index=self.last_updated.clone();
-        thread::spawn(move||{
-            index.write().unwrap().update(row,chrono::Local::now().timestamp());
-        })
+    fn last_update_now(&mut self,row:u32){
+        self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp());
     } 
     fn update_activity_async(&mut self,row:u32,activity:Activity)->thread::JoinHandle<()>{
         let index=self.activity.clone();
@@ -159,10 +156,9 @@ impl Data{
         })
     }
     pub fn update_activity(&mut self,row:u32,activity: Activity){
-        let h1=self.update_activity_async(row,activity);
-        let h2=self.last_update_now(row);
-        h1.join().unwrap();
-        h2.join().unwrap();
+        let h=self.update_activity_async(row,activity);
+        self.last_update_now(row);
+        h.join().unwrap();
     }
     fn update_term_begin_async(&mut self,row:u32,from:i64)->thread::JoinHandle<()>{
         let index=self.term_begin.clone();
@@ -171,10 +167,9 @@ impl Data{
         })
     }
     pub fn update_term_begin(&mut self,row:u32,from: i64){
-        let h1=self.update_term_begin_async(row,from);
-        let h2=self.last_update_now(row);
-        h1.join().unwrap();
-        h2.join().unwrap();
+        let h=self.update_term_begin_async(row,from);
+        self.last_update_now(row);
+        h.join().unwrap();
     }
     fn update_term_endasync(&mut self,row:u32,to:i64)->thread::JoinHandle<()>{
         let index=self.term_end.clone();
@@ -183,17 +178,16 @@ impl Data{
         })
     }
     pub fn update_term_end(&mut self,row:u32,to: i64){
-        let h1=self.update_term_endasync(row,to);
-        let h2=self.last_update_now(row);
-        h1.join().unwrap();
-        h2.join().unwrap();
+        let h=self.update_term_endasync(row,to);
+        self.last_update_now(row);
+        h.join().unwrap();
     }
     pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>)->Vec<thread::JoinHandle<()>>{
         let mut handles=Vec::new();
         for (fk,fv) in fields.iter(){
             handles.push(self.update_field_async(row,fk,fv));
         }
-        handles.push(self.last_update_now(row));
+        self.last_update_now(row);
         handles
     }
     pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:impl Into<String>)->thread::JoinHandle<()>{
@@ -216,7 +210,11 @@ impl Data{
         }{
             let index=field.clone();
             let cont=cont.into();
-            index.write().unwrap().update(row,cont.as_bytes());
+            let h=thread::spawn(move||{
+                index.write().unwrap().update(row,cont.as_bytes());
+            });
+            self.last_update_now(row);
+            h.join().unwrap();
         }
     }
     fn create_field(&mut self,field_name:&str)->Option<&mut Arc<RwLock<FieldData>>>{
@@ -259,10 +257,7 @@ impl Data{
             index.write().unwrap().delete(row);
         }));
 
-        let index=self.last_updated.clone();
-        handles.push(thread::spawn(move||{
-            index.write().unwrap().delete(row);
-        }));
+        
 
         self.load_fields();
         for (_,v) in &mut self.fields_cache{
@@ -271,6 +266,8 @@ impl Data{
                 index.write().unwrap().delete(row);
             }));
         }
+
+        self.last_updated.write().unwrap().delete(row);
 
         for h in handles{
             h.join().unwrap();
