@@ -58,23 +58,16 @@ impl Data{
         if !std::path::Path::new(dir).exists(){
             std::fs::create_dir_all(dir).unwrap();
         }
-        let serial=SerialNumber::new(&(dir.to_string()+"/serial"))?;
-        let uuid=IdxSized::new(&(dir.to_string()+"/uuid.i"))?;
-        let activity=IdxSized::new(&(dir.to_string()+"/activity.i"))?;
-        let term_begin=IdxSized::new(&(dir.to_string()+"/term_begin.i"))?;
-        let term_end=IdxSized::new(&(dir.to_string()+"/term_end.i"))?;
-        let last_updated=IdxSized::new(&(dir.to_string()+"/last_updated.i"))?;
-        
-	Ok(Data{
-            data_dir:dir.to_string()
-            ,serial:Arc::new(RwLock::new(serial))
-            ,uuid:Arc::new(RwLock::new(uuid))
-            ,activity:Arc::new(RwLock::new(activity))
-            ,term_begin:Arc::new(RwLock::new(term_begin))
-            ,term_end:Arc::new(RwLock::new(term_end))
-            ,last_updated:Arc::new(RwLock::new(last_updated))
-            ,fields_cache:HashMap::new()
-	})
+        Ok(Data{
+                data_dir:dir.to_string()
+                ,serial:Arc::new(RwLock::new(SerialNumber::new(&(dir.to_string()+"/serial"))?))
+                ,uuid:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/uuid.i"))?))
+                ,activity:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/activity.i"))?))
+                ,term_begin:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/term_begin.i"))?))
+                ,term_end:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/term_end.i"))?))
+                ,last_updated:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/last_updated.i"))?))
+                ,fields_cache:HashMap::new()
+        })
     }
     pub fn update(
         &mut self
@@ -83,7 +76,7 @@ impl Data{
         ,term_begin: i64
         ,term_end: i64
         ,fields:&Vec<KeyValue>
-    )->Option<u32>{
+    )->u32{
         let term_begin=if term_begin==0{
             chrono::Local::now().timestamp()
         }else{
@@ -92,28 +85,26 @@ impl Data{
         match update{
             Update::New=>{
                 if self.serial.read().unwrap().exists_blank(){
-                    let row=self.serial.write().unwrap().pop_blank();
-                    if let Some(row)=row{
-                        let mut handles=Vec::new();
+                    let row=self.serial.write().unwrap().pop_blank().unwrap();
+                    
+                    let mut handles=Vec::new();
 
-                        let index=self.uuid.clone();
-                        handles.push(thread::spawn(move||{
-                            index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
-                        }));
+                    let index=self.uuid.clone();
+                    handles.push(thread::spawn(move||{
+                        index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+                    }));
 
-                        handles.push(self.update_activity_async(row,activity));
-                        handles.push(self.update_term_begin_async(row,term_begin));
-                        handles.push(self.update_term_endasync(row,term_end));
+                    handles.push(self.update_activity_async(row,activity));
+                    handles.push(self.update_term_begin_async(row,term_begin));
+                    handles.push(self.update_term_endasync(row,term_end));
 
-                        handles.append(&mut self.update_fields(row,fields));
+                    handles.append(&mut self.update_fields(row,fields));
 
-                        for h in handles{
-                            h.join().unwrap();
-                        }
-                        Some(row)
-                    }else{
-                        None
+                    for h in handles{
+                        h.join().unwrap();
                     }
+
+                    row
                 }else{
                     self.update_new(activity,term_begin,term_end,fields)
                 }
@@ -130,10 +121,9 @@ impl Data{
                 for h in handles{
                     h.join().unwrap();
                 }
-                Some(row)
+                row
             }
         }
-        
     }
     fn last_update_now(&mut self,row:u32){
         self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp());
@@ -181,10 +171,10 @@ impl Data{
     }
     pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:impl Into<String>)->thread::JoinHandle<()>{
         let field=if self.fields_cache.contains_key(field_name){
-            self.fields_cache.get_mut(field_name)
+            self.fields_cache.get_mut(field_name).unwrap()
         }else{
             self.create_field(field_name)
-        }.unwrap();
+        };
         let cont=cont.into();
         let index=field.clone();
         thread::spawn(move||{
@@ -192,32 +182,29 @@ impl Data{
         })
     }
     pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
-        if let Some(field)=if self.fields_cache.contains_key(field_name){
-            self.fields_cache.get_mut(field_name)
+        let field=if self.fields_cache.contains_key(field_name){
+            self.fields_cache.get_mut(field_name).unwrap()
         }else{
             self.create_field(field_name)
-        }{
-            let index=field.clone();
-            let cont=cont.into();
-            let h=thread::spawn(move||{
-                index.write().unwrap().update(row,cont.as_bytes());
-            });
-            self.last_update_now(row);
-            h.join().unwrap();
-        }
+        };
+        let index=field.clone();
+        let cont=cont.into();
+        let h=thread::spawn(move||{
+            index.write().unwrap().update(row,cont.as_bytes());
+        });
+        self.last_update_now(row);
+        h.join().unwrap();
     }
-    fn create_field(&mut self,field_name:&str)->Option<&mut Arc<RwLock<FieldData>>>{
+    fn create_field(&mut self,field_name:&str)->&mut Arc<RwLock<FieldData>>{
         let dir_name=self.data_dir.to_string()+"/fields/"+field_name+"/";
-        if let Ok(_)=std::fs::create_dir_all(dir_name.to_owned()){
-            if std::path::Path::new(&dir_name).exists(){
-                if let Ok(field)=FieldData::new(&dir_name){
-                    self.fields_cache.entry(String::from(field_name)).or_insert(
-                        Arc::new(RwLock::new(field))
-                    );
-                }
-            }
+        std::fs::create_dir_all(dir_name.to_owned()).unwrap();
+        if std::path::Path::new(&dir_name).exists(){
+            let field=FieldData::new(&dir_name).unwrap();
+            self.fields_cache.entry(String::from(field_name)).or_insert(
+                Arc::new(RwLock::new(field))
+            );
         }
-        self.fields_cache.get_mut(field_name)
+        self.fields_cache.get_mut(field_name).unwrap()
     }
     pub fn delete(&mut self,row:u32){
         let mut handles=Vec::new();
@@ -246,8 +233,6 @@ impl Data{
             index.write().unwrap().delete(row);
         }));
 
-        
-
         self.load_fields();
         for (_,v) in &mut self.fields_cache{
             let index=v.clone();
@@ -269,53 +254,49 @@ impl Data{
         ,term_begin: i64
         ,term_end: i64
         ,fields:&Vec<KeyValue>
-    )->Option<u32>{
-        let row=self.serial.write().unwrap().add();
-        if let Some(row)=row{
-            let mut handles=Vec::new();
+    )->u32{
+        let row=self.serial.write().unwrap().add().unwrap();
+        let mut handles=Vec::new();
 
-            let index=self.uuid.clone();
-            handles.push(thread::spawn(move||{
-                let mut index=index.write().unwrap();
-                if let Ok(_)=index.resize_to(row){
-                    index.triee_mut().update(row,Uuid::new_v4().as_u128());
-                }
-            }));
-
-            let index=self.activity.clone();
-            handles.push(thread::spawn(move||{
-                let mut index=index.write().unwrap();
-                if let Ok(_)=index.resize_to(row){
-                    index.triee_mut().update(row,activity as u8);
-                }
-            }));
-
-            let index=self.term_begin.clone();
-            handles.push(thread::spawn(move||{
-                let mut index=index.write().unwrap();
-                if let Ok(_)=index.resize_to(row){
-                    index.triee_mut().update(row,term_begin);
-                }
-            }));
-
-            let index=self.term_end.clone();
-            handles.push(thread::spawn(move||{
-                let mut index=index.write().unwrap();
-                if let Ok(_)=index.resize_to(row){
-                    index.triee_mut().update(row,term_end);
-                }
-            }));
-
-            handles.append(&mut self.update_fields(row,fields));
-
-            for h in handles{
-                h.join().unwrap();
+        let index=self.uuid.clone();
+        handles.push(thread::spawn(move||{
+            let mut index=index.write().unwrap();
+            if let Ok(_)=index.resize_to(row){
+                index.triee_mut().update(row,Uuid::new_v4().as_u128());
             }
+        }));
 
-            Some(row)
-        }else{
-            None
+        let index=self.activity.clone();
+        handles.push(thread::spawn(move||{
+            let mut index=index.write().unwrap();
+            if let Ok(_)=index.resize_to(row){
+                index.triee_mut().update(row,activity as u8);
+            }
+        }));
+
+        let index=self.term_begin.clone();
+        handles.push(thread::spawn(move||{
+            let mut index=index.write().unwrap();
+            if let Ok(_)=index.resize_to(row){
+                index.triee_mut().update(row,term_begin);
+            }
+        }));
+
+        let index=self.term_end.clone();
+        handles.push(thread::spawn(move||{
+            let mut index=index.write().unwrap();
+            if let Ok(_)=index.resize_to(row){
+                index.triee_mut().update(row,term_end);
+            }
+        }));
+
+        handles.append(&mut self.update_fields(row,fields));
+
+        for h in handles{
+            h.join().unwrap();
         }
+
+        row
     }
 
     pub fn serial(&self,row:u32)->u32{
@@ -395,21 +376,19 @@ impl Data{
     }
 
     pub fn load_fields(&mut self){
-        if let Ok(d)=std::fs::read_dir(self.data_dir.to_string()+"/fields/"){
-            for p in d{
-                if let Ok(p)=p{
-                    let path=p.path();
-                    if path.is_dir(){
-                        if let Some(fname)=path.file_name(){
-                            if let Some(str_fname)=fname.to_str(){
-                                if !self.fields_cache.contains_key(str_fname){
-                                    if let Some(p)=path.to_str(){
-                                        if let Ok(field)=FieldData::new(&(p.to_string()+"/")){
-                                            self.fields_cache.entry(String::from(str_fname)).or_insert(
-                                                Arc::new(RwLock::new(field))
-                                            );
-                                        }
-                                    }
+        let d=std::fs::read_dir(self.data_dir.to_string()+"/fields/").unwrap();
+        for p in d{
+            if let Ok(p)=p{
+                let path=p.path();
+                if path.is_dir(){
+                    if let Some(fname)=path.file_name(){
+                        if let Some(str_fname)=fname.to_str(){
+                            if !self.fields_cache.contains_key(str_fname){
+                                if let Some(p)=path.to_str(){
+                                    let field=FieldData::new(&(p.to_string()+"/")).unwrap();
+                                    self.fields_cache.entry(String::from(str_fname)).or_insert(
+                                        Arc::new(RwLock::new(field))
+                                    );
                                 }
                             }
                         }
