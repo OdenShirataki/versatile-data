@@ -59,14 +59,14 @@ impl Data{
             std::fs::create_dir_all(dir).unwrap();
         }
         Ok(Data{
-                data_dir:dir.to_string()
-                ,serial:Arc::new(RwLock::new(SerialNumber::new(&(dir.to_string()+"/serial"))?))
-                ,uuid:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/uuid.i"))?))
-                ,activity:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/activity.i"))?))
-                ,term_begin:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/term_begin.i"))?))
-                ,term_end:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/term_end.i"))?))
-                ,last_updated:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/last_updated.i"))?))
-                ,fields_cache:HashMap::new()
+            data_dir:dir.to_string()
+            ,serial:Arc::new(RwLock::new(SerialNumber::new(&(dir.to_string()+"/serial"))?))
+            ,uuid:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/uuid.i"))?))
+            ,activity:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/activity.i"))?))
+            ,term_begin:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/term_begin.i"))?))
+            ,term_end:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/term_end.i"))?))
+            ,last_updated:Arc::new(RwLock::new(IdxSized::new(&(dir.to_string()+"/last_updated.i"))?))
+            ,fields_cache:HashMap::new()
         })
     }
     pub fn update(
