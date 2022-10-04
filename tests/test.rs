@@ -2,11 +2,11 @@
 fn test() {
     use versatile_data::prelude::*;
 
-    let dir="D:/vd-test/";
+    let dir="./vd-test/";
     if std::path::Path::new(dir).exists(){
         std::fs::remove_dir_all(dir).unwrap();
     }
-    if let Some(mut data)=Data::new(dir){
+    if let Ok(mut data)=Data::new(dir){
         let range=1..=10;
         for i in range.clone(){
             data.update(Update::New,Activity::Active,0,0,&vec![

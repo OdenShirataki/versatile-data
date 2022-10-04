@@ -20,7 +20,7 @@ You don't have to think about which fields to index. it is done automatically.
 ```rust
 use versatile_data::prelude::*;
 
-let dir="D:/vd-test/";
+let dir="./vd-test/";
 if std::path::Path::new(dir).exists(){
     std::fs::remove_dir_all(dir).unwrap();
 }

@@ -54,38 +54,27 @@ pub struct Data{
     ,fields_cache:HashMap<String,Arc<RwLock<FieldData>>>
 }
 impl Data{
-    pub fn new(dir:&str)-> Option<Data>{
+    pub fn new(dir:&str)-> Result<Data,std::io::Error>{
         if !std::path::Path::new(dir).exists(){
             std::fs::create_dir_all(dir).unwrap();
         }
-        if let (
-            Ok(serial)
-            ,Ok(uuid)
-            ,Ok(activity)
-            ,Ok(term_begin)
-            ,Ok(term_end)
-            ,Ok(last_updated)
-        )=(
-            SerialNumber::new(&(dir.to_string()+"/serial"))
-            ,IdxSized::new(&(dir.to_string()+"/uuid.i"))
-            ,IdxSized::new(&(dir.to_string()+"/activity.i"))
-            ,IdxSized::new(&(dir.to_string()+"/term_begin.i"))
-            ,IdxSized::new(&(dir.to_string()+"/term_end.i"))
-            ,IdxSized::new(&(dir.to_string()+"/last_updated.i"))
-        ){
-            Some(Data{
-                data_dir:dir.to_string()
-                ,serial:Arc::new(RwLock::new(serial))
-                ,uuid:Arc::new(RwLock::new(uuid))
-                ,activity:Arc::new(RwLock::new(activity))
-                ,term_begin:Arc::new(RwLock::new(term_begin))
-                ,term_end:Arc::new(RwLock::new(term_end))
-                ,last_updated:Arc::new(RwLock::new(last_updated))
-                ,fields_cache:HashMap::new()
-            })
-        }else{
-            None
-        }
+        let serial=SerialNumber::new(&(dir.to_string()+"/serial"))?;
+        let uuid=IdxSized::new(&(dir.to_string()+"/uuid.i"))?;
+        let activity=IdxSized::new(&(dir.to_string()+"/activity.i"))?;
+        let term_begin=IdxSized::new(&(dir.to_string()+"/term_begin.i"))?;
+        let term_end=IdxSized::new(&(dir.to_string()+"/term_end.i"))?;
+        let last_updated=IdxSized::new(&(dir.to_string()+"/last_updated.i"))?;
+        
+	Ok(Data{
+            data_dir:dir.to_string()
+            ,serial:Arc::new(RwLock::new(serial))
+            ,uuid:Arc::new(RwLock::new(uuid))
+            ,activity:Arc::new(RwLock::new(activity))
+            ,term_begin:Arc::new(RwLock::new(term_begin))
+            ,term_end:Arc::new(RwLock::new(term_end))
+            ,last_updated:Arc::new(RwLock::new(last_updated))
+            ,fields_cache:HashMap::new()
+	})
     }
     pub fn update(
         &mut self
