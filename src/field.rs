@@ -16,18 +16,12 @@ pub struct FieldData{
 }
 impl FieldData{
     pub fn new(path_prefix:&str) -> Result<FieldData,std::io::Error>{
-        match IdxSized::new(&(path_prefix.to_string()+".i")){
-            Err(e)=>Err(e)
-            ,Ok(index)=>{
-                match VariousDataFile::new(&(path_prefix.to_string()+".d")){
-                    Ok(strings)=>Ok(FieldData{
-                        index
-                        ,strings
-                    })
-                    ,Err(e)=>Err(e)
-                }
-            }
-        }
+        let index=IdxSized::new(&(path_prefix.to_string()+".i"))?;
+        let strings=VariousDataFile::new(&(path_prefix.to_string()+".d"))?;
+        Ok(FieldData{
+            index
+            ,strings
+        })
     }
     pub fn entity<'a>(&self,row:u32)->Option<&'a FieldEntity>{
         if let Some(v)=self.index.triee().entity_value(row){
