@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use idx_sized::{
     IdxSized
-    ,RemoveResult
+    ,Removed
     ,Avltriee
 };
 use various_data_file::VariousDataFile;
@@ -54,7 +54,7 @@ impl FieldData{
     }
     pub fn update(&mut self,row:u32,content:&[u8]) -> Option<u32>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
-        if let RemoveResult::Unique(data)=self.index.delete(row){
+        if let Removed::Last(data)=self.index.delete(row){
             self.strings.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
         }
         let cont=std::str::from_utf8(content).unwrap();
