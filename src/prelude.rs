@@ -4,7 +4,6 @@ pub use crate::{
     ,Field
     ,Term
     ,Number
-    ,Condition
     ,Search
     ,Order
     ,KeyValue

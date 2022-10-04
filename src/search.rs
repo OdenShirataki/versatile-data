@@ -68,10 +68,24 @@ impl<'a> Search<'a>{
         self.conditions.push(Condition::Activity(Activity::Active));
         self
     }
-    pub fn search(mut self,condition:Condition)->Self{
+    pub fn search_field(self,field_name:impl Into<String>,condition:Field)->Self{
+        self.search(Condition::Field(field_name.into(),condition))
+    }
+    pub fn search_term(self,condition:Term)->Self{
+        self.search(Condition::Term(condition))
+    }
+    pub fn search_activity(self,condition:Activity)->Self{
+        self.search(Condition::Activity(condition))
+    }
+    pub fn search_row(self,condition:Number)->Self{
+        self.search(Condition::Row(condition))
+    }
+
+    fn search(mut self,condition:Condition)->Self{
         self.conditions.push(condition);
         self
     }
+
     fn search_exec(&mut self){
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -81,22 +95,22 @@ impl<'a> Search<'a>{
             thread_count+=1;
             match c{
                 Condition::Activity(condition)=>{
-                    self.search_activity(condition,tx)
+                    self.search_exec_activity(condition,tx)
                 }
                 ,Condition::Term(condition)=>{
-                    self.search_term(condition,tx)
+                    self.search_exec_term(condition,tx)
                 }
                 ,Condition::Field(field_name,condition)=>{
-                    self.search_field(field_name,condition,tx)
+                    self.search_exec_field(field_name,condition,tx)
                 }
                 ,Condition::Row(condition)=>{
-                    self.search_row(condition,tx)
+                    self.search_exec_row(condition,tx)
                 }
                 ,Condition::LastUpdated(condition)=>{
-                    self.search_last_updated(condition,tx)
+                    self.search_exec_last_updated(condition,tx)
                 }
                 ,Condition::Uuid(uuid)=>{
-                    self.search_uuid(uuid,tx)
+                    self.search_exec_uuid(uuid,tx)
                 }
             };
         }
@@ -168,14 +182,14 @@ impl<'a> Search<'a>{
             self.result=Some(newset);
         }
     }
-    fn search_activity(&self,condition:&Activity,tx:Sender<RowSet>){
+    fn search_exec_activity(&self,condition:&Activity,tx:Sender<RowSet>){
         let activity=*condition as u8;
         let index=self.data.activity.clone();
         thread::spawn(move||{
             tx.send(index.read().unwrap().select_by_value_from_to(&activity,&activity)).unwrap();
         });
     }
-    fn search_term_in(&self,base:i64,tx:Sender<RowSet>){
+    fn search_exec_term_in(&self,base:i64,tx:Sender<RowSet>){
         let term_begin=self.data.term_begin.clone();
         let term_end=self.data.term_end.clone();
 
@@ -191,10 +205,10 @@ impl<'a> Search<'a>{
             tx.send(result).unwrap();
         });
     }
-    fn search_term(&self,condition:&Term,tx:Sender<RowSet>){
+    fn search_exec_term(&self,condition:&Term,tx:Sender<RowSet>){
         match condition{
             Term::In(base)=>{
-                self.search_term_in(*base,tx);
+                self.search_exec_term_in(*base,tx);
             }
             ,Term::Future(base)=>{
                 let index=self.data.term_begin.clone();
@@ -212,7 +226,7 @@ impl<'a> Search<'a>{
             }
         }
     }
-    fn search_row(&self,condition:&Number,tx:Sender<RowSet>){
+    fn search_exec_row(&self,condition:&Number,tx:Sender<RowSet>){
         let serial=self.data.serial.clone();
         let mut r=RowSet::default();
         match condition{
@@ -262,7 +276,7 @@ impl<'a> Search<'a>{
             }
         }
     }
-    fn search_field(&self,field_name:&'a str,condition:&Field,tx:Sender<RowSet>){
+    fn search_exec_field(&self,field_name:&'a str,condition:&Field,tx:Sender<RowSet>){
         if let Some(field)=self.data.field(field_name){
             let field=field.clone();
             let mut r:RowSet=RowSet::default();
@@ -367,7 +381,7 @@ impl<'a> Search<'a>{
             }
         }
     }
-    fn search_last_updated(&self,condition:&'a Number,tx:Sender<RowSet>){
+    fn search_exec_last_updated(&self,condition:&'a Number,tx:Sender<RowSet>){
         let index=self.data.last_updated.clone();
         match condition{
             Number::Min(v)=>{
@@ -406,7 +420,7 @@ impl<'a> Search<'a>{
         }
         
     }
-    pub fn search_uuid(&self,uuid:&'a u128,tx:Sender<RowSet>){
+    pub fn search_exec_uuid(&self,uuid:&'a u128,tx:Sender<RowSet>){
         let index=self.data.uuid.clone();
         let uuid=uuid.clone();
         std::thread::spawn(move||{
