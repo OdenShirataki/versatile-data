@@ -88,11 +88,8 @@ impl<'a> Search<'a>{
 
     fn search_exec(&mut self){
         let (tx, rx) = std::sync::mpsc::channel();
-
-        let mut thread_count=0;
         for c in &self.conditions{
             let tx=tx.clone();
-            thread_count+=1;
             match c{
                 Condition::Activity(condition)=>{
                     self.search_exec_activity(condition,tx)
@@ -114,8 +111,9 @@ impl<'a> Search<'a>{
                 }
             };
         }
-        for _ in 0..thread_count{
-            self.reduce(rx.recv().unwrap());
+        drop(tx);
+        for rs in rx{
+            self.reduce(rs);
         }
     }
     pub fn result(mut self)->RowSet{
