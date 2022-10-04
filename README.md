@@ -57,8 +57,8 @@ if let Ok(mut data)=Data::new(dir){
     let r=data
         .search_field("num",Field::Range(b"3".to_vec(),b"8".to_vec()))
         .search_default()   //Automatic execution of the following two lines
-        //.search(Condition::Term(Term::In(chrono::Local::now().timestamp())))
-        //.search(Condition::Activity(Activity::Active))
+        //.search_term(Term::In(chrono::Local::now().timestamp()))
+        //.search_activity(Activity::Active)
         .result()
     ;
     println!("{:?}",r);
