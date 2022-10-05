@@ -41,6 +41,12 @@ pub enum Update{
     ,Row(u32)
 }
 
+#[derive(Clone,Copy)]
+pub enum UpdateTerm{
+    Inherit
+    ,Overwrite(i64)
+}
+
 pub type KeyValue<'a>=(&'a str,String);
 
 pub struct Data{
@@ -73,15 +79,10 @@ impl Data{
         &mut self
         ,update:Update
         ,activity: Activity
-        ,term_begin: i64
-        ,term_end: i64
+        ,term_begin: UpdateTerm
+        ,term_end: UpdateTerm
         ,fields:&Vec<KeyValue>
     )->u32{
-        let term_begin=if term_begin==0{
-            chrono::Local::now().timestamp()
-        }else{
-            term_begin
-        };
         match update{
             Update::New=>{
                 if self.serial.read().unwrap().exists_blank(){
@@ -95,8 +96,18 @@ impl Data{
                     }));
 
                     handles.push(self.update_activity_async(row,activity));
-                    handles.push(self.update_term_begin_async(row,term_begin));
-                    handles.push(self.update_term_endasync(row,term_end));
+                
+                    handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
+                        term_begin
+                    }else{
+                        chrono::Local::now().timestamp()
+                    }));
+
+                    handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
+                        term_end
+                    }else{
+                        0
+                    }));
 
                     handles.append(&mut self.update_fields(row,fields));
 
@@ -113,8 +124,12 @@ impl Data{
                 let mut handles=Vec::new();
 
                 handles.push(self.update_activity_async(row,activity));
-                handles.push(self.update_term_begin_async(row,term_begin));
-                handles.push(self.update_term_endasync(row,term_end));
+                if let UpdateTerm::Overwrite(term_begin)=term_begin{
+                    handles.push(self.update_term_begin_async(row,term_begin));
+                }
+                if let UpdateTerm::Overwrite(term_end)=term_end{
+                    handles.push(self.update_term_end_async(row,term_end));
+                }
 
                 handles.append(&mut self.update_fields(row,fields));
 
@@ -150,14 +165,14 @@ impl Data{
         self.last_update_now(row);
         h.join().unwrap();
     }
-    fn update_term_endasync(&mut self,row:u32,to:i64)->thread::JoinHandle<()>{
+    fn update_term_end_async(&mut self,row:u32,to:i64)->thread::JoinHandle<()>{
         let index=self.term_end.clone();
         thread::spawn(move||{
             index.write().unwrap().update(row,to);
         })
     }
     pub fn update_term_end(&mut self,row:u32,to: i64){
-        let h=self.update_term_endasync(row,to);
+        let h=self.update_term_end_async(row,to);
         self.last_update_now(row);
         h.join().unwrap();
     }
@@ -251,8 +266,8 @@ impl Data{
     fn update_new(
         &mut self
         ,activity: Activity
-        ,term_begin: i64
-        ,term_end: i64
+        ,term_begin: UpdateTerm
+        ,term_end: UpdateTerm
         ,fields:&Vec<KeyValue>
     )->u32{
         let row=self.serial.write().unwrap().add().unwrap();
@@ -274,6 +289,11 @@ impl Data{
             }
         }));
 
+        let term_begin=if let UpdateTerm::Overwrite(term_begin)=term_begin{
+            term_begin
+        }else{
+            chrono::Local::now().timestamp()
+        };
         let index=self.term_begin.clone();
         handles.push(thread::spawn(move||{
             let mut index=index.write().unwrap();
@@ -282,6 +302,11 @@ impl Data{
             }
         }));
 
+        let term_end=if let UpdateTerm::Overwrite(term_end)=term_end{
+            term_end
+        }else{
+            0
+        };
         let index=self.term_end.clone();
         handles.push(thread::spawn(move||{
             let mut index=index.write().unwrap();
