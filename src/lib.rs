@@ -36,18 +36,29 @@ pub enum Activity{
 }
 
 #[derive(Clone,Copy)]
-pub enum Update{
-    New
-    ,Row(u32)
-}
-
-#[derive(Clone,Copy)]
 pub enum UpdateTerm{
     Inherit
     ,Overwrite(i64)
 }
 
 pub type KeyValue<'a>=(&'a str,String);
+
+#[derive(Clone)]
+pub enum Operation<'a>{
+    New{
+        activity:Activity
+        ,term_begin:UpdateTerm
+        ,term_end:UpdateTerm
+        ,fields:Vec<KeyValue<'a>>
+    }
+    ,Update{
+        row:u32
+        ,activity:Activity
+        ,term_begin:UpdateTerm
+        ,term_end:UpdateTerm
+        ,fields:Vec<KeyValue<'a>>}
+    ,Delete{row:u32}
+}
 
 pub struct Data{
     data_dir:String
@@ -77,14 +88,15 @@ impl Data{
     }
     pub fn update(
         &mut self
-        ,update:Update
-        ,activity: Activity
-        ,term_begin: UpdateTerm
-        ,term_end: UpdateTerm
-        ,fields:&Vec<KeyValue>
+        ,operation:&Operation
     )->u32{
-        match update{
-            Update::New=>{
+        match operation{
+            Operation::New{
+                activity
+                ,term_begin
+                ,term_end
+                ,fields
+            }=>{
                 if self.serial.read().unwrap().exists_blank(){
                     let row=self.serial.write().unwrap().pop_blank().unwrap();
                     
@@ -95,16 +107,16 @@ impl Data{
                         index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
                     }));
 
-                    handles.push(self.update_activity_async(row,activity));
+                    handles.push(self.update_activity_async(row,*activity));
                 
                     handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
-                        term_begin
+                        *term_begin
                     }else{
                         chrono::Local::now().timestamp()
                     }));
 
                     handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
-                        term_end
+                        *term_end
                     }else{
                         0
                     }));
@@ -117,26 +129,36 @@ impl Data{
 
                     row
                 }else{
-                    self.update_new(activity,term_begin,term_end,fields)
+                    self.update_new(*activity,*term_begin,*term_end,fields)
                 }
             }
-            ,Update::Row(row)=>{
+            ,Operation::Update{
+                row
+                ,activity
+                ,term_begin
+                ,term_end
+                ,fields
+            }=>{
                 let mut handles=Vec::new();
 
-                handles.push(self.update_activity_async(row,activity));
+                handles.push(self.update_activity_async(*row,*activity));
                 if let UpdateTerm::Overwrite(term_begin)=term_begin{
-                    handles.push(self.update_term_begin_async(row,term_begin));
+                    handles.push(self.update_term_begin_async(*row,*term_begin));
                 }
                 if let UpdateTerm::Overwrite(term_end)=term_end{
-                    handles.push(self.update_term_end_async(row,term_end));
+                    handles.push(self.update_term_end_async(*row,*term_end));
                 }
 
-                handles.append(&mut self.update_fields(row,fields));
+                handles.append(&mut self.update_fields(*row,fields));
 
                 for h in handles{
                     h.join().unwrap();
                 }
-                row
+                *row
+            }
+            ,Operation::Delete{row}=>{
+                self.delete(*row);
+                0
             }
         }
     }
@@ -221,7 +243,7 @@ impl Data{
         }
         self.fields_cache.get_mut(field_name).unwrap()
     }
-    pub fn delete(&mut self,row:u32){
+    fn delete(&mut self,row:u32){
         let mut handles=Vec::new();
         let index=self.serial.clone();
         handles.push(thread::spawn(move||{

@@ -1,7 +1,8 @@
 use idx_sized::IdxSized;
 use file_mmap::FileMmap;
 
-const U32SIZE:usize=std::mem::size_of::<u32>();
+const U32_SIZE:usize=std::mem::size_of::<u32>();
+const INIT_SIZE:usize=U32_SIZE*2;
 struct Fragment{
     filemmap:FileMmap
     ,increment: Vec<u32>
@@ -10,17 +11,16 @@ struct Fragment{
 }
 impl Fragment{
     pub fn new(path:&str) -> Result<Fragment,std::io::Error>{
-        let init_size=(U32SIZE*2) as u64;   //初期サイズはincrementとblank_list(0)の分
-        let filemmap=FileMmap::new(path,init_size)?;
+        let filemmap=FileMmap::new(path,INIT_SIZE as u64)?;
         let increment=filemmap.as_ptr() as *mut u32;
-        let blank_list=filemmap.offset(U32SIZE as isize) as *mut u32;
+        let blank_list=filemmap.offset(U32_SIZE as isize) as *mut u32;
 
         let len=filemmap.len();
 
-        let blank_count=if len==init_size{
+        let blank_count=if len==INIT_SIZE as u64{
             0
         }else{
-            len / U32SIZE as u64 - 2    //最後尾は常に0でterminateするので、12byte以上の場合のみblankがある
+            len / U32_SIZE as u64 - 2    //最後尾は常に0でterminateするので、12byte以上の場合のみblankがある
         } as u32;
         
         Ok(Fragment{
@@ -50,7 +50,7 @@ impl Fragment{
             };
             let last=unsafe{*p};
             unsafe{*p=0;}
-            let _=self.filemmap.set_len(self.filemmap.len() - U32SIZE as u64);
+            let _=self.filemmap.set_len(self.filemmap.len() - U32_SIZE as u64);
             self.blank_count-=1;
             Some(last)
         }else{

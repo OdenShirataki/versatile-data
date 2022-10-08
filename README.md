@@ -27,10 +27,15 @@ if std::path::Path::new(dir).exists(){
 if let Ok(mut data)=Data::new(dir){
     let range=1..=10;
     for i in range.clone(){
-        data.update(Update::New,Activity::Active,UpdateTerm::Inherit,UpdateTerm::Inherit,&vec![
-            ("num",i.to_string())
-            ,("num_by3",(i*3).to_string())
-        ]);
+        data.update(&Operation::New{
+            activity:Activity::Active
+            ,term_begin:UpdateTerm::Inherit
+            ,term_end:UpdateTerm::Inherit
+            ,fields:vec![
+                ("num",i.to_string())
+                ,("num_by3",(i*3).to_string())
+            ]
+        });
     }
     data.update_activity(3,Activity::Inactive);
     let mut sam=0.0;
