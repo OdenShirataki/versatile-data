@@ -86,6 +86,34 @@ impl Data{
             ,fields_cache:HashMap::new()
         })
     }
+    pub fn update_row<'a>(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue<'a>>){
+        let mut handles=Vec::new();
+
+        let index=self.uuid.clone();
+        handles.push(thread::spawn(move||{
+            index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+        }));
+
+        handles.push(self.update_activity_async(row,*activity));
+    
+        handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
+            *term_begin
+        }else{
+            chrono::Local::now().timestamp()
+        }));
+
+        handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
+            *term_end
+        }else{
+            0
+        }));
+
+        handles.append(&mut self.update_fields(row,fields));
+
+        for h in handles{
+            h.join().unwrap();
+        }
+    }
     pub fn update(
         &mut self
         ,operation:&Operation
@@ -99,34 +127,7 @@ impl Data{
             }=>{
                 if self.serial.read().unwrap().exists_blank(){
                     let row=self.serial.write().unwrap().pop_blank().unwrap();
-                    
-                    let mut handles=Vec::new();
-
-                    let index=self.uuid.clone();
-                    handles.push(thread::spawn(move||{
-                        index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
-                    }));
-
-                    handles.push(self.update_activity_async(row,*activity));
-                
-                    handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
-                        *term_begin
-                    }else{
-                        chrono::Local::now().timestamp()
-                    }));
-
-                    handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
-                        *term_end
-                    }else{
-                        0
-                    }));
-
-                    handles.append(&mut self.update_fields(row,fields));
-
-                    for h in handles{
-                        h.join().unwrap();
-                    }
-
+                    self.update_row(row,activity,term_begin,term_end,fields);
                     row
                 }else{
                     self.update_new(*activity,*term_begin,*term_end,fields)
@@ -139,21 +140,7 @@ impl Data{
                 ,term_end
                 ,fields
             }=>{
-                let mut handles=Vec::new();
-
-                handles.push(self.update_activity_async(*row,*activity));
-                if let UpdateTerm::Overwrite(term_begin)=term_begin{
-                    handles.push(self.update_term_begin_async(*row,*term_begin));
-                }
-                if let UpdateTerm::Overwrite(term_end)=term_end{
-                    handles.push(self.update_term_end_async(*row,*term_end));
-                }
-
-                handles.append(&mut self.update_fields(*row,fields));
-
-                for h in handles{
-                    h.join().unwrap();
-                }
+                self.update_row(*row,activity,term_begin,term_end,fields);
                 *row
             }
             ,Operation::Delete{row}=>{
