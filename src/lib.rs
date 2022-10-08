@@ -130,7 +130,7 @@ impl Data{
                     self.update_row(row,activity,term_begin,term_end,fields);
                     row
                 }else{
-                    self.update_new(*activity,*term_begin,*term_end,fields)
+                    self.update_new(activity,term_begin,term_end,fields)
                 }
             }
             ,Operation::Update{
@@ -274,9 +274,9 @@ impl Data{
 
     fn update_new(
         &mut self
-        ,activity: Activity
-        ,term_begin: UpdateTerm
-        ,term_end: UpdateTerm
+        ,activity:&Activity
+        ,term_begin:&UpdateTerm
+        ,term_end:&UpdateTerm
         ,fields:&Vec<KeyValue>
     )->u32{
         let row=self.serial.write().unwrap().add().unwrap();
@@ -290,16 +290,17 @@ impl Data{
             }
         }));
 
+        let activity=*activity as u8;
         let index=self.activity.clone();
         handles.push(thread::spawn(move||{
             let mut index=index.write().unwrap();
             if let Ok(_)=index.resize_to(row){
-                index.triee_mut().update(row,activity as u8);
+                index.triee_mut().update(row,activity);
             }
         }));
 
         let term_begin=if let UpdateTerm::Overwrite(term_begin)=term_begin{
-            term_begin
+            *term_begin
         }else{
             chrono::Local::now().timestamp()
         };
@@ -312,7 +313,7 @@ impl Data{
         }));
 
         let term_end=if let UpdateTerm::Overwrite(term_end)=term_end{
-            term_end
+            *term_end
         }else{
             0
         };
