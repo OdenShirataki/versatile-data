@@ -41,7 +41,7 @@ pub enum UpdateTerm{
     ,Overwrite(i64)
 }
 
-pub type KeyValue<'a>=(&'a str,String);
+pub type KeyValue<'a>=(&'a str,Vec<u8>);
 
 #[derive(Clone)]
 pub enum Operation<'a>{
@@ -117,7 +117,7 @@ impl Data{
             }
         }
     }
-    
+
     pub fn create_row(
         &mut self
         ,activity:&Activity
@@ -224,7 +224,6 @@ impl Data{
         }
     }
 
-    
     fn last_update_now(&mut self,row:u32){
         self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp());
     } 
@@ -269,16 +268,16 @@ impl Data{
         self.last_update_now(row);
         handles
     }
-    pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:impl Into<String>)->thread::JoinHandle<()>{
+    pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:&Vec<u8>)->thread::JoinHandle<()>{
         let field=if self.fields_cache.contains_key(field_name){
             self.fields_cache.get_mut(field_name).unwrap()
         }else{
             self.create_field(field_name)
         };
-        let cont=cont.into();
+        let cont=cont.to_owned();
         let index=field.clone();
         thread::spawn(move||{
-            index.write().unwrap().update(row,cont.as_bytes());
+            index.write().unwrap().update(row,&cont);
         })
     }
     pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
@@ -424,6 +423,13 @@ impl Data{
         }
     }
 
+    pub fn fields(&self)->Vec<&String>{
+        let mut fields=Vec::new();
+        for (key,_) in &self.fields_cache{
+            fields.push(key);
+        }
+        fields
+    }
     pub fn load_fields(&mut self){
         let d=std::fs::read_dir(self.data_dir.to_string()+"/fields/").unwrap();
         for p in d{

@@ -30,6 +30,15 @@ impl FieldData{
             None
         }
     }
+    pub fn as_bytes<'a>(&self,row:u32)->Option<&[u8]>{
+        if let Some(e)=self.entity(row){
+            Some(unsafe{
+                std::slice::from_raw_parts(self.strings.offset(e.addr()) as *const u8,e.len())
+            })
+        }else{
+            None
+        }
+    }
     pub fn str<'a>(&self,row:u32)->Option<&'a str>{
         if let Some(e)=self.entity(row){
             std::str::from_utf8(unsafe{
