@@ -130,7 +130,8 @@ impl<'a> Search<'a>{
         if let Some(r)=&self.result{
             match o{
                 Order::Serial=>{
-                    for (_,row,_) in self.data.serial.read().unwrap().index().triee().iter(){
+                    for row in self.data.serial.read().unwrap().index().triee().iter(){
+                        let row=row.row();
                         if r.contains(&row){
                             ret.push(row);
                         }
@@ -140,21 +141,24 @@ impl<'a> Search<'a>{
                     ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
                 }
                 ,Order::TermBegin=>{
-                    for (_,row,_) in self.data.term_begin.read().unwrap().triee().iter(){
+                    for row in self.data.term_begin.read().unwrap().triee().iter(){
+                        let row=row.row();
                         if r.contains(&row){
                             ret.push(row);
                         }
                     }
                 }
                 ,Order::TermEnd=>{
-                    for (_,row,_) in self.data.term_end.read().unwrap().triee().iter(){
+                    for row in self.data.term_end.read().unwrap().triee().iter(){
+                        let row=row.row();
                         if r.contains(&row){
                             ret.push(row);
                         }
                     }
                 }
                 ,Order::LastUpdated=>{
-                    for (_,row,_) in self.data.last_updated.read().unwrap().triee().iter(){
+                    for row in self.data.last_updated.read().unwrap().triee().iter(){
+                        let row=row.row();
                         if r.contains(&row){
                             ret.push(row);
                         }
@@ -162,7 +166,8 @@ impl<'a> Search<'a>{
                 }
                 ,Order::Field(field_name)=>{
                     if let Some(field)=self.data.field(field_name){
-                        for (_,row,_) in field.read().unwrap().index().triee().iter(){
+                        for row in field.read().unwrap().index().triee().iter(){
+                            let row=row.row();
                             if r.contains(&row){
                                 ret.push(row);
                             }
@@ -231,7 +236,8 @@ impl<'a> Search<'a>{
             Number::Min(row)=>{
                 let row=row.clone();
                 thread::spawn(move||{
-                    for (_,i,_) in serial.read().unwrap().index().triee().iter(){
+                    for i in serial.read().unwrap().index().triee().iter(){
+                        let i=i.row();
                         if i as isize>=row{
                             r.insert(i);
                         }
@@ -242,7 +248,8 @@ impl<'a> Search<'a>{
             ,Number::Max(row)=>{
                 let row=row.clone();
                 std::thread::spawn(move||{
-                    for (_,i,_) in serial.read().unwrap().index().triee().iter(){
+                    for i in serial.read().unwrap().index().triee().iter(){
+                        let i=i.row();
                         if i as isize<=row{
                             r.insert(i);
                         }
@@ -294,7 +301,8 @@ impl<'a> Search<'a>{
                     let min=min.clone();
                     std::thread::spawn(move||{
                         let (_,min_found_row)=field.read().unwrap().search_cb(&min);
-                        for (_,row,_) in field.read().unwrap().triee().iter_by_row_from(min_found_row){
+                        for row in field.read().unwrap().triee().iter_by_row_from(min_found_row){
+                            let row=row.row();
                             r.insert(row);
                             r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
                         }
@@ -305,7 +313,8 @@ impl<'a> Search<'a>{
                     let max=max.clone();
                     std::thread::spawn(move||{
                         let (_,max_found_row)=field.read().unwrap().search_cb(&max);
-                        for (_,row,_) in field.read().unwrap().triee().iter_by_row_to(max_found_row){
+                        for row in field.read().unwrap().triee().iter_by_row_to(max_found_row){
+                            let row=row.row();
                             r.insert(row);
                             r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
                         }
@@ -318,7 +327,8 @@ impl<'a> Search<'a>{
                     std::thread::spawn(move||{
                         let (_,min_found_row)=field.read().unwrap().search_cb(&min);
                         let (_,max_found_row)=field.read().unwrap().search_cb(&max);
-                        for (_,row,_) in field.read().unwrap().triee().iter_by_row_from_to(min_found_row,max_found_row){
+                        for row in field.read().unwrap().triee().iter_by_row_from_to(min_found_row,max_found_row){
+                            let row=row.row();
                             r.insert(row);
                             r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
                         }
@@ -329,8 +339,9 @@ impl<'a> Search<'a>{
                     let cont=cont.clone();
                     std::thread::spawn(move||{
                         let len=cont.len();
-                        for (_,row,v) in field.read().unwrap().triee().iter(){
-                            let data=v.value();
+                        for row in field.read().unwrap().triee().iter(){
+                            let data=row.value();
+                            let row=row.row();
                             if len<=data.len(){
                                 if let Some(str2)=field.read().unwrap().str(row){
                                     if str2.starts_with(&cont){
@@ -346,8 +357,9 @@ impl<'a> Search<'a>{
                     let cont=cont.clone();
                     std::thread::spawn(move||{
                         let len=cont.len();
-                        for (_,row,v) in field.read().unwrap().triee().iter(){
-                            let data=v.value();
+                        for row in field.read().unwrap().triee().iter(){
+                            let data=row.value();
+                            let row=row.row();
                             if len<=data.len(){
                                 if let Some(str2)=field.read().unwrap().str(row){
                                     if str2.contains(&cont){
@@ -363,8 +375,9 @@ impl<'a> Search<'a>{
                     let cont=cont.clone();
                     std::thread::spawn(move||{
                         let len=cont.len();
-                        for (_,row,v) in field.read().unwrap().triee().iter(){
-                            let data=v.value();
+                        for row in field.read().unwrap().triee().iter(){
+                            let data=row.value();
+                            let row=row.row();
                             if len<=data.len(){
                                 if let Some(str2)=field.read().unwrap().str(row){
                                     if str2.ends_with(&cont){

@@ -458,7 +458,7 @@ impl Data{
     }
 
     pub fn all(&self)->RowSet{
-        self.serial.read().unwrap().index().triee().iter().map(|(_,row,_)|row).collect()
+        self.serial.read().unwrap().index().triee().iter().map(|r|r.row()).collect()
     }
     pub fn begin_search(&self)->Search{
         Search::new(self)
