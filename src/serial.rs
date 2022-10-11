@@ -59,7 +59,7 @@ impl Fragment{
     }
 }
 
-pub struct SerialNumber{
+pub(crate) struct SerialNumber{
     index:IdxSized<u32>
     ,fragment:Fragment
 }

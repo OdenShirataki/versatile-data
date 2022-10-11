@@ -24,7 +24,7 @@ impl FieldData{
         })
     }
     pub fn entity<'a>(&self,row:u32)->Option<&'a FieldEntity>{
-        if let Some(v)=self.index.triee().entity_value(row){
+        if let Some(v)=self.index.triee().value(row){
             Some(&v)
         }else{
             None
@@ -113,7 +113,7 @@ impl FieldData{
         self.index.delete(row);
     }
     
-    pub fn search_cb(&self,cont:&[u8])->(Ordering,u32){
+    pub(crate) fn search_cb(&self,cont:&[u8])->(Ordering,u32){
         self.index.triee().search_cb(|data|->Ordering{
             let str2=unsafe{
                 std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
