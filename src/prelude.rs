@@ -9,4 +9,5 @@ pub use crate::{
     ,KeyValue
     ,Operation
     ,UpdateTerm
+    ,Condition
 };
