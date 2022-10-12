@@ -29,8 +29,8 @@ if let Ok(mut data)=Data::new(dir){
     for i in range.clone(){
         data.update(&Operation::New{
             activity:Activity::Active
-            ,term_begin:UpdateTerm::Inherit
-            ,term_end:UpdateTerm::Inherit
+            ,term_begin:UpdateTerm::Defalut
+            ,term_end:UpdateTerm::Defalut
             ,fields:vec![
                 ("num",i.to_string().into_bytes())
                 ,("num_by3",(i*3).to_string().into_bytes())

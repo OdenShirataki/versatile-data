@@ -37,7 +37,7 @@ pub enum Activity{
 
 #[derive(Clone,Copy)]
 pub enum UpdateTerm{
-    Inherit
+    Defalut
     ,Overwrite(i64)
 }
 
