@@ -222,7 +222,6 @@ impl Data{
         }
     }
 
-
     pub fn update_row(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue>){
         let mut handles=Vec::new();
 

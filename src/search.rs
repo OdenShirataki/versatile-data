@@ -81,7 +81,7 @@ impl<'a> Search<'a>{
         self.search(Condition::Row(condition))
     }
 
-    fn search(mut self,condition:Condition)->Self{
+    pub fn search(mut self,condition:Condition)->Self{
         self.conditions.push(condition);
         self
     }
