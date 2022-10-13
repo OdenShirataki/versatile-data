@@ -60,7 +60,6 @@ pub enum Operation<'a>{
     ,Delete{row:u32}
 }
 
-
 pub struct Data{
     data_dir:String
     ,serial: Arc<RwLock<SerialNumber>>
@@ -127,16 +126,15 @@ impl Data{
     )->u32{
         if self.serial.read().unwrap().exists_blank(){
             let row=self.serial.write().unwrap().pop_blank().unwrap();
-            self.update_row(row,activity,term_begin,term_end,fields);
+            self.create_row_recycled(row,activity,term_begin,term_end,fields);
             row
         }else{
             let row=self.serial.write().unwrap().add().unwrap();
-            self.update_row_with_resize(row,activity,term_begin,term_end,fields);
+            self.create_row_new(row,activity,term_begin,term_end,fields);
             row
         }
     }
-
-    pub fn update_row(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue>){
+    fn create_row_recycled(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue>){
         let mut handles=Vec::new();
 
         let index=self.uuid.clone();
@@ -164,7 +162,7 @@ impl Data{
             h.join().unwrap();
         }
     }
-    fn update_row_with_resize(
+    fn create_row_new(
         &mut self
         ,row:u32
         ,activity:&Activity
@@ -224,6 +222,31 @@ impl Data{
         }
     }
 
+
+    pub fn update_row(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue>){
+        let mut handles=Vec::new();
+
+        handles.push(self.update_activity_async(row,*activity));
+    
+        handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
+            *term_begin
+        }else{
+            chrono::Local::now().timestamp()
+        }));
+
+        handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
+            *term_end
+        }else{
+            0
+        }));
+
+        handles.append(&mut self.update_fields(row,fields));
+
+        for h in handles{
+            h.join().unwrap();
+        }
+    }
+    
     fn last_update_now(&mut self,row:u32){
         self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp());
     } 
