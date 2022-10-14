@@ -18,25 +18,23 @@ mod field;
 pub use field::FieldData;
 pub use search::Field;
 
-mod search;
+pub mod search;
 pub use search::{
-    Term
-    ,Number
+    Number
     ,Search
     ,Condition
     ,Order
 };
-
 pub mod prelude;
 
-#[derive(Clone,Copy,PartialEq)]
+#[derive(Clone,Copy,PartialEq,Debug)]
 pub enum Activity{
     Inactive=0
     ,Active=1
 }
 
 #[derive(Clone,Copy)]
-pub enum UpdateTerm{
+pub enum Term{
     Defalut
     ,Overwrite(i64)
 }
@@ -47,15 +45,15 @@ pub type KeyValue<'a>=(&'a str,Vec<u8>);
 pub enum Operation<'a>{
     New{
         activity:Activity
-        ,term_begin:UpdateTerm
-        ,term_end:UpdateTerm
+        ,term_begin:Term
+        ,term_end:Term
         ,fields:Vec<KeyValue<'a>>
     }
     ,Update{
         row:u32
         ,activity:Activity
-        ,term_begin:UpdateTerm
-        ,term_end:UpdateTerm
+        ,term_begin:Term
+        ,term_end:Term
         ,fields:Vec<KeyValue<'a>>}
     ,Delete{row:u32}
 }
@@ -120,8 +118,8 @@ impl Data{
     pub fn create_row(
         &mut self
         ,activity:&Activity
-        ,term_begin:&UpdateTerm
-        ,term_end:&UpdateTerm
+        ,term_begin:&Term
+        ,term_end:&Term
         ,fields:&Vec<KeyValue>
     )->u32{
         if self.serial.read().unwrap().exists_blank(){
@@ -134,7 +132,7 @@ impl Data{
             row
         }
     }
-    fn create_row_recycled(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue>){
+    fn create_row_recycled(&mut self,row:u32,activity:&Activity,term_begin:&Term,term_end:&Term,fields:&Vec<KeyValue>){
         let mut handles=Vec::new();
 
         let index=self.uuid.clone();
@@ -144,13 +142,13 @@ impl Data{
 
         handles.push(self.update_activity_async(row,*activity));
     
-        handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
+        handles.push(self.update_term_begin_async(row,if let Term::Overwrite(term_begin)=term_begin{
             *term_begin
         }else{
             chrono::Local::now().timestamp()
         }));
 
-        handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
+        handles.push(self.update_term_end_async(row,if let Term::Overwrite(term_end)=term_end{
             *term_end
         }else{
             0
@@ -166,8 +164,8 @@ impl Data{
         &mut self
         ,row:u32
         ,activity:&Activity
-        ,term_begin:&UpdateTerm
-        ,term_end:&UpdateTerm
+        ,term_begin:&Term
+        ,term_end:&Term
         ,fields:&Vec<KeyValue>
     ){
         let mut handles=Vec::new();
@@ -189,7 +187,7 @@ impl Data{
             }
         }));
 
-        let term_begin=if let UpdateTerm::Overwrite(term_begin)=term_begin{
+        let term_begin=if let Term::Overwrite(term_begin)=term_begin{
             *term_begin
         }else{
             chrono::Local::now().timestamp()
@@ -202,7 +200,7 @@ impl Data{
             }
         }));
 
-        let term_end=if let UpdateTerm::Overwrite(term_end)=term_end{
+        let term_end=if let Term::Overwrite(term_end)=term_end{
             *term_end
         }else{
             0
@@ -222,18 +220,18 @@ impl Data{
         }
     }
 
-    pub fn update_row(&mut self,row:u32,activity:&Activity,term_begin:&UpdateTerm,term_end:&UpdateTerm,fields:&Vec<KeyValue>){
+    pub fn update_row(&mut self,row:u32,activity:&Activity,term_begin:&Term,term_end:&Term,fields:&Vec<KeyValue>){
         let mut handles=Vec::new();
 
         handles.push(self.update_activity_async(row,*activity));
     
-        handles.push(self.update_term_begin_async(row,if let UpdateTerm::Overwrite(term_begin)=term_begin{
+        handles.push(self.update_term_begin_async(row,if let Term::Overwrite(term_begin)=term_begin{
             *term_begin
         }else{
             chrono::Local::now().timestamp()
         }));
 
-        handles.push(self.update_term_end_async(row,if let UpdateTerm::Overwrite(term_end)=term_end{
+        handles.push(self.update_term_end_async(row,if let Term::Overwrite(term_end)=term_end{
             *term_end
         }else{
             0
@@ -491,7 +489,7 @@ impl Data{
     pub fn search_activity(&self,condition:Activity)->Search{
         Search::new(self).search_activity(condition)
     }
-    pub fn search_term(&self,condition:Term)->Search{
+    pub fn search_term(&self,condition:search::Term)->Search{
         Search::new(self).search_term(condition)
     }
     pub fn search_row(&self,condition:Number)->Search{

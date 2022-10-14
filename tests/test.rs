@@ -11,8 +11,8 @@ fn test() {
         for i in range.clone(){
             data.update(&Operation::New{
                 activity:Activity::Active
-                ,term_begin:UpdateTerm::Defalut
-                ,term_end:UpdateTerm::Defalut
+                ,term_begin:Term::Defalut
+                ,term_end:Term::Defalut
                 ,fields:vec![
                     ("num",i.to_string().into_bytes())
                     ,("num_by3",(i*3).to_string().into_bytes())

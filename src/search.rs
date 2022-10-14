@@ -9,12 +9,14 @@ use crate::{
     ,Activity
 };
 
+#[derive(Clone)]
 pub enum Term{
     In(i64)
     ,Past(i64)
     ,Future(i64)
 }
 
+#[derive(Clone)]
 pub enum Number{
     Min(isize)
     ,Max(isize)
@@ -22,6 +24,7 @@ pub enum Number{
     ,In(Vec<isize>)
 }
 
+#[derive(Clone)]
 pub enum Field{
     Match(Vec<u8>)
     ,Range(Vec<u8>,Vec<u8>)
@@ -32,6 +35,7 @@ pub enum Field{
     ,Backward(String)
 }
 
+#[derive(Clone)]
 pub enum Condition{
     Activity(Activity)
     ,Term(Term)
