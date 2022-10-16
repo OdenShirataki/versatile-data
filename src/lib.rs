@@ -39,22 +39,40 @@ pub enum Term{
     ,Overwrite(i64)
 }
 
-pub type KeyValue<'a>=(&'a str,Vec<u8>);
+#[derive(Clone)]
+pub struct KeyValue{
+    key:String
+    ,value:Vec<u8>
+}
+impl KeyValue{
+    pub fn new(key:impl Into<String>,value:impl Into<Vec<u8>>)->KeyValue{
+        KeyValue{
+            key:key.into()
+            ,value:value.into()
+        }
+    }
+    pub fn key(&self)->&str{
+        &self.key
+    }
+    pub fn value(&self)->&[u8]{
+        &self.value
+    }
+}
 
 #[derive(Clone)]
-pub enum Operation<'a>{
+pub enum Operation{
     New{
         activity:Activity
         ,term_begin:Term
         ,term_end:Term
-        ,fields:Vec<KeyValue<'a>>
+        ,fields:Vec<KeyValue>
     }
     ,Update{
         row:u32
         ,activity:Activity
         ,term_begin:Term
         ,term_end:Term
-        ,fields:Vec<KeyValue<'a>>}
+        ,fields:Vec<KeyValue>}
     ,Delete{row:u32}
 }
 
@@ -282,8 +300,8 @@ impl Data{
     }
     pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>)->Vec<thread::JoinHandle<()>>{
         let mut handles=Vec::new();
-        for (fk,fv) in fields.iter(){
-            handles.push(self.update_field_async(row,fk,fv));
+        for kv in fields.iter(){
+            handles.push(self.update_field_async(row,&kv.key,&kv.value));
         }
         self.last_update_now(row);
         handles

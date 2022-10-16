@@ -1,3 +1,5 @@
+#[cfg(test)]
+
 #[test]
 fn test() {
     use versatile_data::prelude::*;
@@ -14,8 +16,8 @@ fn test() {
                 ,term_begin:Term::Defalut
                 ,term_end:Term::Defalut
                 ,fields:vec![
-                    ("num",i.to_string().into_bytes())
-                    ,("num_by3",(i*3).to_string().into_bytes())
+                    KeyValue::new("num",i.to_string())
+                    ,KeyValue::new("num_by3",(i*3).to_string())
                 ]
             });
         }

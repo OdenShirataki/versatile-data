@@ -32,8 +32,8 @@ if let Ok(mut data)=Data::new(dir){
             ,term_begin:Term::Defalut
             ,term_end:Term::Defalut
             ,fields:vec![
-                ("num",i.to_string().into_bytes())
-                ,("num_by3",(i*3).to_string().into_bytes())
+                KeyValue::new("num",i.to_string())
+                ,KeyValue::new("num_by3",(i*3).to_string())
             ]
         });
     }

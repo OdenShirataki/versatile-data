@@ -1,7 +1,9 @@
 [package]
 name = "versatile-data"
-version = "0.39.0"
+version = "0.40.0"
 edition = "2021"
+
+authors = ["Oden Shirataki <oden.srtk@gmail.com>"]
 
 description = "A library for databases that has convenient datasets that group together commonly used fields and gives you the flexibility to create your own fields."
 
