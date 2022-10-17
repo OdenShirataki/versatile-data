@@ -53,6 +53,16 @@ fn test() {
         println!("{:?}",r);
 
         let r=data
+            .search_default()
+            .search(Condition::Or(vec![
+                Condition::Field("num".to_string(),Field::Match(b"4".to_vec()))
+                ,Condition::Field("num".to_string(),Field::Match(b"6".to_vec()))
+            ]))
+            .result()
+        ;
+        println!("Or test:{:?}",r);
+
+        let r=data
             .search_default() 
             .result_with_sort(&Order::Serial)
         ;

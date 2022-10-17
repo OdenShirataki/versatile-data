@@ -1,58 +1,15 @@
 use std::thread;
 use std::sync::mpsc::Sender;
 use std::cmp::Ordering;
-use std::ops::RangeInclusive;
 use idx_sized::RowSet;
 
-use crate::{
+use super::{
     Data
     ,Activity
 };
 
-#[derive(Clone)]
-pub enum Term{
-    In(i64)
-    ,Past(i64)
-    ,Future(i64)
-}
-
-#[derive(Clone)]
-pub enum Number{
-    Min(isize)
-    ,Max(isize)
-    ,Range(RangeInclusive<isize>)
-    ,In(Vec<isize>)
-}
-
-#[derive(Clone)]
-pub enum Field{
-    Match(Vec<u8>)
-    ,Range(Vec<u8>,Vec<u8>)
-    ,Min(Vec<u8>)
-    ,Max(Vec<u8>)
-    ,Forward(String)
-    ,Partial(String)
-    ,Backward(String)
-}
-
-#[derive(Clone)]
-pub enum Condition{
-    Activity(Activity)
-    ,Term(Term)
-    ,Row(Number)
-    ,Uuid(u128)
-    ,LastUpdated(Number)
-    ,Field(String,Field)
-}
-
-pub enum Order<'a>{
-    Serial
-    ,Row
-    ,TermBegin
-    ,TermEnd
-    ,LastUpdated
-    ,Field(&'a str)
-}
+mod enums;
+pub use enums::*;
 
 pub struct Search<'a>{
     data:&'a Data
@@ -112,6 +69,13 @@ impl<'a> Search<'a>{
                 }
                 ,Condition::Uuid(uuid)=>{
                     self.search_exec_uuid(uuid,tx)
+                }
+                ,Condition::Or(conditions)=>{
+                    let mut tmp=RowSet::default();
+                    for c in conditions{
+                        tmp.append(&mut Search::new(self.data).search(c.clone()).result());
+                    }
+                    tx.send(tmp).unwrap();
                 }
             };
         }
