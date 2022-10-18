@@ -35,6 +35,7 @@ pub enum Condition{
     ,Uuid(u128)
     ,LastUpdated(Number)
     ,Field(String,Field)
+    ,And(Vec<Condition>)
     ,Or(Vec<Condition>)
 }
 

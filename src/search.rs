@@ -70,6 +70,13 @@ impl<'a> Search<'a>{
                 ,Condition::Uuid(uuid)=>{
                     self.search_exec_uuid(uuid,tx)
                 }
+                ,Condition::And(conditions)=>{
+                    let mut new_search=Search::new(self.data);
+                    for c in conditions{
+                        new_search=new_search.search(c.clone());
+                    }
+                    tx.send(new_search.result()).unwrap();
+                }
                 ,Condition::Or(conditions)=>{
                     let mut tmp=RowSet::default();
                     for c in conditions{
