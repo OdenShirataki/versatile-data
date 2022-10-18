@@ -47,44 +47,55 @@ impl<'a> Search<'a>{
         self
     }
 
+    fn search_exec_cond(data:&Data,condition:&Condition,tx:Sender<RowSet>){
+        match condition{
+            Condition::Activity(condition)=>{
+                Self::search_exec_activity(data,condition,tx)
+            }
+            ,Condition::Term(condition)=>{
+                Self::search_exec_term(data,condition,tx)
+            }
+            ,Condition::Field(field_name,condition)=>{
+                Self::search_exec_field(data,field_name,condition,tx)
+            }
+            ,Condition::Row(condition)=>{
+                Self::search_exec_row(data,condition,tx)
+            }
+            ,Condition::LastUpdated(condition)=>{
+                Self::search_exec_last_updated(data,condition,tx)
+            }
+            ,Condition::Uuid(uuid)=>{
+                Self::search_exec_uuid(data,uuid,tx)
+            }
+            ,Condition::And(conditions)=>{
+                let mut new_search=Search::new(data);
+                for c in conditions{
+                    new_search=new_search.search(c.clone());
+                }
+                tx.send(new_search.result()).unwrap();
+            }
+            ,Condition::Or(conditions)=>{
+                let (tx_inner, rx) = std::sync::mpsc::channel();
+                for c in conditions{
+                    let tx_inner=tx_inner.clone();
+                    Self::search_exec_cond(data,c,tx_inner);
+                }
+                drop(tx_inner);
+                std::thread::spawn(move||{
+                    let mut tmp=RowSet::default();
+                    for ref mut rs in rx{
+                        tmp.append(rs);
+                    }
+                    tx.send(tmp).unwrap();
+                });
+            }
+        };
+    }
     fn search_exec(&mut self){
         let (tx, rx) = std::sync::mpsc::channel();
         for c in &self.conditions{
             let tx=tx.clone();
-            match c{
-                Condition::Activity(condition)=>{
-                    self.search_exec_activity(condition,tx)
-                }
-                ,Condition::Term(condition)=>{
-                    self.search_exec_term(condition,tx)
-                }
-                ,Condition::Field(field_name,condition)=>{
-                    self.search_exec_field(field_name,condition,tx)
-                }
-                ,Condition::Row(condition)=>{
-                    self.search_exec_row(condition,tx)
-                }
-                ,Condition::LastUpdated(condition)=>{
-                    self.search_exec_last_updated(condition,tx)
-                }
-                ,Condition::Uuid(uuid)=>{
-                    self.search_exec_uuid(uuid,tx)
-                }
-                ,Condition::And(conditions)=>{
-                    let mut new_search=Search::new(self.data);
-                    for c in conditions{
-                        new_search=new_search.search(c.clone());
-                    }
-                    tx.send(new_search.result()).unwrap();
-                }
-                ,Condition::Or(conditions)=>{
-                    let mut tmp=RowSet::default();
-                    for c in conditions{
-                        tmp.append(&mut Search::new(self.data).search(c.clone()).result());
-                    }
-                    tx.send(tmp).unwrap();
-                }
-            };
+            Self::search_exec_cond(self.data, c, tx);
         }
         drop(tx);
         for rs in rx{
@@ -160,17 +171,16 @@ impl<'a> Search<'a>{
             self.result=Some(newset);
         }
     }
-    fn search_exec_activity(&self,condition:&Activity,tx:Sender<RowSet>){
+    fn search_exec_activity(data:&Data,condition:&Activity,tx:Sender<RowSet>){
         let activity=*condition as u8;
-        let index=self.data.activity.clone();
+        let index=data.activity.clone();
         thread::spawn(move||{
             tx.send(index.read().unwrap().select_by_value_from_to(&activity,&activity)).unwrap();
         });
     }
-    fn search_exec_term_in(&self,base:i64,tx:Sender<RowSet>){
-        let term_begin=self.data.term_begin.clone();
-        let term_end=self.data.term_end.clone();
-
+    fn search_exec_term_in(data:&Data,base:i64,tx:Sender<RowSet>){
+        let term_begin=data.term_begin.clone();
+        let term_end=data.term_end.clone();
         thread::spawn(move||{
             let mut result=RowSet::default();
             let tmp=term_begin.read().unwrap().select_by_value_to(&base);
@@ -183,20 +193,20 @@ impl<'a> Search<'a>{
             tx.send(result).unwrap();
         });
     }
-    fn search_exec_term(&self,condition:&Term,tx:Sender<RowSet>){
+    fn search_exec_term(data:&Data,condition:&Term,tx:Sender<RowSet>){
         match condition{
             Term::In(base)=>{
-                self.search_exec_term_in(*base,tx);
+                Self::search_exec_term_in(data,*base,tx);
             }
             ,Term::Future(base)=>{
-                let index=self.data.term_begin.clone();
+                let index=data.term_begin.clone();
                 let base=base.clone();
                 std::thread::spawn(move||{
                     tx.send(index.read().unwrap().select_by_value_from(&base)).unwrap();
                 });
             }
             ,Term::Past(base)=>{
-                let index=self.data.term_end.clone();
+                let index=data.term_end.clone();
                 let base=base.clone();
                 std::thread::spawn(move||{
                     tx.send(index.read().unwrap().select_by_value_from_to(&1,&base)).unwrap();
@@ -204,8 +214,8 @@ impl<'a> Search<'a>{
             }
         }
     }
-    fn search_exec_row(&self,condition:&Number,tx:Sender<RowSet>){
-        let serial=self.data.serial.clone();
+    fn search_exec_row(data:&Data,condition:&Number,tx:Sender<RowSet>){
+        let serial=data.serial.clone();
         let mut r=RowSet::default();
         match condition{
             Number::Min(row)=>{
@@ -256,8 +266,8 @@ impl<'a> Search<'a>{
             }
         }
     }
-    fn search_exec_field(&self,field_name:&'a str,condition:&Field,tx:Sender<RowSet>){
-        if let Some(field)=self.data.field(field_name){
+    fn search_exec_field(data:&Data,field_name:&str,condition:&Field,tx:Sender<RowSet>){
+        if let Some(field)=data.field(field_name){
             let field=field.clone();
             let mut r:RowSet=RowSet::default();
             match condition{
@@ -367,8 +377,8 @@ impl<'a> Search<'a>{
             }
         }
     }
-    fn search_exec_last_updated(&self,condition:&'a Number,tx:Sender<RowSet>){
-        let index=self.data.last_updated.clone();
+    fn search_exec_last_updated(data:&Data,condition:&Number,tx:Sender<RowSet>){
+        let index=data.last_updated.clone();
         match condition{
             Number::Min(v)=>{
                 let v=v.clone();
@@ -406,8 +416,8 @@ impl<'a> Search<'a>{
         }
         
     }
-    pub fn search_exec_uuid(&self,uuid:&'a u128,tx:Sender<RowSet>){
-        let index=self.data.uuid.clone();
+    pub fn search_exec_uuid(data:&Data,uuid:&u128,tx:Sender<RowSet>){
+        let index=data.uuid.clone();
         let uuid=uuid.clone();
         std::thread::spawn(move||{
             tx.send(if let Ok(index)=index.read(){
