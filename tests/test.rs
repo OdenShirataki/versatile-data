@@ -54,13 +54,13 @@ fn test() {
 
         let r=data
             .search_default()
-            .search(Condition::Or(vec![
+            .search(Condition::Broad(vec![
                 Condition::Field("num".to_string(),Field::Match(b"4".to_vec()))
                 ,Condition::Field("num".to_string(),Field::Match(b"6".to_vec()))
             ]))
             .result()
         ;
-        println!("Or test:{:?}",r);
+        println!("Broad test:{:?}",r);
 
         let r=data
             .search_default() 

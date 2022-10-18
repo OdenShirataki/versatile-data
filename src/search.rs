@@ -67,14 +67,14 @@ impl<'a> Search<'a>{
             ,Condition::Uuid(uuid)=>{
                 Self::search_exec_uuid(data,uuid,tx)
             }
-            ,Condition::And(conditions)=>{
+            ,Condition::Narrow(conditions)=>{
                 let mut new_search=Search::new(data);
                 for c in conditions{
                     new_search=new_search.search(c.clone());
                 }
                 tx.send(new_search.result()).unwrap();
             }
-            ,Condition::Or(conditions)=>{
+            ,Condition::Broad(conditions)=>{
                 let (tx_inner, rx) = std::sync::mpsc::channel();
                 for c in conditions{
                     let tx_inner=tx_inner.clone();
