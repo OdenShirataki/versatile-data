@@ -14,14 +14,12 @@ pub use enums::*;
 pub struct Search<'a>{
     data:&'a Data
     ,conditions:Vec<Condition>
-    ,result:Option<RowSet>
 }
 impl<'a> Search<'a>{
     pub fn new(data:&'a Data)->Search{
         Search{
             data
             ,conditions:Vec::new()
-            ,result:None
         }
     }
     pub fn search_default(mut self)->Self{
@@ -91,85 +89,85 @@ impl<'a> Search<'a>{
             }
         };
     }
-    fn search_exec(&mut self){
-        let (tx, rx) = std::sync::mpsc::channel();
-        for c in &self.conditions{
-            let tx=tx.clone();
-            Self::search_exec_cond(self.data, c, tx);
+    fn search_exec(&mut self)->RowSet{
+        let mut rows=RowSet::default();
+        if self.conditions.len()>0{
+            let (tx, rx) = std::sync::mpsc::channel();
+            for c in &self.conditions{
+                let tx=tx.clone();
+                Self::search_exec_cond(self.data, c, tx);
+            }
+            drop(tx);
+            let mut fst=true;
+            for rs in rx{
+                if fst{
+                    rows=rs;
+                    fst=false;
+                }else{
+                    rows=rows.intersection(&rs).map(|&x|x).collect()
+                }
+            }
+        }else{
+            for row in self.data.serial.read().unwrap().index().triee().iter(){
+                rows.insert(row.row());
+            }
         }
-        drop(tx);
-        for rs in rx{
-            self.reduce(rs);
-        }
+        rows
     }
     pub fn result(mut self)->RowSet{
-        self.search_exec();
-        if let Some(r)=self.result{
-            r
-        }else{
-            self.data.all()
-        }
+        self.search_exec()
     }
     pub fn result_with_sort(&mut self,o:&Order)->Vec<u32>{
-        self.search_exec();
+        let rows=self.search_exec();
         let mut ret=Vec::new();
-        if let Some(r)=&self.result{
-            match o{
-                Order::Serial=>{
-                    for row in self.data.serial.read().unwrap().index().triee().iter(){
-                        let row=row.row();
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
+        match o{
+            Order::Serial=>{
+                for row in self.data.serial.read().unwrap().index().triee().iter(){
+                    let row=row.row();
+                    if rows.contains(&row){
+                        ret.push(row);
                     }
                 }
-                ,Order::Row=>{
-                    ret=r.iter().map(|&x|x).collect::<Vec<u32>>();
-                }
-                ,Order::TermBegin=>{
-                    for row in self.data.term_begin.read().unwrap().triee().iter(){
-                        let row=row.row();
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
+            }
+            ,Order::Row=>{
+                ret=rows.iter().map(|&x|x).collect::<Vec<u32>>();
+            }
+            ,Order::TermBegin=>{
+                for row in self.data.term_begin.read().unwrap().triee().iter(){
+                    let row=row.row();
+                    if rows.contains(&row){
+                        ret.push(row);
                     }
                 }
-                ,Order::TermEnd=>{
-                    for row in self.data.term_end.read().unwrap().triee().iter(){
-                        let row=row.row();
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
+            }
+            ,Order::TermEnd=>{
+                for row in self.data.term_end.read().unwrap().triee().iter(){
+                    let row=row.row();
+                    if rows.contains(&row){
+                        ret.push(row);
                     }
                 }
-                ,Order::LastUpdated=>{
-                    for row in self.data.last_updated.read().unwrap().triee().iter(){
-                        let row=row.row();
-                        if r.contains(&row){
-                            ret.push(row);
-                        }
+            }
+            ,Order::LastUpdated=>{
+                for row in self.data.last_updated.read().unwrap().triee().iter(){
+                    let row=row.row();
+                    if rows.contains(&row){
+                        ret.push(row);
                     }
                 }
-                ,Order::Field(field_name)=>{
-                    if let Some(field)=self.data.field(field_name){
-                        for row in field.read().unwrap().index().triee().iter(){
-                            let row=row.row();
-                            if r.contains(&row){
-                                ret.push(row);
-                            }
+            }
+            ,Order::Field(field_name)=>{
+                if let Some(field)=self.data.field(field_name){
+                    for row in field.read().unwrap().index().triee().iter(){
+                        let row=row.row();
+                        if rows.contains(&row){
+                            ret.push(row);
                         }
                     }
                 }
             }
         }
         ret
-    }
-    fn reduce(&mut self,newset:RowSet){
-        if let Some(r)=&self.result{
-            self.result=Some(newset.intersection(&r).map(|&x|x).collect());
-        }else{
-            self.result=Some(newset);
-        }
     }
     fn search_exec_activity(data:&Data,condition:&Activity,tx:Sender<RowSet>){
         let activity=*condition as u8;
@@ -427,17 +425,4 @@ impl<'a> Search<'a>{
             }).unwrap();
         });
     }
-    pub fn union(mut self,from:Search)->Self{
-        if let Some(ref r)=self.result{
-            if let Some(fr)=from.result{
-                self.result=Some(r.union(&fr).map(|&x|x).collect());
-            }
-        }else{
-            if let Some(fr)=from.result{
-                self.result=Some(fr);
-            }
-        }
-        self
-    }
-    
 }

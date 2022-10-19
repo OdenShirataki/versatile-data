@@ -113,13 +113,6 @@ fn test() {
         println!("backward:{:?}",r);
 
         let r=data
-            .search_field("hoge".to_string(),Field::Backward("be".to_string()))
-            .union(data.search_field("hoge",Field::Match(b"HAHA".to_vec())))
-            .result()
-        ;
-        println!("union:{:?}",r);
-
-        let r=data
             .begin_search()
             .result()
         ;

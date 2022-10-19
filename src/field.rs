@@ -69,7 +69,7 @@ impl FieldData{
         let cont=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_row)=tree.search_cb(|data|->Ordering{
-            let str2=std::str::from_utf8(self.strings.slice(data.data_address())).unwrap();
+            let str2=std::str::from_utf8(self.strings.bytes(data.data_address())).unwrap();
             if cont==str2{
                 Ordering::Equal
             }else{
