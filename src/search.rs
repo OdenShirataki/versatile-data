@@ -45,7 +45,7 @@ impl<'a> Search<'a>{
         self
     }
 
-    fn search_exec_cond(data:&Data,condition:&Condition,tx:Sender<RowSet>){
+    pub fn search_exec_cond(data:&Data,condition:&Condition,tx:Sender<RowSet>){
         match condition{
             Condition::Activity(condition)=>{
                 Self::search_exec_activity(data,condition,tx)
