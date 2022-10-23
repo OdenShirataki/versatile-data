@@ -1,12 +1,11 @@
 pub use crate::{
     Data
     ,Activity
-    ,Field
-    ,Number
+    ,Term
     ,Search
     ,Order
     ,KeyValue
     ,Operation
     ,Condition
-    ,Term
+    ,search
 };

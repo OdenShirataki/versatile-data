@@ -44,7 +44,7 @@ fn test() {
         assert_eq!(sam,55.0);
 
         let r=data
-            .search_field("num",Field::Range(b"3".to_vec(),b"8".to_vec()))
+            .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))
             .search_default()   //Automatic execution of the following two lines
             //.search_term(Term::In(chrono::Local::now().timestamp()))
             //.search_activity(Activity::Active)
@@ -55,8 +55,8 @@ fn test() {
         let r=data
             .search_default()
             .search(Condition::Broad(vec![
-                Condition::Field("num".to_string(),Field::Match(b"4".to_vec()))
-                ,Condition::Field("num".to_string(),Field::Match(b"6".to_vec()))
+                Condition::Field("num".to_string(),search::Field::Match(b"4".to_vec()))
+                ,Condition::Field("num".to_string(),search::Field::Match(b"6".to_vec()))
             ]))
             .result()
         ;
@@ -75,8 +75,8 @@ fn test() {
         println!("sorted-num:{:?}",r);
 
         let r=data
-            .search_field("num",Field::Range(b"3".to_vec(),b"8".to_vec()))
-            .search_row(Number::Range(4..=7))
+            .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))
+            .search_row(search::Number::Range(4..=7))
             .search_default()
             .result()
         ;
@@ -89,25 +89,25 @@ fn test() {
         data.update_field(7,"hoge","ageee");
         data.update_field(6,"hoge","bebebe");
         let r=data
-            .search_field("hoge",Field::Match(b"HAHA".to_vec()))
+            .search_field("hoge",search::Field::Match(b"HAHA".to_vec()))
             .result()
         ;
         println!("match:{:?}",r);
 
         let r=data
-            .search_field("hoge",Field::Forward("age".to_string()))
+            .search_field("hoge",search::Field::Forward("age".to_string()))
             .result()
         ;
         println!("forward:{:?}",r);
 
         let r=data
-            .search_field("hoge",Field::Partial("eb".to_string()))
+            .search_field("hoge",search::Field::Partial("eb".to_string()))
             .result()
         ;
         println!("partial:{:?}",r);
 
         let r=data
-            .search_field("hoge",Field::Backward("be".to_string()))
+            .search_field("hoge",search::Field::Backward("be".to_string()))
             .result()
         ;
         println!("backward:{:?}",r);

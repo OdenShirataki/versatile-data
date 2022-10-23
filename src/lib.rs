@@ -19,9 +19,7 @@ pub use field::FieldData;
 
 pub mod search;
 pub use search::{
-    Field
-    ,Number
-    ,Search
+    Search
     ,Condition
     ,Order
 };
@@ -456,7 +454,7 @@ impl Data{
     pub fn begin_search(&self)->Search{
         Search::new(self)
     }
-    pub fn search_field(&self,field_name:impl Into<String>,condition:Field)->Search{
+    pub fn search_field(&self,field_name:impl Into<String>,condition:search::Field)->Search{
         Search::new(self).search_field(field_name,condition)
     }
     pub fn search_activity(&self,condition:Activity)->Search{
@@ -465,7 +463,7 @@ impl Data{
     pub fn search_term(&self,condition:search::Term)->Search{
         Search::new(self).search_term(condition)
     }
-    pub fn search_row(&self,condition:Number)->Search{
+    pub fn search_row(&self,condition:search::Number)->Search{
         Search::new(self).search_row(condition)
     }
     pub fn search_default(&self)->Search{
