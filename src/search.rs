@@ -72,7 +72,7 @@ impl<'a> Search<'a>{
                 }
                 tx.send(new_search.result()).unwrap();
             }
-            ,Condition::Broad(conditions)=>{
+            ,Condition::Wide(conditions)=>{
                 let (tx_inner, rx) = std::sync::mpsc::channel();
                 for c in conditions{
                     let tx_inner=tx_inner.clone();

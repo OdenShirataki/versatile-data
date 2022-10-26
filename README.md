@@ -70,7 +70,7 @@ if let Ok(mut data)=Data::new(dir){
 
     let r=data
         .search_default()
-        .search(Condition::Broad(vec![
+        .search(Condition::Wide(vec![
             Condition::Field("num".to_string(),search::Field::Match(b"4".to_vec()))
             ,Condition::Field("num".to_string(),search::Field::Match(b"6".to_vec()))
         ]))

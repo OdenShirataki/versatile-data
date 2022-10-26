@@ -36,7 +36,7 @@ pub enum Condition{
     ,LastUpdated(Number)
     ,Field(String,Field)
     ,Narrow(Vec<Condition>)
-    ,Broad(Vec<Condition>)
+    ,Wide(Vec<Condition>)
 }
 
 pub enum Order<'a>{
