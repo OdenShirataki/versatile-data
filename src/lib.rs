@@ -40,7 +40,7 @@ pub struct Data{
     ,fields_cache:HashMap<String,Arc<RwLock<FieldData>>>
 }
 impl Data{
-    pub fn new(dir:&str)-> Result<Data,std::io::Error>{
+    pub fn new(dir:&str)-> Result<Self,std::io::Error>{
         if !std::path::Path::new(dir).exists(){
             std::fs::create_dir_all(dir).unwrap();
         }
@@ -268,7 +268,7 @@ impl Data{
         let cont=cont.to_owned();
         let index=field.clone();
         thread::spawn(move||{
-            index.write().unwrap().update(row,&cont);
+            index.write().unwrap().update(row,&cont).unwrap();
         })
     }
     pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
@@ -280,7 +280,7 @@ impl Data{
         let index=field.clone();
         let cont=cont.into();
         let h=thread::spawn(move||{
-            index.write().unwrap().update(row,cont.as_bytes());
+            index.write().unwrap().update(row,cont.as_bytes()).unwrap();
         });
         self.last_update_now(row);
         h.join().unwrap();

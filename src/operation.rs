@@ -4,7 +4,7 @@ pub struct KeyValue{
     ,pub(super) value:Vec<u8>
 }
 impl KeyValue{
-    pub fn new(key:impl Into<String>,value:impl Into<Vec<u8>>)->KeyValue{
+    pub fn new(key:impl Into<String>,value:impl Into<Vec<u8>>)->Self{
         KeyValue{
             key:key.into()
             ,value:value.into()

@@ -20,7 +20,7 @@ impl std::default::Default for FieldEntity{
 }
 
 impl FieldEntity {
-    pub fn new(data_address:DataAddress,num:f64)->FieldEntity{
+    pub fn new(data_address:DataAddress,num:f64)->Self{
         FieldEntity{
             data_address:data_address
             ,num

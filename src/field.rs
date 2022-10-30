@@ -15,7 +15,7 @@ pub struct FieldData{
     ,strings:VariousDataFile
 }
 impl FieldData{
-    pub fn new(path_prefix:&str) -> Result<FieldData,std::io::Error>{
+    pub fn new(path_prefix:&str)->Result<Self,std::io::Error>{
         let index=IdxSized::new(&(path_prefix.to_string()+".i"))?;
         let strings=VariousDataFile::new(&(path_prefix.to_string()+".d"))?;
         Ok(FieldData{
@@ -61,7 +61,7 @@ impl FieldData{
     pub fn triee(&self)->&Avltriee<FieldEntity>{
         &self.index.triee()
     }
-    pub fn update(&mut self,row:u32,content:&[u8]) -> Option<u32>{
+    pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
         if let Removed::Last(data)=self.index.delete(row){
             self.strings.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
@@ -80,32 +80,29 @@ impl FieldData{
             if let Some(_node)=self.index.triee().node(row){
                 //すでにデータがある場合
                 self.index.triee_mut().update_same(found_row,row);
-                Some(row)
+                Ok(row)
             }else{
                 self.index.insert_same(found_row,row)
             }
         }else{
             //新しく作る
-            if let Some(data_address)=self.strings.insert(content){
-                let e=FieldEntity::new(
-                    data_address.address()
-                    ,cont.parse().unwrap_or(0.0)
+            let data_address=self.strings.insert(content)?;
+            let e=FieldEntity::new(
+                data_address.address()
+                ,cont.parse().unwrap_or(0.0)
+            );
+            if let Some(_entity)=self.index.triee().node(row){
+                //既存データの更新処理
+                self.index.triee_mut().update_node(
+                    found_row
+                    ,row
+                    ,e
+                    ,ord
                 );
-                if let Some(_entity)=self.index.triee().node(row){
-                    //既存データの更新処理
-                    self.index.triee_mut().update_node(
-                        found_row
-                        ,row
-                        ,e
-                        ,ord
-                    );
-                    Some(row)
-                }else{
-                    //追加
-                    self.index.insert_unique(e,found_row,ord,row)
-                }
+                Ok(row)
             }else{
-                None
+                //追加
+                self.index.insert_unique(e,found_row,ord,row)
             }
         }
     }

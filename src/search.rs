@@ -16,7 +16,7 @@ pub struct Search<'a>{
     ,conditions:Vec<Condition>
 }
 impl<'a> Search<'a>{
-    pub fn new(data:&'a Data)->Search{
+    pub fn new(data:&'a Data)->Self{
         Search{
             data
             ,conditions:Vec::new()

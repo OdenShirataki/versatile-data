@@ -10,7 +10,7 @@ struct Fragment{
     ,blank_count: u32
 }
 impl Fragment{
-    pub fn new(path:&str) -> Result<Fragment,std::io::Error>{
+    pub fn new(path:&str)->Result<Self,std::io::Error>{
         let filemmap=FileMmap::new(path,INIT_SIZE as u64)?;
         let increment=filemmap.as_ptr() as *mut u32;
         let blank_list=filemmap.offset(U32_SIZE as isize) as *mut u32;
@@ -37,7 +37,7 @@ impl Fragment{
     pub fn insert_blank(&mut self,id:u32){
         self.filemmap.append(
             &[0,0,0,0]
-        );
+        ).unwrap();
         unsafe{
             *(self.blank_list.as_ptr() as *mut u32).offset(self.blank_count as isize)=id;
         }
@@ -64,7 +64,7 @@ pub(crate) struct SerialNumber{
     ,fragment:Fragment
 }
 impl SerialNumber{
-    pub fn new(path:&str)->Result<SerialNumber,std::io::Error>{
+    pub fn new(path:&str)->Result<Self,std::io::Error>{
         Ok(SerialNumber{
             index:IdxSized::new(&(path.to_string()+".i"))?
             ,fragment:Fragment::new(&(path.to_string()+".f"))?
@@ -76,9 +76,9 @@ impl SerialNumber{
     pub fn exists_blank(&self)->bool{
         self.fragment.blank_count>0
     }
-    pub fn add(&mut self)->Option<u32>{ //追加されたrowを返す
+    pub fn add(&mut self)->Result<u32,std::io::Error>{ //追加されたrowを返す
         let row=self.index.insert(self.fragment.increment())?;
-        Some(row)
+        Ok(row)
     }
     pub fn pop_blank(&mut self)->Option<u32>{
         if let Some(exists_row)=self.fragment.pop(){
