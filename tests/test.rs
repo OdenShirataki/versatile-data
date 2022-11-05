@@ -82,12 +82,12 @@ fn test() {
         ;
         println!("{:?}",r);
         
-        data.update_field(2,"hoge","HAHA");
-        data.update_field(4,"hoge","agaba");
-        data.update_field(5,"hoge","agababi");
-        data.update_field(1,"hoge","ageabe");
-        data.update_field(7,"hoge","ageee");
-        data.update_field(6,"hoge","bebebe");
+        data.update_field(2,"hoge",b"HAHA");
+        data.update_field(4,"hoge",b"agaba");
+        data.update_field(5,"hoge",b"agababi");
+        data.update_field(1,"hoge",b"ageabe");
+        data.update_field(7,"hoge",b"ageee");
+        data.update_field(6,"hoge",b"bebebe");
         let r=data
             .search_field("hoge",search::Field::Match(b"HAHA".to_vec()))
             .result()

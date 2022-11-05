@@ -271,19 +271,15 @@ impl Data{
             index.write().unwrap().update(row,&cont).unwrap();
         })
     }
-    pub fn update_field(&mut self,row:u32,field_name:&str,cont:impl Into<String>){
+    pub fn update_field(&mut self,row:u32,field_name:&str,cont:&[u8]){
         let field=if self.fields_cache.contains_key(field_name){
             self.fields_cache.get_mut(field_name).unwrap()
         }else{
             self.create_field(field_name)
         };
         let index=field.clone();
-        let cont=cont.into();
-        let h=thread::spawn(move||{
-            index.write().unwrap().update(row,cont.as_bytes()).unwrap();
-        });
+        index.write().unwrap().update(row,cont).unwrap();
         self.last_update_now(row);
-        h.join().unwrap();
     }
     fn create_field(&mut self,field_name:&str)->&mut Arc<RwLock<FieldData>>{
         let dir_name=self.data_dir.to_string()+"/fields/"+field_name+"/";
