@@ -60,7 +60,7 @@ fn test() {
             ]))
             .result()
         ;
-        println!("Broad test:{:?}",r);
+        println!("Wide test:{:?}",r);
 
         let r=data
             .search_default() 
