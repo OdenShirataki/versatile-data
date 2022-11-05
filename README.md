@@ -53,8 +53,8 @@ if let Ok(mut data)=Data::new(dir){
             ,data.last_updated(i)
             ,data.term_begin(i)
             ,data.term_end(i)
-            ,data.field_str(i,"num")
-            ,data.field_str(i,"num_by3")
+            ,std::str::from_utf8(data.field_bytes(i,"num")).unwrap()
+            ,std::str::from_utf8(data.field_bytes(i,"num_by3")).unwrap()
         );
     }
     assert_eq!(sam,55.0);
@@ -76,7 +76,7 @@ if let Ok(mut data)=Data::new(dir){
         ]))
         .result()
     ;
-    println!("Broad test:{:?}",r);
+    println!("Wide test:{:?}",r);
 
     let r=data
         .search_default() 

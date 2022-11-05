@@ -387,15 +387,15 @@ impl Data{
             0
         }
     }
-    pub fn field_str(&self,row:u32,name:&str)->&str{
+    pub fn field_bytes(&self,row:u32,name:&str)->&[u8]{
         if let Some(f)=self.field(name){
-            if let Some(v)=f.read().unwrap().str(row){
+            if let Some(v)=f.read().unwrap().get(row){
                 v
             }else{
-                ""
+                b""
             }
         }else{
-            ""
+            b""
         }
     }
     pub fn field_num(&self,row:u32,name:&str)->f64{

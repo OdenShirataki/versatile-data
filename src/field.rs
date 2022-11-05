@@ -12,38 +12,29 @@ use entity::FieldEntity;
 
 pub struct FieldData{
     index: IdxSized<FieldEntity>
-    ,strings:VariousDataFile
+    ,data_file:VariousDataFile
 }
 impl FieldData{
     pub fn new(path_prefix:&str)->Result<Self,std::io::Error>{
         let index=IdxSized::new(&(path_prefix.to_string()+".i"))?;
-        let strings=VariousDataFile::new(&(path_prefix.to_string()+".d"))?;
+        let data_file=VariousDataFile::new(&(path_prefix.to_string()+".d"))?;
         Ok(FieldData{
             index
-            ,strings
+            ,data_file
         })
     }
-    pub fn entity<'a>(&self,row:u32)->Option<&'a FieldEntity>{
+    pub fn entity(&self,row:u32)->Option<&FieldEntity>{
         if let Some(v)=self.index.triee().value(row){
             Some(&v)
         }else{
             None
         }
     }
-    pub fn get<'a>(&self,row:u32)->Option<&[u8]>{
+    pub fn get<'a>(&self,row:u32)->Option<&'a [u8]>{
         if let Some(e)=self.entity(row){
             Some(unsafe{
-                std::slice::from_raw_parts(self.strings.offset(e.addr()) as *const u8,e.len())
+                std::slice::from_raw_parts(self.data_file.offset(e.addr()) as *const u8,e.len())
             })
-        }else{
-            None
-        }
-    }
-    pub fn str<'a>(&self,row:u32)->Option<&'a str>{
-        if let Some(e)=self.entity(row){
-            std::str::from_utf8(unsafe{
-                std::slice::from_raw_parts(self.strings.offset(e.addr()) as *const u8,e.len())
-            }).ok()
         }else{
             None
         }
@@ -64,12 +55,12 @@ impl FieldData{
     pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
         //まずは消す(指定したidのデータが無い場合はスルーされる)
         if let Removed::Last(data)=self.index.delete(row){
-            self.strings.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
+            self.data_file.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
         }
         let cont=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_row)=tree.search_cb(|data|->Ordering{
-            let str2=std::str::from_utf8(self.strings.bytes(data.data_address())).unwrap();
+            let str2=std::str::from_utf8(self.data_file.bytes(data.data_address())).unwrap();
             if cont==str2{
                 Ordering::Equal
             }else{
@@ -86,7 +77,7 @@ impl FieldData{
             }
         }else{
             //新しく作る
-            let data_address=self.strings.insert(content)?;
+            let data_address=self.data_file.insert(content)?;
             let e=FieldEntity::new(
                 data_address.address()
                 ,cont.parse().unwrap_or(0.0)
@@ -113,7 +104,7 @@ impl FieldData{
     pub(crate) fn search_cb(&self,cont:&[u8])->(Ordering,u32){
         self.index.triee().search_cb(|data|->Ordering{
             let str2=unsafe{
-                std::slice::from_raw_parts(self.strings.offset(data.addr()) as *const u8,data.len())
+                std::slice::from_raw_parts(self.data_file.offset(data.addr()) as *const u8,data.len())
             };
             if cont==str2{
                 Ordering::Equal

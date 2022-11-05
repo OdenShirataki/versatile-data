@@ -326,8 +326,8 @@ impl<'a> Search<'a>{
                             let data=row.value();
                             let row=row.row();
                             if len<=data.len(){
-                                if let Some(str2)=field.read().unwrap().str(row){
-                                    if str2.starts_with(&cont){
+                                if let Some(bytes2)=field.read().unwrap().get(row){
+                                    if bytes2.starts_with(cont.as_bytes()){
                                         r.insert(row);
                                     }
                                 }
@@ -344,8 +344,9 @@ impl<'a> Search<'a>{
                             let data=row.value();
                             let row=row.row();
                             if len<=data.len(){
-                                if let Some(str2)=field.read().unwrap().str(row){
-                                    if str2.contains(&cont){
+                                if let Some(bytes2)=field.read().unwrap().get(row){
+                                    let bytes=cont.as_bytes();
+                                    if let Some(_)=bytes2.windows(len).position(|window|window==bytes){
                                         r.insert(row);
                                     }
                                 }
@@ -362,8 +363,8 @@ impl<'a> Search<'a>{
                             let data=row.value();
                             let row=row.row();
                             if len<=data.len(){
-                                if let Some(str2)=field.read().unwrap().str(row){
-                                    if str2.ends_with(&cont){
+                                if let Some(bytes2)=field.read().unwrap().get(row){
+                                    if bytes2.ends_with(cont.as_bytes()){
                                         r.insert(row);
                                     }
                                 }

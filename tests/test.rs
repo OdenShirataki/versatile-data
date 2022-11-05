@@ -37,8 +37,8 @@ fn test() {
                 ,data.last_updated(i)
                 ,data.term_begin(i)
                 ,data.term_end(i)
-                ,data.field_str(i,"num")
-                ,data.field_str(i,"num_by3")
+                ,std::str::from_utf8(data.field_bytes(i,"num")).unwrap()
+                ,std::str::from_utf8(data.field_bytes(i,"num_by3")).unwrap()
             );
         }
         assert_eq!(sam,55.0);
