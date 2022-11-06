@@ -69,7 +69,6 @@ impl FieldData{
             }
         });
         if ord==Ordering::Equal && found_row!=0{
-            
            self.index.insert_same(found_row,row)
         }else{
             //新しく作る
@@ -111,5 +110,31 @@ impl FieldData{
                 )
             }
         })
+    }
+}
+
+#[test]
+fn test(){
+    let dir="./vd-test-fd/";
+    if std::path::Path::new(dir).exists(){
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    std::fs::create_dir_all(dir).unwrap();
+    if let Ok(mut fd)=FieldData::new(&(dir.to_owned()+"test")){
+        fd.update(1,b"Noah").unwrap();
+        fd.update(2,b"Liam").unwrap();
+        fd.update(3,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Olivia").unwrap();
+        fd.update(4,b"Noah").unwrap();
+        fd.update(5,b"Liam").unwrap();
+        fd.update(6,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Olivia").unwrap();
     }
 }
