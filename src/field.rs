@@ -57,30 +57,26 @@ impl FieldData{
         if let Removed::Last(data)=self.index.delete(row){
             self.data_file.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
         }
-        let cont=std::str::from_utf8(content).unwrap();
+        //TODO:全く同じデータでアップデートしようとしている場合、処理を完全スルーで良いのでは？※データのロードと比較のコストより削除→再登録のコストが低ければこのままで良い
+        let cont_str=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_row)=tree.search_cb(|data|->Ordering{
-            let str2=std::str::from_utf8(self.data_file.bytes(data.data_address())).unwrap();
-            if cont==str2{
+            let bytes=self.data_file.bytes(data.data_address());
+            if content==bytes{
                 Ordering::Equal
             }else{
-                natord::compare(cont,str2)
+                natord::compare(cont_str,std::str::from_utf8(bytes).unwrap())
             }
         });
         if ord==Ordering::Equal && found_row!=0{
-            if let Some(_node)=self.index.triee().node(row){
-                //すでにデータがある場合
-                self.index.triee_mut().update_same(found_row,row);
-                Ok(row)
-            }else{
-                self.index.insert_same(found_row,row)
-            }
+            
+           self.index.insert_same(found_row,row)
         }else{
             //新しく作る
             let data_address=self.data_file.insert(content)?;
             let e=FieldEntity::new(
                 data_address.address()
-                ,cont.parse().unwrap_or(0.0)
+                ,cont_str.parse().unwrap_or(0.0)
             );
             if let Some(_entity)=self.index.triee().node(row){
                 //既存データの更新処理
