@@ -53,11 +53,17 @@ impl FieldData{
         &self.index.triee()
     }
     pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
-        //まずは消す(指定したidのデータが無い場合はスルーされる)
-        if let Removed::Last(data)=self.index.delete(row){
-            self.data_file.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
+        if let Some(org)=self.index.value(row){
+            //データが存在し、
+            if self.data_file.bytes(org.data_address())==content{   //変更が無ければ何もしない
+                return Ok(row);
+            }
+            //変更がある場合はまず消去
+            if let Removed::Last(data)=self.index.delete(row){
+                self.data_file.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
+            }
         }
-        //TODO:全く同じデータでアップデートしようとしている場合、処理を完全スルーで良いのでは？※データのロードと比較のコストより削除→再登録のコストが低ければこのままで良い
+    
         let cont_str=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_row)=tree.search_cb(|data|->Ordering{
