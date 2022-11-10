@@ -127,12 +127,15 @@ fn test(){
     }
     std::fs::create_dir_all(dir).unwrap();
     if let Ok(mut fd)=FieldData::new(&(dir.to_owned()+"test")){
+        //1
         fd.update(1,b"Noah").unwrap();
         fd.update(2,b"Liam").unwrap();
         fd.update(3,b"Olivia").unwrap();
         fd.update(1,b"Renamed Noah").unwrap();
         fd.update(2,b"Renamed Liam").unwrap();
         fd.update(3,b"Renamed Olivia").unwrap();
+
+        //2
         fd.update(4,b"Noah").unwrap();
         fd.update(5,b"Liam").unwrap();
         fd.update(6,b"Olivia").unwrap();
@@ -142,5 +145,19 @@ fn test(){
         fd.update(4,b"Renamed Noah").unwrap();
         fd.update(5,b"Renamed Liam").unwrap();
         fd.update(6,b"Renamed Olivia").unwrap();
+
+        //3
+        fd.update(7,b"Noah").unwrap();
+        fd.update(8,b"Liam").unwrap();
+        fd.update(9,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Olivia").unwrap();
     }
 }
