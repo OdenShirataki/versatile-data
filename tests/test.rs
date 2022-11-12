@@ -21,7 +21,7 @@ fn test() {
                 ]
             });
         }
-        data.update_activity(3,Activity::Inactive);
+        data.update_activity(3,Activity::Inactive).unwrap();
         let mut sam=0.0;
         for i in range.clone(){
             sam+=data.field_num(i,"num");
@@ -82,12 +82,12 @@ fn test() {
         ;
         println!("{:?}",r);
         
-        data.update_field(2,"hoge",b"HAHA");
-        data.update_field(4,"hoge",b"agaba");
-        data.update_field(5,"hoge",b"agababi");
-        data.update_field(1,"hoge",b"ageabe");
-        data.update_field(7,"hoge",b"ageee");
-        data.update_field(6,"hoge",b"bebebe");
+        data.update_field(2,"hoge",b"HAHA").unwrap();
+        data.update_field(4,"hoge",b"agaba").unwrap();
+        data.update_field(5,"hoge",b"agababi").unwrap();
+        data.update_field(1,"hoge",b"ageabe").unwrap();
+        data.update_field(7,"hoge",b"ageee").unwrap();
+        data.update_field(6,"hoge",b"bebebe").unwrap();
         let r=data
             .search_field("hoge",search::Field::Match(b"HAHA".to_vec()))
             .result()

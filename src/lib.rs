@@ -108,7 +108,7 @@ impl Data{
 
         let index=self.uuid.clone();
         handles.push(thread::spawn(move||{
-            index.write().unwrap().update(row,Uuid::new_v4().as_u128()); //recycled serial_number,uuid recreate.
+            index.write().unwrap().update(row,Uuid::new_v4().as_u128()).unwrap(); //recycled serial_number,uuid recreate.
         }));
 
         handles.push(self.update_activity_async(row,*activity));
@@ -143,19 +143,13 @@ impl Data{
 
         let index=self.uuid.clone();
         handles.push(thread::spawn(move||{
-            let mut index=index.write().unwrap();
-            if let Ok(_)=index.resize_to(row){
-                index.triee_mut().update(row,Uuid::new_v4().as_u128());
-            }
+            index.write().unwrap().update(row,Uuid::new_v4().as_u128()).unwrap();
         }));
 
         let activity=*activity as u8;
         let index=self.activity.clone();
         handles.push(thread::spawn(move||{
-            let mut index=index.write().unwrap();
-            if let Ok(_)=index.resize_to(row){
-                index.triee_mut().update(row,activity);
-            }
+            index.write().unwrap().update(row,activity).unwrap();
         }));
 
         let term_begin=if let Term::Overwrite(term_begin)=term_begin{
@@ -165,10 +159,7 @@ impl Data{
         };
         let index=self.term_begin.clone();
         handles.push(thread::spawn(move||{
-            let mut index=index.write().unwrap();
-            if let Ok(_)=index.resize_to(row){
-                index.triee_mut().update(row,term_begin);
-            }
+            index.write().unwrap().update(row,term_begin).unwrap();
         }));
 
         let term_end=if let Term::Overwrite(term_end)=term_end{
@@ -178,10 +169,7 @@ impl Data{
         };
         let index=self.term_end.clone();
         handles.push(thread::spawn(move||{
-            let mut index=index.write().unwrap();
-            if let Ok(_)=index.resize_to(row){
-                index.triee_mut().update(row,term_end);
-            }
+            index.write().unwrap().update(row, term_end).unwrap();
         }));
 
         handles.append(&mut self.update_fields(row,fields));
@@ -215,48 +203,52 @@ impl Data{
         }
     }
     
-    fn last_update_now(&mut self,row:u32){
-        self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp());
+    fn last_update_now(&mut self,row:u32)->Result<(),std::io::Error>{
+        self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp())?;
+        Ok(())
     } 
     fn update_activity_async(&mut self,row:u32,activity:Activity)->thread::JoinHandle<()>{
         let index=self.activity.clone();
         thread::spawn(move||{
-            index.write().unwrap().update(row,activity as u8);
+            index.write().unwrap().update(row,activity as u8).unwrap();
         })
     }
-    pub fn update_activity(&mut self,row:u32,activity: Activity){
+    pub fn update_activity(&mut self,row:u32,activity: Activity)->Result<(),std::io::Error>{
         let h=self.update_activity_async(row,activity);
-        self.last_update_now(row);
+        self.last_update_now(row)?;
         h.join().unwrap();
+        Ok(())
     }
     fn update_term_begin_async(&mut self,row:u32,from:i64)->thread::JoinHandle<()>{
         let index=self.term_begin.clone();
         thread::spawn(move||{
-            index.write().unwrap().update(row,from);
+            index.write().unwrap().update(row,from).unwrap();
         })
     }
-    pub fn update_term_begin(&mut self,row:u32,from: i64){
+    pub fn update_term_begin(&mut self,row:u32,from: i64)->Result<(),std::io::Error>{
         let h=self.update_term_begin_async(row,from);
-        self.last_update_now(row);
+        self.last_update_now(row)?;
         h.join().unwrap();
+        Ok(())
     }
     fn update_term_end_async(&mut self,row:u32,to:i64)->thread::JoinHandle<()>{
         let index=self.term_end.clone();
         thread::spawn(move||{
-            index.write().unwrap().update(row,to);
+            index.write().unwrap().update(row,to).unwrap();
         })
     }
-    pub fn update_term_end(&mut self,row:u32,to: i64){
+    pub fn update_term_end(&mut self,row:u32,to: i64)->Result<(),std::io::Error>{
         let h=self.update_term_end_async(row,to);
-        self.last_update_now(row);
+        self.last_update_now(row)?;
         h.join().unwrap();
+        Ok(())
     }
     pub fn update_fields(&mut self,row:u32,fields:&Vec<KeyValue>)->Vec<thread::JoinHandle<()>>{
         let mut handles=Vec::new();
         for kv in fields.iter(){
             handles.push(self.update_field_async(row,&kv.key,&kv.value));
         }
-        self.last_update_now(row);
+        self.last_update_now(row).unwrap();
         handles
     }
     pub fn update_field_async(&mut self,row:u32,field_name:&str,cont:&Vec<u8>)->thread::JoinHandle<()>{
@@ -271,15 +263,15 @@ impl Data{
             index.write().unwrap().update(row,&cont).unwrap();
         })
     }
-    pub fn update_field(&mut self,row:u32,field_name:&str,cont:&[u8]){
+    pub fn update_field(&mut self,row:u32,field_name:&str,cont:&[u8])->Result<(),std::io::Error>{
         let field=if self.fields_cache.contains_key(field_name){
             self.fields_cache.get_mut(field_name).unwrap()
         }else{
             self.create_field(field_name)
         };
-        let index=field.clone();
-        index.write().unwrap().update(row,cont).unwrap();
-        self.last_update_now(row);
+        field.clone().write().unwrap().update(row,cont).unwrap();
+        self.last_update_now(row)?;
+        Ok(())
     }
     fn create_field(&mut self,field_name:&str)->&mut Arc<RwLock<FieldData>>{
         let dir_name=self.data_dir.to_string()+"/fields/"+field_name+"/";
@@ -335,28 +327,36 @@ impl Data{
     }
 
     pub fn serial(&self,row:u32)->u32{
-        if let Some(v)=self.serial.read().unwrap().index().value(row){
+        if let Some(v)=unsafe{
+            self.serial.read().unwrap().index().value(row)
+        }{
             v
         }else{
             0
         }
     }
     pub fn uuid(&self,row:u32)->u128{
-        if let Some(v)=self.uuid.read().unwrap().value(row){
+        if let Some(v)=unsafe{
+            self.uuid.read().unwrap().value(row)
+        }{
             v
         }else{
             0
         }
     }
     pub fn uuid_str(&self,row:u32)->String{
-        if let Some(v)=self.uuid.read().unwrap().value(row){
+        if let Some(v)=unsafe{
+            self.uuid.read().unwrap().value(row)
+        }{
             uuid::Uuid::from_u128(v).to_string()
         }else{
             "".to_string()
         }
     }
     pub fn activity(&self,row:u32)->Activity{
-        if let Some(v)=self.activity.read().unwrap().value(row){
+        if let Some(v)=unsafe{
+            self.activity.read().unwrap().value(row)
+        }{
             if v!=0{
                 Activity::Active
             }else{
@@ -367,21 +367,27 @@ impl Data{
         }
     }
     pub fn term_begin(&self,row:u32)->i64{
-        if let Some(v)=self.term_begin.read().unwrap().value(row){
+        if let Some(v)=unsafe{
+            self.term_begin.read().unwrap().value(row)
+        }{
             v
         }else{
             0
         }
     }
     pub fn term_end(&self,row:u32)->i64{
-        if let Some(v)=self.term_end.read().unwrap().value(row){
+        if let Some(v)=unsafe{
+            self.term_end.read().unwrap().value(row)
+        }{
             v
         }else{
             0
         }
     }
     pub fn last_updated(&self,row:u32)->i64{
-        if let Some(v)=self.last_updated.read().unwrap().value(row){
+        if let Some(v)=unsafe{
+            self.last_updated.read().unwrap().value(row)
+        }{
             v
         }else{
             0

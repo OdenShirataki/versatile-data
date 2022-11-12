@@ -84,7 +84,7 @@ impl SerialNumber{
     }
     pub fn pop_blank(&mut self)->Option<u32>{
         if let Some(exists_row)=self.fragment.pop(){
-            self.index.update(exists_row,self.fragment.increment());
+            self.index.update(exists_row,self.fragment.increment()).unwrap();
             Some(exists_row)
         }else{
             None

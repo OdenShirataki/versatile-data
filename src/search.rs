@@ -183,7 +183,9 @@ impl<'a> Search<'a>{
             let mut result=RowSet::default();
             let tmp=term_begin.read().unwrap().select_by_value_to(&base);
             for row in tmp{
-                let end=term_end.read().unwrap().value(row).unwrap_or(0);
+                let end=unsafe{
+                    term_end.read().unwrap().value(row)
+                }.unwrap_or(0);
                 if end==0 || end>base {
                     result.replace(row);
                 }
@@ -244,7 +246,9 @@ impl<'a> Search<'a>{
                 let range=range.clone();
                 std::thread::spawn(move||{
                     for i in range{
-                        if let Some(_)=serial.read().unwrap().index().triee().node(i as u32){
+                        if let Some(_)=unsafe{
+                            serial.read().unwrap().index().triee().node(i as u32)
+                        }{
                             r.insert(i as u32);
                         }
                     }
@@ -255,7 +259,9 @@ impl<'a> Search<'a>{
                 let rows=rows.clone();
                 std::thread::spawn(move||{
                     for i in rows{
-                        if let Some(_)=serial.read().unwrap().index().triee().node(i as u32){
+                        if let Some(_)=unsafe{
+                            serial.read().unwrap().index().triee().node(i as u32)
+                        }{
                             r.insert(i as u32);
                         }
                     }
@@ -275,7 +281,7 @@ impl<'a> Search<'a>{
                         let (ord,found_row)=field.read().unwrap().search_cb(&v);
                         if ord==Ordering::Equal{
                             r.insert(found_row);
-                            r.append(&mut field.read().unwrap().triee().sames(found_row).iter().map(|&x|x).collect());
+                            r.append(&mut unsafe{field.read().unwrap().triee().sames(found_row)}.iter().map(|&x|x).collect());
                         }
                         tx.send(r).unwrap();
                     });
@@ -287,7 +293,7 @@ impl<'a> Search<'a>{
                         for row in field.read().unwrap().triee().iter_by_row_from(min_found_row){
                             let row=row.row();
                             r.insert(row);
-                            r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
+                            r.append(&mut unsafe{field.read().unwrap().triee().sames(row)}.iter().map(|&x|x).collect());
                         }
                         tx.send(r).unwrap();
                     });
@@ -299,7 +305,7 @@ impl<'a> Search<'a>{
                         for row in field.read().unwrap().triee().iter_by_row_to(max_found_row){
                             let row=row.row();
                             r.insert(row);
-                            r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
+                            r.append(&mut unsafe{field.read().unwrap().triee().sames(row)}.iter().map(|&x|x).collect());
                         }
                         tx.send(r).unwrap();
                     });
@@ -313,7 +319,7 @@ impl<'a> Search<'a>{
                         for row in field.read().unwrap().triee().iter_by_row_from_to(min_found_row,max_found_row){
                             let row=row.row();
                             r.insert(row);
-                            r.append(&mut field.read().unwrap().triee().sames(row).iter().map(|&x|x).collect());
+                            r.append(&mut unsafe{field.read().unwrap().triee().sames(row)}.iter().map(|&x|x).collect());
                         }
                         tx.send(r).unwrap();
                     });

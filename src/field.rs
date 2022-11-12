@@ -24,7 +24,9 @@ impl FieldData{
         })
     }
     pub fn entity(&self,row:u32)->Option<&FieldEntity>{
-        if let Some(v)=self.index.triee().value(row){
+        if let Some(v)=unsafe{
+            self.index.triee().value(row)
+        }{
             Some(&v)
         }else{
             None
@@ -53,7 +55,9 @@ impl FieldData{
         &self.index.triee()
     }
     pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
-        if let Some(org)=self.index.value(row){
+        if let Some(org)=unsafe{
+            self.index.value(row)
+        }{
             //データが存在し、
             if unsafe{
                 self.data_file.bytes(org.data_address())
@@ -89,14 +93,18 @@ impl FieldData{
                 data_address.address()
                 ,cont_str.parse().unwrap_or(0.0)
             );
-            if let Some(_entity)=self.index.triee().node(row){
+            if let Some(_entity)=unsafe{
+                self.index.triee().node(row)
+            }{
                 //既存データの更新処理
-                self.index.triee_mut().update_node(
-                    found_row
-                    ,row
-                    ,e
-                    ,ord
-                );
+                unsafe{
+                    self.index.triee_mut().update_node(
+                        found_row
+                        ,row
+                        ,e
+                        ,ord
+                    );
+                }
                 Ok(row)
             }else{
                 //追加
@@ -104,7 +112,7 @@ impl FieldData{
             }
         }
     }
-    pub fn delete(&mut self,row:u32){
+    pub(crate) fn delete(&mut self,row:u32){
         self.index.delete(row);
     }
     
