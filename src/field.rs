@@ -171,5 +171,22 @@ fn test(){
         fd.update(7,b"Renamed Noah").unwrap();
         fd.update(8,b"Renamed Liam").unwrap();
         fd.update(9,b"Renamed Olivia").unwrap();
+
+        //4
+        fd.update(10,b"Noah").unwrap();
+        fd.update(11,b"Liam").unwrap();
+        fd.update(12,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Olivia").unwrap();
     }
 }

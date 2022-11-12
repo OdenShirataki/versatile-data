@@ -202,7 +202,31 @@ impl Data{
             h.join().unwrap();
         }
     }
-    
+
+    /*
+    pub fn update_row_single_thread(&mut self,row:u32,activity:&Activity,term_begin:&Term,term_end:&Term,fields:&Vec<KeyValue>){
+        self.activity.clone().write().unwrap().update(row,*activity as u8).unwrap();
+        self.term_begin.clone().write().unwrap().update(row,if let Term::Overwrite(term_begin)=term_begin{
+            *term_begin
+        }else{
+            chrono::Local::now().timestamp()
+        }).unwrap();
+        self.term_end.clone().write().unwrap().update(row,if let Term::Overwrite(term_end)=term_end{
+            *term_end
+        }else{
+            0
+        }).unwrap();
+        for kv in fields.iter(){
+            let field=if self.fields_cache.contains_key(&kv.key){
+                self.fields_cache.get_mut(&kv.key).unwrap()
+            }else{
+                self.create_field(&kv.key)
+            };
+            field.clone().write().unwrap().update(row,&kv.value).unwrap();
+        }
+        self.last_update_now(row).unwrap();
+    }
+    */
     fn last_update_now(&mut self,row:u32)->Result<(),std::io::Error>{
         self.last_updated.write().unwrap().update(row,chrono::Local::now().timestamp())?;
         Ok(())
