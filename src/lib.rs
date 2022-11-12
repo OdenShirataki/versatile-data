@@ -327,36 +327,28 @@ impl Data{
     }
 
     pub fn serial(&self,row:u32)->u32{
-        if let Some(v)=unsafe{
-            self.serial.read().unwrap().index().value(row)
-        }{
+        if let Some(v)=self.serial.read().unwrap().index().value(row){
             v
         }else{
             0
         }
     }
     pub fn uuid(&self,row:u32)->u128{
-        if let Some(v)=unsafe{
-            self.uuid.read().unwrap().value(row)
-        }{
+        if let Some(v)=self.uuid.read().unwrap().value(row){
             v
         }else{
             0
         }
     }
     pub fn uuid_str(&self,row:u32)->String{
-        if let Some(v)=unsafe{
-            self.uuid.read().unwrap().value(row)
-        }{
+        if let Some(v)=self.uuid.read().unwrap().value(row){
             uuid::Uuid::from_u128(v).to_string()
         }else{
             "".to_string()
         }
     }
     pub fn activity(&self,row:u32)->Activity{
-        if let Some(v)=unsafe{
-            self.activity.read().unwrap().value(row)
-        }{
+        if let Some(v)=self.activity.read().unwrap().value(row){
             if v!=0{
                 Activity::Active
             }else{
@@ -367,27 +359,21 @@ impl Data{
         }
     }
     pub fn term_begin(&self,row:u32)->i64{
-        if let Some(v)=unsafe{
-            self.term_begin.read().unwrap().value(row)
-        }{
+        if let Some(v)=self.term_begin.read().unwrap().value(row){
             v
         }else{
             0
         }
     }
     pub fn term_end(&self,row:u32)->i64{
-        if let Some(v)=unsafe{
-            self.term_end.read().unwrap().value(row)
-        }{
+        if let Some(v)=self.term_end.read().unwrap().value(row){
             v
         }else{
             0
         }
     }
     pub fn last_updated(&self,row:u32)->i64{
-        if let Some(v)=unsafe{
-            self.last_updated.read().unwrap().value(row)
-        }{
+        if let Some(v)=self.last_updated.read().unwrap().value(row){
             v
         }else{
             0

@@ -55,9 +55,7 @@ impl FieldData{
         &self.index.triee()
     }
     pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
-        if let Some(org)=unsafe{
-            self.index.value(row)
-        }{
+        if let Some(org)=self.index.value(row){
             //データが存在し、
             if unsafe{
                 self.data_file.bytes(org.data_address())

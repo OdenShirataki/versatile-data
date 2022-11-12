@@ -183,9 +183,7 @@ impl<'a> Search<'a>{
             let mut result=RowSet::default();
             let tmp=term_begin.read().unwrap().select_by_value_to(&base);
             for row in tmp{
-                let end=unsafe{
-                    term_end.read().unwrap().value(row)
-                }.unwrap_or(0);
+                let end=term_end.read().unwrap().value(row).unwrap_or(0);
                 if end==0 || end>base {
                     result.replace(row);
                 }
