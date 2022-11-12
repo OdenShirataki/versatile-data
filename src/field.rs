@@ -55,19 +55,25 @@ impl FieldData{
     pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
         if let Some(org)=self.index.value(row){
             //データが存在し、
-            if self.data_file.bytes(org.data_address())==content{   //変更が無ければ何もしない
+            if unsafe{
+                self.data_file.bytes(org.data_address())
+            }==content{   //変更が無ければ何もしない
                 return Ok(row);
             }
             //変更がある場合はまず消去
             if let Removed::Last(data)=self.index.delete(row){
-                self.data_file.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
+                unsafe{
+                    self.data_file.remove(&data.data_address());    //削除対象がユニークの場合は対象文字列を完全削除
+                }
             }
         }
     
         let cont_str=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_row)=tree.search_cb(|data|->Ordering{
-            let bytes=self.data_file.bytes(data.data_address());
+            let bytes=unsafe{
+                self.data_file.bytes(data.data_address())
+            };
             if content==bytes{
                 Ordering::Equal
             }else{

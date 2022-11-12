@@ -13,7 +13,9 @@ impl Fragment{
     pub fn new(path:&str)->Result<Self,std::io::Error>{
         let filemmap=FileMmap::new(path,INIT_SIZE as u64)?;
         let increment=filemmap.as_ptr() as *mut u32;
-        let blank_list=filemmap.offset(U32_SIZE as isize) as *mut u32;
+        let blank_list=unsafe{
+            filemmap.offset(U32_SIZE as isize)
+        }as *mut u32;
 
         let len=filemmap.len();
 
