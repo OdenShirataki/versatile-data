@@ -56,10 +56,9 @@ impl FieldData{
     }
     pub fn update(&mut self,row:u32,content:&[u8])->Result<u32,std::io::Error>{
         if let Some(org)=self.index.value(row){
-            //データが存在し、
             if unsafe{
                 self.data_file.bytes(org.data_address())
-            }==content{   //変更が無ければ何もしない
+            }==content{
                 return Ok(row);
             }
             //変更がある場合はまず消去
@@ -69,7 +68,6 @@ impl FieldData{
                 }
             }
         }
-    
         let cont_str=std::str::from_utf8(content).unwrap();
         let tree=self.index.triee();
         let (ord,found_row)=tree.search_cb(|data|->Ordering{
@@ -188,5 +186,208 @@ fn test(){
         fd.update(10,b"Renamed Noah").unwrap();
         fd.update(11,b"Renamed Liam").unwrap();
         fd.update(12,b"Renamed Olivia").unwrap();
+
+        //5
+        fd.update(13,b"Noah").unwrap();
+        fd.update(14,b"Liam").unwrap();
+        fd.update(15,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Olivia").unwrap();
+
+        //6
+        fd.update(16,b"Noah").unwrap();
+        fd.update(17,b"Liam").unwrap();
+        fd.update(18,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Renamed Olivia").unwrap();
+        fd.update(16,b"Renamed Noah").unwrap();
+        fd.update(17,b"Renamed Liam").unwrap();
+        fd.update(18,b"Renamed Olivia").unwrap();
+
+        //7
+        fd.update(19,b"Noah").unwrap();
+        fd.update(20,b"Liam").unwrap();
+        fd.update(21,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(16,b"Renamed Renamed Noah").unwrap();
+        fd.update(17,b"Renamed Renamed Liam").unwrap();
+        fd.update(18,b"Renamed Renamed Olivia").unwrap();
+        fd.update(19,b"Renamed Noah").unwrap();
+        fd.update(20,b"Renamed Liam").unwrap();
+        fd.update(21,b"Renamed Olivia").unwrap();
+
+        //8
+        fd.update(22,b"Noah").unwrap();
+        fd.update(23,b"Liam").unwrap();
+        fd.update(24,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(16,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(17,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(18,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(19,b"Renamed Renamed Noah").unwrap();
+        fd.update(20,b"Renamed Renamed Liam").unwrap();
+        fd.update(21,b"Renamed Renamed Olivia").unwrap();
+        fd.update(22,b"Renamed Noah").unwrap();
+        fd.update(23,b"Renamed Liam").unwrap();
+        fd.update(24,b"Renamed Olivia").unwrap();
+
+        //9
+        fd.update(25,b"Noah").unwrap();
+        fd.update(26,b"Liam").unwrap();
+        fd.update(27,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(16,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(17,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(18,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(19,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(20,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(21,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(22,b"Renamed Renamed Noah").unwrap();
+        fd.update(23,b"Renamed Renamed Liam").unwrap();
+        fd.update(24,b"Renamed Renamed Olivia").unwrap();
+        fd.update(25,b"Renamed Noah").unwrap();
+        fd.update(26,b"Renamed Liam").unwrap();
+        fd.update(27,b"Renamed Olivia").unwrap();
+
+        //10
+        fd.update(28,b"Noah").unwrap();
+        fd.update(29,b"Liam").unwrap();
+        fd.update(30,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(16,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(17,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(18,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(19,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(20,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(21,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(22,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(23,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(24,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(25,b"Renamed Renamed Noah").unwrap();
+        fd.update(26,b"Renamed Renamed Liam").unwrap();
+        fd.update(27,b"Renamed Renamed Olivia").unwrap();
+        fd.update(28,b"Renamed Noah").unwrap();
+        fd.update(29,b"Renamed Liam").unwrap();
+        fd.update(30,b"Renamed Olivia").unwrap();
+    
+        //11
+        fd.update(31,b"Noah").unwrap();
+        fd.update(32,b"Liam").unwrap();
+        fd.update(33,b"Olivia").unwrap();
+        fd.update(1,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(2,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(3,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(4,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(5,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(6,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(7,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(8,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(9,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(10,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(11,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(12,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(13,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(14,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(15,b"Renamed Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(16,b"Renamed Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(17,b"Renamed Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(18,b"Renamed Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(19,b"Renamed Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(20,b"Renamed Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(21,b"Renamed Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(22,b"Renamed Renamed Renamed Renamed Noah").unwrap();
+        fd.update(23,b"Renamed Renamed Renamed Renamed Liam").unwrap();
+        fd.update(24,b"Renamed Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(25,b"Renamed Renamed Renamed Noah").unwrap();
+        fd.update(26,b"Renamed Renamed Renamed Liam").unwrap();
+        fd.update(27,b"Renamed Renamed Renamed Olivia").unwrap();
+        fd.update(28,b"Renamed Renamed Noah").unwrap();
+        fd.update(29,b"Renamed Renamed Liam").unwrap();
+        fd.update(30,b"Renamed Renamed Olivia").unwrap();
+        fd.update(31,b"Renamed Noah").unwrap();
+        fd.update(32,b"Renamed Liam").unwrap();
+        fd.update(33,b"Renamed Olivia").unwrap();
     }
 }
