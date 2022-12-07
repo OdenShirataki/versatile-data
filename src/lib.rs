@@ -1,9 +1,11 @@
+use std::cmp::Ordering;
 use std::sync::{
     Arc,
     RwLock
 };
 use std::thread;
 use std::collections::HashMap;
+use idx_sized::AvltrieeIter;
 use uuid::Uuid;
 
 pub use idx_sized::{
@@ -482,4 +484,228 @@ impl Data{
     pub fn search_default(&self)->Search{
         Search::new(self).search_default()
     }
+
+    pub fn sort(&self,rows:RowSet,orders:Vec<Order>)->Vec<u32>{
+        let mut sub_orders=vec![];
+        for i in (1..orders.len()).rev(){
+            sub_orders.push(&orders[i]);
+        }
+        self.sort_with_suborders(rows,&orders[0],sub_orders)
+    }
+    fn subsort(&self,tmp:Vec<u32>,sub_orders:&mut Vec<&Order>)->Vec<u32>{
+        let mut tmp=tmp;
+        tmp.sort_by(|a,b|{
+            for i in 0..sub_orders.len(){
+                let order=sub_orders[i];
+                match order{
+                    Order::Asc(order_key)=>{
+                        match order_key{
+                            OrderKey::Serial=>{
+                                let a=self.serial.read().unwrap().index().value(*a).unwrap();
+                                let b=self.serial.read().unwrap().index().value(*b).unwrap();
+                                return a.cmp(&b);
+                            }
+                            ,OrderKey::Row=>{
+                                return a.cmp(b)
+                            }
+                            ,OrderKey::TermBegin=>{
+                                let a=self.term_begin.read().unwrap().value(*a).unwrap();
+                                let b=self.term_begin.read().unwrap().value(*b).unwrap();
+                                let ord=a.cmp(&b);
+                                if ord!=Ordering::Equal{
+                                    return ord;
+                                }
+                            }
+                            ,OrderKey::TermEnd=>{
+                                let a=self.term_end.read().unwrap().value(*a).unwrap();
+                                let b=self.term_end.read().unwrap().value(*b).unwrap();
+                                let ord=a.cmp(&b);
+                                if ord!=Ordering::Equal{
+                                    return ord;
+                                }
+                            }
+                            ,OrderKey::LastUpdated=>{
+                                let a=self.last_updated.read().unwrap().value(*a).unwrap();
+                                let b=self.last_updated.read().unwrap().value(*b).unwrap();
+                                let ord=a.cmp(&b);
+                                if ord!=Ordering::Equal{
+                                    return ord;
+                                }
+                            }
+                            ,OrderKey::Field(field_name)=>{
+                                if let Some(field)=self.field(&field_name){
+                                    let a=field.read().unwrap().get(*a).unwrap();
+                                    let b=field.read().unwrap().get(*b).unwrap();
+                                    let ord=natord::compare(
+                                        std::str::from_utf8(a).unwrap()
+                                        ,std::str::from_utf8(b).unwrap()
+                                    );
+                                    if ord!=Ordering::Equal{
+                                        return ord;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ,Order::Desc(order_key)=>{
+                        match order_key{
+                            OrderKey::Serial=>{
+                                let a=self.serial.read().unwrap().index().value(*a).unwrap();
+                                let b=self.serial.read().unwrap().index().value(*b).unwrap();
+                                return b.cmp(&a);
+                            }
+                            ,OrderKey::Row=>{
+                                return b.cmp(a);
+                            }
+                            ,OrderKey::TermBegin=>{
+                                let a=self.term_begin.read().unwrap().value(*a).unwrap();
+                                let b=self.term_begin.read().unwrap().value(*b).unwrap();
+                                let ord=b.cmp(&a);
+                                if ord!=Ordering::Equal{
+                                    return ord;
+                                }
+                            }
+                            ,OrderKey::TermEnd=>{
+                                let a=self.term_end.read().unwrap().value(*a).unwrap();
+                                let b=self.term_end.read().unwrap().value(*b).unwrap();
+                                let ord=b.cmp(&a);
+                                if ord!=Ordering::Equal{
+                                    return ord;
+                                }
+                            }
+                            ,OrderKey::LastUpdated=>{
+                                let a=self.last_updated.read().unwrap().value(*a).unwrap();
+                                let b=self.last_updated.read().unwrap().value(*b).unwrap();
+                                let ord=b.cmp(&a);
+                                if ord!=Ordering::Equal{
+                                    return ord;
+                                }
+                            }
+                            ,OrderKey::Field(field_name)=>{
+                                if let Some(field)=self.field(&field_name){
+                                    let a=field.read().unwrap().get(*a).unwrap();
+                                    let b=field.read().unwrap().get(*b).unwrap();
+                                    let ord=natord::compare(
+                                        std::str::from_utf8(b).unwrap()
+                                        ,std::str::from_utf8(a).unwrap()
+                                    );
+                                    if ord!=Ordering::Equal{
+                                        return ord;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ordering::Equal
+        });
+        tmp
+    }
+    fn sort_with_iter<T>(&self,rows:RowSet,iter:&mut AvltrieeIter<T>,sub_orders:Vec<&Order>)->Vec<u32> where T:Default+Clone+PartialEq{
+        let mut ret=Vec::new();
+        if sub_orders.len()==0{
+            for row in iter{
+                let row=row.row();
+                if rows.contains(&row){
+                    ret.push(row);
+                }
+            }
+        }else{
+            let mut before:Option<&T>=None;
+            let mut tmp:Vec<u32>=Vec::new();
+            for row in iter{
+                let r=row.row();
+                if rows.contains(&r){
+                    let value=row.value();
+                    if let Some(before)=before{
+                        if before.ne(value){
+                            if tmp.len()<=1{
+                                ret.extend(tmp);
+                            }else{
+                                let tmp=self.subsort(tmp,&mut sub_orders.clone());
+                                ret.extend(tmp);
+                            }
+                            tmp=vec![];
+                        }
+                    }else{
+                        ret.extend(tmp);
+                        tmp=vec![];
+                    }
+                    tmp.push(r);
+                    before=Some(value);
+                }
+            }
+            if tmp.len()<=1{
+                ret.extend(tmp);
+            }else{
+                let tmp=self.subsort(tmp,&mut sub_orders.clone());
+                ret.extend(tmp);
+            }
+        }
+        ret
+    }
+    fn sort_with_key(&self,rows:RowSet,key:&OrderKey,sub_orders:Vec<&Order>)->Vec<u32>{
+        let mut ret=Vec::new();
+        match key{
+            OrderKey::Serial=>{
+                ret=self.sort_with_iter(rows,&mut self.serial.read().unwrap().index().triee().iter(),vec![]);
+            }
+            ,OrderKey::Row=>{
+                ret=rows.iter().map(|&x|x).collect::<Vec<u32>>();
+            }
+            ,OrderKey::TermBegin=>{
+                ret=self.sort_with_iter(rows,&mut self.term_begin.read().unwrap().triee().iter(),sub_orders);
+            }
+            OrderKey::TermEnd=>{
+                ret=self.sort_with_iter(rows,&mut self.term_end.read().unwrap().triee().iter(),sub_orders);
+            }
+            ,OrderKey::LastUpdated=>{
+                ret=self.sort_with_iter(rows,&mut self.last_updated.read().unwrap().triee().iter(),sub_orders);
+            }
+            ,OrderKey::Field(field_name)=>{
+                if let Some(field)=self.field(&field_name){
+                    ret=self.sort_with_iter(rows,&mut field.read().unwrap().index().triee().iter(),sub_orders);
+                }
+            }
+        }
+        ret
+    }
+    fn sort_with_key_desc(&self,rows:RowSet,key:&OrderKey,sub_orders:Vec<&Order>)->Vec<u32>{
+        let mut ret=Vec::new();
+        match key{
+            OrderKey::Serial=>{
+                ret=self.sort_with_iter(rows,&mut self.serial.read().unwrap().index().triee().desc_iter(),vec![]);
+            }
+            ,OrderKey::Row=>{
+                ret=rows.iter().rev().map(|&x|x).collect::<Vec<u32>>();
+            }
+            ,OrderKey::TermBegin=>{
+                ret=self.sort_with_iter(rows,&mut self.term_begin.read().unwrap().triee().desc_iter(),sub_orders);
+            }
+            OrderKey::TermEnd=>{
+                ret=self.sort_with_iter(rows,&mut self.term_end.read().unwrap().triee().desc_iter(),sub_orders);
+            }
+            ,OrderKey::LastUpdated=>{
+                ret=self.sort_with_iter(rows,&mut self.last_updated.read().unwrap().triee().desc_iter(),sub_orders);
+            }
+            ,OrderKey::Field(field_name)=>{
+                if let Some(field)=self.field(&field_name){
+                    ret=self.sort_with_iter(rows,&mut field.read().unwrap().index().triee().desc_iter(),sub_orders);
+                }
+            }
+        }
+        ret
+    }
+    fn sort_with_suborders(&self,rows:RowSet,order:&Order,sub_orders:Vec<&Order>)->Vec<u32>{
+        match order{
+            Order::Asc(key)=>{
+                self.sort_with_key(rows,key,sub_orders)
+            }
+            Order::Desc(key) =>{
+                self.sort_with_key_desc(rows,key,sub_orders)
+            }
+        }
+    }
+    
 }

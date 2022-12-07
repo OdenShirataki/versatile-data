@@ -56,19 +56,19 @@ fn test() {
 
         let r=data
             .search_default() 
-            .result_with_sort(&vec![Order::Asc(OrderKey::Serial)])
+            .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
         ;
         println!("sorted-serial:{:?}",r);
 
         let r=data
             .search_default() 
-            .result_with_sort(&vec![Order::Desc(OrderKey::Field("num".to_owned()))])   //natural order
+            .result_with_sort(vec![Order::Desc(OrderKey::Field("num".to_owned()))])   //natural order
         ;
         println!("sorted-num-desc:{:?}",r);
 
         let r=data
             .search_default() 
-            .result_with_sort(&vec![
+            .result_with_sort(vec![
                 Order::Desc(OrderKey::Field("num_mod3".to_owned()))
             ])
         ;
@@ -76,7 +76,7 @@ fn test() {
 
         let r=data
             .search_default() 
-            .result_with_sort(&vec![
+            .result_with_sort(vec![
                 Order::Asc(OrderKey::Field("num_mod3".to_owned()))
                 ,Order::Asc(OrderKey::Field("num".to_owned()))
             ])
@@ -85,7 +85,7 @@ fn test() {
 
         let r=data
             .search_default() 
-            .result_with_sort(&vec![
+            .result_with_sort(vec![
                 Order::Asc(OrderKey::Field("num_mod3".to_owned()))
                 ,Order::Desc(OrderKey::Field("num".to_owned()))
             ])
