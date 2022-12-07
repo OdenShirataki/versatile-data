@@ -39,11 +39,18 @@ pub enum Condition{
     ,Wide(Vec<Condition>)
 }
 
-pub enum Order<'a>{
+#[derive(Clone)]
+pub enum OrderKey{
     Serial
     ,Row
     ,TermBegin
     ,TermEnd
     ,LastUpdated
-    ,Field(&'a str)
+    ,Field(String)
+}
+
+#[derive(Clone)]
+pub enum Order{
+    Asc(OrderKey)
+    ,Desc(OrderKey)
 }

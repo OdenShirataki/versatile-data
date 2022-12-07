@@ -1,28 +1,15 @@
 use various_data_file::DataAddress;
 
+#[derive(Clone,Default,PartialEq)]
 pub struct FieldEntity{
     data_address:DataAddress
     ,num:f64
 }
-impl Copy for FieldEntity {}
-impl std::clone::Clone for FieldEntity {
-    fn clone(&self) -> FieldEntity {
-        *self
-    }
-}
-impl std::default::Default for FieldEntity{
-    fn default() -> FieldEntity {
-        FieldEntity{
-            data_address:DataAddress::default()
-            ,num:0.0
-        }
-    }
-}
 
 impl FieldEntity {
-    pub fn new(data_address:DataAddress,num:f64)->Self{
+    pub fn new(data_address:&DataAddress,num:f64)->Self{
         FieldEntity{
-            data_address:data_address
+            data_address:data_address.clone()
             ,num
         }
     }

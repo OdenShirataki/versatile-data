@@ -18,27 +18,19 @@ fn test() {
                 ,fields:vec![
                     KeyValue::new("num",i.to_string())
                     ,KeyValue::new("num_by3",(i*3).to_string())
+                    ,KeyValue::new("num_mod3",(i%3).to_string())
                 ]
             });
         }
-        data.update_activity(3,Activity::Inactive).unwrap();
         let mut sam=0.0;
         for i in range.clone(){
             sam+=data.field_num(i,"num");
             println!(
-                "{},{},{},{},{},{},{},{}"
+                "{},{},{},{}"
                 ,data.serial(i)
-                ,if data.activity(i)==Activity::Active{
-                    "Active"
-                }else{
-                    "Inactive"
-                }
-                ,data.uuid_str(i)
-                ,data.last_updated(i)
-                ,data.term_begin(i)
-                ,data.term_end(i)
                 ,std::str::from_utf8(data.field_bytes(i,"num")).unwrap()
                 ,std::str::from_utf8(data.field_bytes(i,"num_by3")).unwrap()
+                ,std::str::from_utf8(data.field_bytes(i,"num_mod3")).unwrap()
             );
         }
         assert_eq!(sam,55.0);
@@ -64,15 +56,41 @@ fn test() {
 
         let r=data
             .search_default() 
-            .result_with_sort(&Order::Serial)
+            .result_with_sort(&vec![Order::Asc(OrderKey::Serial)])
         ;
         println!("sorted-serial:{:?}",r);
 
         let r=data
             .search_default() 
-            .result_with_sort(&Order::Field("num"))   //natural order
+            .result_with_sort(&vec![Order::Desc(OrderKey::Field("num".to_owned()))])   //natural order
         ;
-        println!("sorted-num:{:?}",r);
+        println!("sorted-num-desc:{:?}",r);
+
+        let r=data
+            .search_default() 
+            .result_with_sort(&vec![
+                Order::Desc(OrderKey::Field("num_mod3".to_owned()))
+            ])
+        ;
+        println!("sorted-mod3-desc:{:?}",r);
+
+        let r=data
+            .search_default() 
+            .result_with_sort(&vec![
+                Order::Asc(OrderKey::Field("num_mod3".to_owned()))
+                ,Order::Asc(OrderKey::Field("num".to_owned()))
+            ])
+        ;
+        println!("sorted mod3-asc num-asc:{:?}",r);
+
+        let r=data
+            .search_default() 
+            .result_with_sort(&vec![
+                Order::Asc(OrderKey::Field("num_mod3".to_owned()))
+                ,Order::Desc(OrderKey::Field("num".to_owned()))
+            ])
+        ;
+        println!("sorted mod3-asc num-desc:{:?}",r);
 
         let r=data
             .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))

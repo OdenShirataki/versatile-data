@@ -22,6 +22,7 @@ pub use search::{
     Search
     ,Condition
     ,Order
+    ,OrderKey
 };
 
 mod operation;
