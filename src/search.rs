@@ -249,7 +249,6 @@ impl<'a> Search<'a>{
                                 ret.extend(tmp);
                             }else{
                                 let tmp=self.subsort(tmp,&mut sub_orders.clone());
-                                println!("found:{:?}",tmp);
                                 ret.extend(tmp);
                             }
                             tmp=vec![];
@@ -262,7 +261,12 @@ impl<'a> Search<'a>{
                     before=Some(value);
                 }
             }
-            ret.extend(tmp);
+            if tmp.len()<=1{
+                ret.extend(tmp);
+            }else{
+                let tmp=self.subsort(tmp,&mut sub_orders.clone());
+                ret.extend(tmp);
+            }
         }
         ret
     }
