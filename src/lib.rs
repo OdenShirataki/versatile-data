@@ -487,7 +487,7 @@ impl Data{
 
     pub fn sort(&self,rows:RowSet,orders:Vec<Order>)->Vec<u32>{
         let mut sub_orders=vec![];
-        for i in (1..orders.len()).rev(){
+        for i in 1..orders.len(){
             sub_orders.push(&orders[i]);
         }
         self.sort_with_suborders(rows,&orders[0],sub_orders)
