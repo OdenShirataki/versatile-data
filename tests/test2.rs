@@ -1,6 +1,6 @@
 #[cfg(test)]
 #[test]
-fn test() {
+fn test2() {
     use versatile_data::prelude::*;
 
     let dir = "./vd-test2/";

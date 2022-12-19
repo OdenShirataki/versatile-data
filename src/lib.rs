@@ -36,6 +36,31 @@ impl Data {
         if !std::path::Path::new(dir).exists() {
             std::fs::create_dir_all(dir).unwrap();
         }
+
+        let mut fields_cache=HashMap::new();
+        
+        let fields_dir = dir.to_string() + "/fields";
+        if std::path::Path::new(&fields_dir).exists() {
+            if let Ok(dir) = std::fs::read_dir(&fields_dir) {
+                for d in dir.into_iter() {
+                    let d = d.unwrap();
+                    let dt = d.file_type().unwrap();
+                    if dt.is_dir() {
+                        if let Some(fname) = d.path().file_name() {
+                            if let Some(fname) = fname.to_str() {
+                                if let Some(field_dir)=d.path().to_str(){
+                                    let field_dir=field_dir.to_owned()+"/";
+                                    let field = FieldData::new(&field_dir).unwrap();
+                                    fields_cache
+                                        .entry(String::from(fname))
+                                        .or_insert(Arc::new(RwLock::new(field)));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(Data {
             data_dir: dir.to_string(),
             serial: Arc::new(RwLock::new(SerialNumber::new(
@@ -54,7 +79,7 @@ impl Data {
             last_updated: Arc::new(RwLock::new(IdxSized::new(
                 &(dir.to_string() + "/last_updated.i"),
             )?)),
-            fields_cache: HashMap::new(),
+            fields_cache,
         })
     }
 
@@ -234,7 +259,6 @@ impl Data {
         }
     }
 
-    /*
     pub fn update_row_single_thread(&mut self,row:u32,activity:&Activity,term_begin:&Term,term_end:&Term,fields:&Vec<KeyValue>){
         self.activity.clone().write().unwrap().update(row,*activity as u8).unwrap();
         self.term_begin.clone().write().unwrap().update(row,if let Term::Overwrite(term_begin)=term_begin{
@@ -257,7 +281,6 @@ impl Data {
         }
         self.last_update_now(row).unwrap();
     }
-    */
     fn last_update_now(&mut self, row: u32) -> Result<(), std::io::Error> {
         self.last_updated
             .write()
