@@ -39,7 +39,6 @@ pub enum Condition {
     Wide(Vec<Condition>),
 }
 
-#[derive(Clone)]
 pub enum OrderKey {
     Serial,
     Row,
@@ -49,7 +48,6 @@ pub enum OrderKey {
     Field(String),
 }
 
-#[derive(Clone)]
 pub enum Order {
     Asc(OrderKey),
     Desc(OrderKey),

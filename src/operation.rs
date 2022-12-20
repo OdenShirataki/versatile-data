@@ -18,7 +18,7 @@ impl KeyValue {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Activity {
     Inactive = 0,
     Active = 1,
@@ -30,7 +30,6 @@ pub enum Term {
     Overwrite(i64),
 }
 
-#[derive(Clone)]
 pub enum Operation {
     New {
         activity: Activity,
