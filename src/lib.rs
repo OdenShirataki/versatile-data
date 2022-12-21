@@ -37,8 +37,8 @@ impl Data {
             std::fs::create_dir_all(dir).unwrap();
         }
 
-        let mut fields_cache=HashMap::new();
-        
+        let mut fields_cache = HashMap::new();
+
         let fields_dir = dir.to_string() + "/fields";
         if std::path::Path::new(&fields_dir).exists() {
             if let Ok(dir) = std::fs::read_dir(&fields_dir) {
@@ -48,8 +48,8 @@ impl Data {
                     if dt.is_dir() {
                         if let Some(fname) = d.path().file_name() {
                             if let Some(fname) = fname.to_str() {
-                                if let Some(field_dir)=d.path().to_str(){
-                                    let field_dir=field_dir.to_owned()+"/";
+                                if let Some(field_dir) = d.path().to_str() {
+                                    let field_dir = field_dir.to_owned() + "/";
                                     let field = FieldData::new(&field_dir).unwrap();
                                     fields_cache
                                         .entry(String::from(fname))
@@ -259,25 +259,58 @@ impl Data {
         }
     }
 
-    pub fn update_row_single_thread(&mut self,row:u32,activity:&Activity,term_begin:&Term,term_end:&Term,fields:&Vec<KeyValue>){
-        self.activity.clone().write().unwrap().update(row,*activity as u8).unwrap();
-        self.term_begin.clone().write().unwrap().update(row,if let Term::Overwrite(term_begin)=term_begin{
-            *term_begin
-        }else{
-            chrono::Local::now().timestamp()
-        }).unwrap();
-        self.term_end.clone().write().unwrap().update(row,if let Term::Overwrite(term_end)=term_end{
-            *term_end
-        }else{
-            0
-        }).unwrap();
-        for kv in fields.iter(){
-            let field=if self.fields_cache.contains_key(&kv.key){
+    pub fn update_row_single_thread(
+        &mut self,
+        row: u32,
+        activity: &Activity,
+        term_begin: &Term,
+        term_end: &Term,
+        fields: &Vec<KeyValue>,
+    ) {
+        self.activity
+            .clone()
+            .write()
+            .unwrap()
+            .update(row, *activity as u8)
+            .unwrap();
+        self.term_begin
+            .clone()
+            .write()
+            .unwrap()
+            .update(
+                row,
+                if let Term::Overwrite(term_begin) = term_begin {
+                    *term_begin
+                } else {
+                    chrono::Local::now().timestamp()
+                },
+            )
+            .unwrap();
+        self.term_end
+            .clone()
+            .write()
+            .unwrap()
+            .update(
+                row,
+                if let Term::Overwrite(term_end) = term_end {
+                    *term_end
+                } else {
+                    0
+                },
+            )
+            .unwrap();
+        for kv in fields.iter() {
+            let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
-            }else{
+            } else {
                 self.create_field(&kv.key)
             };
-            field.clone().write().unwrap().update(row,&kv.value).unwrap();
+            field
+                .clone()
+                .write()
+                .unwrap()
+                .update(row, &kv.value)
+                .unwrap();
         }
         self.last_update_now(row).unwrap();
     }
@@ -678,7 +711,7 @@ impl Data {
         sub_orders: Vec<&Order>,
     ) -> Vec<u32>
     where
-        T: Default + Clone + PartialEq,
+        T: PartialEq,
     {
         let mut ret = Vec::new();
         if sub_orders.len() == 0 {

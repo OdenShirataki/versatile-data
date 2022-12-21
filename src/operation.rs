@@ -1,4 +1,3 @@
-#[derive(Clone)]
 pub struct KeyValue {
     pub(super) key: String,
     pub(super) value: Vec<u8>,
@@ -24,7 +23,6 @@ pub enum Activity {
     Active = 1,
 }
 
-#[derive(Clone, Copy)]
 pub enum Term {
     Defalut,
     Overwrite(i64),
