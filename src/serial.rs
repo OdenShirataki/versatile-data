@@ -1,12 +1,13 @@
 use file_mmap::FileMmap;
 use idx_sized::IdxSized;
+use std::mem::ManuallyDrop;
 
 const U32_SIZE: usize = std::mem::size_of::<u32>();
 const INIT_SIZE: usize = U32_SIZE * 2;
 struct Fragment {
     filemmap: FileMmap,
-    increment: Vec<u32>,
-    blank_list: Vec<u32>,
+    increment: ManuallyDrop<Box<u32>>,
+    blank_list: ManuallyDrop<Box<u32>>,
     blank_count: u32,
 }
 impl Fragment {
@@ -16,7 +17,6 @@ impl Fragment {
         let blank_list = unsafe { filemmap.offset(U32_SIZE as isize) } as *mut u32;
 
         let len = filemmap.len();
-
         let blank_count = if len == INIT_SIZE as u64 {
             0
         } else {
@@ -25,32 +25,34 @@ impl Fragment {
 
         Ok(Fragment {
             filemmap,
-            increment: unsafe { Vec::from_raw_parts(increment, 1, 0) },
-            blank_list: unsafe { Vec::from_raw_parts(blank_list, 1, 0) },
+            increment: ManuallyDrop::new(unsafe { Box::from_raw(increment) }),
+            blank_list: ManuallyDrop::new(unsafe { Box::from_raw(blank_list) }),
             blank_count,
         })
     }
     pub fn increment(&mut self) -> u32 {
-        self.increment[0] += 1;
-        self.increment[0]
+        **self.increment += 1;
+        **self.increment
     }
     pub fn insert_blank(&mut self, id: u32) {
         self.filemmap.append(&[0, 0, 0, 0]).unwrap();
         unsafe {
-            *(self.blank_list.as_ptr() as *mut u32).offset(self.blank_count as isize) = id;
+            *(&mut **self.blank_list as *mut u32).offset(self.blank_count as isize) = id;
         }
         self.blank_count += 1;
     }
+
     pub fn pop(&mut self) -> Option<u32> {
         if self.blank_count > 0 {
             let p = unsafe {
-                (self.blank_list.as_ptr() as *mut u32).offset(self.blank_count as isize - 1)
+                (&mut **self.blank_list as *mut u32).offset(self.blank_count as isize - 1)
             };
             let last = unsafe { *p };
             unsafe {
                 *p = 0;
             }
-            let _ = self.filemmap.set_len(self.filemmap.len() - U32_SIZE as u64);
+            let to = self.filemmap.len() - U32_SIZE as u64;
+            let _ = self.filemmap.set_len(to);
             self.blank_count -= 1;
             Some(last)
         } else {

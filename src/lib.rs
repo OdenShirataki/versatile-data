@@ -413,6 +413,7 @@ impl Data {
         self.fields_cache.get_mut(field_name).unwrap()
     }
     pub fn delete(&mut self, row: u32) {
+        //TODO: check exists record
         let mut handles = Vec::new();
         let index = self.serial.clone();
         handles.push(thread::spawn(move || {
