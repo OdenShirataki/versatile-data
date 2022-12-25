@@ -1,6 +1,6 @@
 [package]
 name = "versatile-data"
-version = "0.55.5"
+version = "0.55.6"
 edition = "2021"
 
 authors = ["Oden Shirataki <oden.srtk@gmail.com>"]
@@ -17,8 +17,8 @@ license = "MIT/Apache-2.0"
 natord="1.0"
 chrono="0.4"
 
-file_mmap={version="0.10",path="../file_mmap"}
-various_data_file={version="0.8",path="../various_data_file"}
+file_mmap={version="0.11",path="../file_mmap"}
+various_data_file={version="0.9",path="../various_data_file"}
 idx_sized={version="0.20",path="../idx_sized"}
 
 [dependencies.uuid]
