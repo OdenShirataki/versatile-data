@@ -538,19 +538,20 @@ impl Data {
         fields
     }
     pub fn load_fields(&mut self) {
-        let d = std::fs::read_dir(self.data_dir.to_string() + "/fields/").unwrap();
-        for p in d {
-            if let Ok(p) = p {
-                let path = p.path();
-                if path.is_dir() {
-                    if let Some(fname) = path.file_name() {
-                        if let Some(str_fname) = fname.to_str() {
-                            if !self.fields_cache.contains_key(str_fname) {
-                                if let Some(p) = path.to_str() {
-                                    let field = FieldData::new(&(p.to_string() + "/")).unwrap();
-                                    self.fields_cache
-                                        .entry(String::from(str_fname))
-                                        .or_insert(Arc::new(RwLock::new(field)));
+        if let Ok(dir) = std::fs::read_dir(self.data_dir.to_string() + "/fields/") {
+            for p in dir {
+                if let Ok(p) = p {
+                    let path = p.path();
+                    if path.is_dir() {
+                        if let Some(fname) = path.file_name() {
+                            if let Some(str_fname) = fname.to_str() {
+                                if !self.fields_cache.contains_key(str_fname) {
+                                    if let Some(p) = path.to_str() {
+                                        let field = FieldData::new(&(p.to_string() + "/")).unwrap();
+                                        self.fields_cache
+                                            .entry(String::from(str_fname))
+                                            .or_insert(Arc::new(RwLock::new(field)));
+                                    }
                                 }
                             }
                         }
