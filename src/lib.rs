@@ -1,8 +1,11 @@
 use idx_sized::AvltrieeIter;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::thread;
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    io,
+    sync::{Arc, RwLock},
+    thread,
+};
 use uuid::Uuid;
 
 pub use idx_sized::{IdxSized, RowSet};
@@ -32,7 +35,7 @@ pub struct Data {
     fields_cache: HashMap<String, Arc<RwLock<FieldData>>>,
 }
 impl Data {
-    pub fn new(dir: &str) -> Result<Self, std::io::Error> {
+    pub fn new(dir: &str) -> io::Result<Self> {
         if !std::path::Path::new(dir).exists() {
             std::fs::create_dir_all(dir).unwrap();
         }
@@ -314,7 +317,7 @@ impl Data {
         }
         self.last_update_now(row).unwrap();
     }
-    fn last_update_now(&mut self, row: u32) -> Result<(), std::io::Error> {
+    fn last_update_now(&mut self, row: u32) -> io::Result<()> {
         self.last_updated
             .write()
             .unwrap()
@@ -327,7 +330,7 @@ impl Data {
             index.write().unwrap().update(row, activity as u8).unwrap();
         })
     }
-    pub fn update_activity(&mut self, row: u32, activity: Activity) -> Result<(), std::io::Error> {
+    pub fn update_activity(&mut self, row: u32, activity: Activity) -> io::Result<()> {
         let h = self.update_activity_async(row, activity);
         self.last_update_now(row)?;
         h.join().unwrap();
@@ -339,7 +342,7 @@ impl Data {
             index.write().unwrap().update(row, from).unwrap();
         })
     }
-    pub fn update_term_begin(&mut self, row: u32, from: i64) -> Result<(), std::io::Error> {
+    pub fn update_term_begin(&mut self, row: u32, from: i64) -> io::Result<()> {
         let h = self.update_term_begin_async(row, from);
         self.last_update_now(row)?;
         h.join().unwrap();
@@ -351,7 +354,7 @@ impl Data {
             index.write().unwrap().update(row, to).unwrap();
         })
     }
-    pub fn update_term_end(&mut self, row: u32, to: i64) -> Result<(), std::io::Error> {
+    pub fn update_term_end(&mut self, row: u32, to: i64) -> io::Result<()> {
         let h = self.update_term_end_async(row, to);
         self.last_update_now(row)?;
         h.join().unwrap();
@@ -386,12 +389,7 @@ impl Data {
             index.write().unwrap().update(row, &cont).unwrap();
         })
     }
-    pub fn update_field(
-        &mut self,
-        row: u32,
-        field_name: &str,
-        cont: &[u8],
-    ) -> Result<(), std::io::Error> {
+    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> io::Result<()> {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {

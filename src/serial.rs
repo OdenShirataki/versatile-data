@@ -1,6 +1,6 @@
 use file_mmap::FileMmap;
 use idx_sized::IdxSized;
-use std::mem::ManuallyDrop;
+use std::{io, mem::ManuallyDrop};
 
 const U32_SIZE: usize = std::mem::size_of::<u32>();
 const INIT_SIZE: usize = U32_SIZE * 2;
@@ -11,12 +11,15 @@ struct Fragment {
     blank_count: u32,
 }
 impl Fragment {
-    pub fn new(path: &str) -> Result<Self, std::io::Error> {
-        let filemmap = FileMmap::new(path, INIT_SIZE as u64)?;
+    pub fn new(path: &str) -> io::Result<Self> {
+        let mut filemmap = FileMmap::new(path)?;
+        if filemmap.len()? == 0 {
+            filemmap.set_len(INIT_SIZE as u64)?;
+        }
         let increment = filemmap.as_ptr() as *mut u32;
         let blank_list = unsafe { filemmap.offset(U32_SIZE as isize) } as *mut u32;
 
-        let len = filemmap.len();
+        let len = filemmap.len()?;
         let blank_count = if len == INIT_SIZE as u64 {
             0
         } else {
@@ -51,13 +54,14 @@ impl Fragment {
             unsafe {
                 *p = 0;
             }
-            let to = self.filemmap.len() - U32_SIZE as u64;
-            let _ = self.filemmap.set_len(to);
-            self.blank_count -= 1;
-            Some(last)
-        } else {
-            None
+            if let Ok(len) = self.filemmap.len() {
+                let to = len - U32_SIZE as u64;
+                let _ = self.filemmap.set_len(to);
+                self.blank_count -= 1;
+                return Some(last);
+            }
         }
+        None
     }
 }
 
@@ -66,7 +70,7 @@ pub(crate) struct SerialNumber {
     fragment: Fragment,
 }
 impl SerialNumber {
-    pub fn new(path: &str) -> Result<Self, std::io::Error> {
+    pub fn new(path: &str) -> io::Result<Self> {
         Ok(SerialNumber {
             index: IdxSized::new(&(path.to_string() + ".i"))?,
             fragment: Fragment::new(&(path.to_string() + ".f"))?,
@@ -78,7 +82,7 @@ impl SerialNumber {
     pub fn exists_blank(&self) -> bool {
         self.fragment.blank_count > 0
     }
-    pub fn add(&mut self) -> Result<u32, std::io::Error> {
+    pub fn add(&mut self) -> io::Result<u32> {
         //追加されたrowを返す
         let row = self.index.insert(self.fragment.increment())?;
         Ok(row)

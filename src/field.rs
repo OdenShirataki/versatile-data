@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
-
 use idx_sized::{Avltriee, IdxSized, Removed};
+use std::{cmp::Ordering, io};
 use various_data_file::VariousDataFile;
 
 pub mod entity;
@@ -11,7 +10,7 @@ pub struct FieldData {
     data_file: VariousDataFile,
 }
 impl FieldData {
-    pub fn new(path_prefix: &str) -> Result<Self, std::io::Error> {
+    pub fn new(path_prefix: &str) -> io::Result<Self> {
         let index = IdxSized::new(&(path_prefix.to_string() + ".i"))?;
         let data_file = VariousDataFile::new(&(path_prefix.to_string() + ".d"))?;
         Ok(FieldData { index, data_file })
@@ -45,7 +44,7 @@ impl FieldData {
     pub fn triee(&self) -> &Avltriee<FieldEntity> {
         &self.index.triee()
     }
-    pub fn update(&mut self, row: u32, content: &[u8]) -> Result<u32, std::io::Error> {
+    pub fn update(&mut self, row: u32, content: &[u8]) -> io::Result<u32> {
         if let Some(org) = self.index.value(row) {
             if unsafe { self.data_file.bytes(org.data_address()) } == content {
                 return Ok(row);
