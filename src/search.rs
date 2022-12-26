@@ -309,7 +309,7 @@ impl<'a> Search<'a> {
                         for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
                             let row = row.row();
-                            if len <= data.len() {
+                            if len as u64 <= data.len() {
                                 if let Some(bytes2) = field.read().unwrap().get(row) {
                                     if bytes2.starts_with(cont.as_bytes()) {
                                         r.insert(row);
@@ -327,7 +327,7 @@ impl<'a> Search<'a> {
                         for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
                             let row = row.row();
-                            if len <= data.len() {
+                            if len as u64 <= data.len() {
                                 if let Some(bytes2) = field.read().unwrap().get(row) {
                                     let bytes = cont.as_bytes();
                                     if let Some(_) =
@@ -348,7 +348,7 @@ impl<'a> Search<'a> {
                         for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
                             let row = row.row();
-                            if len <= data.len() {
+                            if len as u64 <= data.len() {
                                 if let Some(bytes2) = field.read().unwrap().get(row) {
                                     if bytes2.ends_with(cont.as_bytes()) {
                                         r.insert(row);

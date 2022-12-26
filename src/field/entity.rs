@@ -13,11 +13,11 @@ impl FieldEntity {
             num,
         }
     }
-    pub fn addr(&self) -> isize {
-        self.data_address.offset() as isize
+    pub fn addr(&self) -> i64 {
+        self.data_address.offset()
     }
-    pub fn len(&self) -> usize {
-        self.data_address.len() as usize
+    pub fn len(&self) -> u64 {
+        self.data_address.len()
     }
     pub fn data_address(&self) -> &DataAddress {
         &self.data_address

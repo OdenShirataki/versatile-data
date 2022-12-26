@@ -25,7 +25,10 @@ impl FieldData {
     pub fn get<'a>(&self, row: u32) -> Option<&'a [u8]> {
         if let Some(e) = self.entity(row) {
             Some(unsafe {
-                std::slice::from_raw_parts(self.data_file.offset(e.addr()) as *const u8, e.len())
+                std::slice::from_raw_parts(
+                    self.data_file.offset(e.addr() as isize) as *const u8,
+                    e.len() as usize,
+                )
             })
         } else {
             None
@@ -92,8 +95,8 @@ impl FieldData {
         self.index.triee().search_cb(|data| -> Ordering {
             let str2 = unsafe {
                 std::slice::from_raw_parts(
-                    self.data_file.offset(data.addr()) as *const u8,
-                    data.len(),
+                    self.data_file.offset(data.addr() as isize) as *const u8,
+                    data.len() as usize,
                 )
             };
             if cont == str2 {
