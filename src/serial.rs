@@ -1,6 +1,6 @@
 use file_mmap::FileMmap;
 use idx_sized::IdxSized;
-use std::{io, mem::ManuallyDrop};
+use std::{io, mem::ManuallyDrop, path::Path};
 
 const U32_SIZE: usize = std::mem::size_of::<u32>();
 const INIT_SIZE: usize = U32_SIZE * 2;
@@ -11,7 +11,7 @@ struct Fragment {
     blank_count: u32,
 }
 impl Fragment {
-    pub fn new(path: &str) -> io::Result<Self> {
+    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let mut filemmap = FileMmap::new(path)?;
         if filemmap.len()? == 0 {
             filemmap.set_len(INIT_SIZE as u64)?;
@@ -70,10 +70,23 @@ pub(crate) struct SerialNumber {
     fragment: Fragment,
 }
 impl SerialNumber {
-    pub fn new(path: &str) -> io::Result<Self> {
+    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        let path = path.as_ref();
+        let file_name_prefix = if let Some(file_name) = path.file_name() {
+            file_name.to_string_lossy().into_owned()
+        } else {
+            "".to_owned()
+        };
+
+        let mut indx_file_name = path.to_path_buf();
+        indx_file_name.set_file_name(&(file_name_prefix.to_owned() + ".i"));
+
+        let mut fragment_file_name = path.to_path_buf();
+        fragment_file_name.set_file_name(&(file_name_prefix + ".f"));
+
         Ok(SerialNumber {
-            index: IdxSized::new(&(path.to_string() + ".i"))?,
-            fragment: Fragment::new(&(path.to_string() + ".f"))?,
+            index: IdxSized::new(indx_file_name)?,
+            fragment: Fragment::new(fragment_file_name)?,
         })
     }
     pub fn index(&self) -> &IdxSized<u32> {

@@ -3,6 +3,7 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     io,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
     thread,
 };
@@ -25,7 +26,7 @@ pub use operation::*;
 pub mod prelude;
 
 pub struct Data {
-    data_dir: String,
+    fields_dir: PathBuf,
     serial: Arc<RwLock<SerialNumber>>,
     uuid: Arc<RwLock<IdxSized<u128>>>,
     activity: Arc<RwLock<IdxSized<u8>>>,
@@ -35,53 +36,63 @@ pub struct Data {
     fields_cache: HashMap<String, Arc<RwLock<FieldData>>>,
 }
 impl Data {
-    pub fn new(dir: &str) -> io::Result<Self> {
-        if !std::path::Path::new(dir).exists() {
+    pub fn new<P: AsRef<Path>>(dir: P) -> io::Result<Self> {
+        let dir = dir.as_ref();
+        if !dir.exists() {
             std::fs::create_dir_all(dir).unwrap();
         }
 
         let mut fields_cache = HashMap::new();
 
-        let fields_dir = dir.to_string() + "/fields";
-        if std::path::Path::new(&fields_dir).exists() {
-            if let Ok(dir) = std::fs::read_dir(&fields_dir) {
-                for d in dir.into_iter() {
-                    let d = d.unwrap();
-                    let dt = d.file_type().unwrap();
-                    if dt.is_dir() {
-                        if let Some(fname) = d.path().file_name() {
-                            if let Some(fname) = fname.to_str() {
-                                if let Some(field_dir) = d.path().to_str() {
-                                    let field_dir = field_dir.to_owned() + "/";
-                                    let field = FieldData::new(&field_dir).unwrap();
-                                    fields_cache
-                                        .entry(String::from(fname))
-                                        .or_insert(Arc::new(RwLock::new(field)));
-                                }
+        let mut fields_dir = dir.to_path_buf();
+        fields_dir.push("fields");
+        if fields_dir.exists() {
+            let dir = fields_dir.read_dir()?;
+            for d in dir.into_iter() {
+                let d = d?;
+                let dt = d.file_type()?;
+                if dt.is_dir() {
+                    if let Some(fname) = d.path().file_name() {
+                        if let Some(fname) = fname.to_str() {
+                            if let Some(field_dir) = d.path().to_str() {
+                                let field_dir = field_dir.to_owned() + "/";
+                                let field = FieldData::new(&field_dir).unwrap();
+                                fields_cache
+                                    .entry(String::from(fname))
+                                    .or_insert(Arc::new(RwLock::new(field)));
                             }
                         }
                     }
                 }
             }
         }
+
+        let mut serial_path = dir.to_path_buf();
+        serial_path.push("serial");
+
+        let mut uuid_path = dir.to_path_buf();
+        uuid_path.push("uuid.i");
+
+        let mut activity_path = dir.to_path_buf();
+        activity_path.push("activity.i");
+
+        let mut term_begin_path = dir.to_path_buf();
+        term_begin_path.push("term_begin.i");
+
+        let mut term_end_path = dir.to_path_buf();
+        term_end_path.push("term_end.i");
+
+        let mut last_updated_path = dir.to_path_buf();
+        last_updated_path.push("last_updated.i");
+
         Ok(Data {
-            data_dir: dir.to_string(),
-            serial: Arc::new(RwLock::new(SerialNumber::new(
-                &(dir.to_string() + "/serial"),
-            )?)),
-            uuid: Arc::new(RwLock::new(IdxSized::new(&(dir.to_string() + "/uuid.i"))?)),
-            activity: Arc::new(RwLock::new(IdxSized::new(
-                &(dir.to_string() + "/activity.i"),
-            )?)),
-            term_begin: Arc::new(RwLock::new(IdxSized::new(
-                &(dir.to_string() + "/term_begin.i"),
-            )?)),
-            term_end: Arc::new(RwLock::new(IdxSized::new(
-                &(dir.to_string() + "/term_end.i"),
-            )?)),
-            last_updated: Arc::new(RwLock::new(IdxSized::new(
-                &(dir.to_string() + "/last_updated.i"),
-            )?)),
+            fields_dir,
+            serial: Arc::new(RwLock::new(SerialNumber::new(serial_path)?)),
+            uuid: Arc::new(RwLock::new(IdxSized::new(uuid_path)?)),
+            activity: Arc::new(RwLock::new(IdxSized::new(activity_path)?)),
+            term_begin: Arc::new(RwLock::new(IdxSized::new(term_begin_path)?)),
+            term_end: Arc::new(RwLock::new(IdxSized::new(term_end_path)?)),
+            last_updated: Arc::new(RwLock::new(IdxSized::new(last_updated_path)?)),
             fields_cache,
         })
     }
@@ -306,7 +317,7 @@ impl Data {
             let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
             } else {
-                self.create_field(&kv.key)
+                self.create_field(&kv.key).unwrap()
             };
             field
                 .clone()
@@ -381,7 +392,7 @@ impl Data {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {
-            self.create_field(field_name)
+            self.create_field(field_name).unwrap()
         };
         let cont = cont.to_owned();
         let index = field.clone();
@@ -393,22 +404,22 @@ impl Data {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {
-            self.create_field(field_name)
+            self.create_field(field_name)?
         };
-        field.clone().write().unwrap().update(row, cont).unwrap();
-        self.last_update_now(row)?;
-        Ok(())
+        field.clone().write().unwrap().update(row, cont)?;
+        self.last_update_now(row)
     }
-    fn create_field(&mut self, field_name: &str) -> &mut Arc<RwLock<FieldData>> {
-        let dir_name = self.data_dir.to_string() + "/fields/" + field_name + "/";
-        std::fs::create_dir_all(dir_name.to_owned()).unwrap();
-        if std::path::Path::new(&dir_name).exists() {
-            let field = FieldData::new(&dir_name).unwrap();
+    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<FieldData>>> {
+        let mut fields_dir = self.fields_dir.clone();
+        fields_dir.push(field_name);
+        std::fs::create_dir_all(&fields_dir)?;
+        if fields_dir.exists() {
+            let field = FieldData::new(&fields_dir)?;
             self.fields_cache
                 .entry(String::from(field_name))
                 .or_insert(Arc::new(RwLock::new(field)));
         }
-        self.fields_cache.get_mut(field_name).unwrap()
+        Ok(self.fields_cache.get_mut(field_name).unwrap())
     }
     pub fn delete(&mut self, row: u32) {
         //TODO: check exists record
@@ -537,7 +548,7 @@ impl Data {
         fields
     }
     pub fn load_fields(&mut self) {
-        if let Ok(dir) = std::fs::read_dir(self.data_dir.to_string() + "/fields/") {
+        if let Ok(dir) = self.fields_dir.read_dir() {
             for p in dir {
                 if let Ok(p) = p {
                     let path = p.path();
@@ -545,12 +556,10 @@ impl Data {
                         if let Some(fname) = path.file_name() {
                             if let Some(str_fname) = fname.to_str() {
                                 if !self.fields_cache.contains_key(str_fname) {
-                                    if let Some(p) = path.to_str() {
-                                        let field = FieldData::new(&(p.to_string() + "/")).unwrap();
-                                        self.fields_cache
-                                            .entry(String::from(str_fname))
-                                            .or_insert(Arc::new(RwLock::new(field)));
-                                    }
+                                    let field = FieldData::new(&path).unwrap();
+                                    self.fields_cache
+                                        .entry(String::from(str_fname))
+                                        .or_insert(Arc::new(RwLock::new(field)));
                                 }
                             }
                         }

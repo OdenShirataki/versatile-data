@@ -1,5 +1,5 @@
 use idx_sized::{Avltriee, IdxSized, Removed};
-use std::{cmp::Ordering, io};
+use std::{cmp::Ordering, io, path::Path};
 use various_data_file::VariousDataFile;
 
 pub mod entity;
@@ -10,10 +10,24 @@ pub struct FieldData {
     data_file: VariousDataFile,
 }
 impl FieldData {
-    pub fn new(path_prefix: &str) -> io::Result<Self> {
-        let index = IdxSized::new(&(path_prefix.to_string() + ".i"))?;
-        let data_file = VariousDataFile::new(&(path_prefix.to_string() + ".d"))?;
-        Ok(FieldData { index, data_file })
+    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        let path = path.as_ref();
+        let file_name_prefix = if let Some(file_name) = path.file_name() {
+            file_name.to_string_lossy().into_owned()
+        } else {
+            "".to_owned()
+        };
+
+        let mut indx_file_name = path.to_path_buf();
+        indx_file_name.set_file_name(&(file_name_prefix.to_owned() + ".i"));
+
+        let mut data_file_name = path.to_path_buf();
+        data_file_name.set_file_name(&(file_name_prefix + ".d"));
+
+        Ok(FieldData {
+            index: IdxSized::new(indx_file_name)?,
+            data_file: VariousDataFile::new(data_file_name)?,
+        })
     }
     pub fn entity(&self, row: u32) -> Option<&FieldEntity> {
         if let Some(v) = unsafe { self.index.triee().value(row) } {
