@@ -43,7 +43,11 @@ impl<'a> Search<'a> {
         self
     }
 
-    pub fn search_exec_cond(data: &Data, condition: &Condition, tx: Sender<RowSet>) {
+    pub fn search_exec_cond(
+        data: &Data,
+        condition: &Condition,
+        tx: Sender<RowSet>,
+    ) -> Result<(), std::sync::mpsc::SendError<RowSet>> {
         match condition {
             Condition::Activity(condition) => Self::search_exec_activity(data, condition, tx),
             Condition::Term(condition) => Self::search_exec_term(data, condition, tx),
@@ -60,13 +64,13 @@ impl<'a> Search<'a> {
                 for c in conditions {
                     new_search = new_search.search(c.clone());
                 }
-                tx.send(new_search.result()).unwrap();
+                tx.send(new_search.result()?)?;
             }
             Condition::Wide(conditions) => {
                 let (tx_inner, rx) = std::sync::mpsc::channel();
                 for c in conditions {
                     let tx_inner = tx_inner.clone();
-                    Self::search_exec_cond(data, c, tx_inner);
+                    Self::search_exec_cond(data, c, tx_inner)?;
                 }
                 drop(tx_inner);
                 std::thread::spawn(move || {
@@ -78,14 +82,15 @@ impl<'a> Search<'a> {
                 });
             }
         };
+        Ok(())
     }
-    fn search_exec(&mut self) -> RowSet {
+    fn search_exec(&mut self) -> Result<RowSet, std::sync::mpsc::SendError<RowSet>> {
         let mut rows = RowSet::default();
         if self.conditions.len() > 0 {
             let (tx, rx) = std::sync::mpsc::channel();
             for c in &self.conditions {
                 let tx = tx.clone();
-                Self::search_exec_cond(self.data, c, tx);
+                Self::search_exec_cond(self.data, c, tx)?;
             }
             drop(tx);
             let mut fst = true;
@@ -102,14 +107,17 @@ impl<'a> Search<'a> {
                 rows.insert(row.row());
             }
         }
-        rows
+        Ok(rows)
     }
-    pub fn result(mut self) -> RowSet {
+    pub fn result(mut self) -> Result<RowSet, std::sync::mpsc::SendError<RowSet>> {
         self.search_exec()
     }
-    pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<u32> {
-        let rows = self.search_exec();
-        self.data.sort(rows, orders)
+    pub fn result_with_sort(
+        &mut self,
+        orders: Vec<Order>,
+    ) -> Result<Vec<u32>, std::sync::mpsc::SendError<RowSet>> {
+        let rows = self.search_exec()?;
+        Ok(self.data.sort(rows, orders))
     }
     fn search_exec_activity(data: &Data, condition: &Activity, tx: Sender<RowSet>) {
         let activity = *condition as u8;

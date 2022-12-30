@@ -47,21 +47,14 @@ impl Data {
         let mut fields_dir = dir.to_path_buf();
         fields_dir.push("fields");
         if fields_dir.exists() {
-            let dir = fields_dir.read_dir()?;
-            for d in dir.into_iter() {
+            for d in fields_dir.read_dir()? {
                 let d = d?;
-                let dt = d.file_type()?;
-                if dt.is_dir() {
-                    if let Some(fname) = d.path().file_name() {
-                        if let Some(fname) = fname.to_str() {
-                            if let Some(field_dir) = d.path().to_str() {
-                                let field_dir = field_dir.to_owned() + "/";
-                                let field = FieldData::new(&field_dir).unwrap();
-                                fields_cache
-                                    .entry(String::from(fname))
-                                    .or_insert(Arc::new(RwLock::new(field)));
-                            }
-                        }
+                if d.file_type()?.is_dir() {
+                    if let Some(fname) = d.file_name().to_str() {
+                        let field = FieldData::new(d.path())?;
+                        fields_cache
+                            .entry(String::from(fname))
+                            .or_insert(Arc::new(RwLock::new(field)));
                     }
                 }
             }
@@ -97,14 +90,14 @@ impl Data {
         })
     }
 
-    pub fn update(&mut self, operation: &Operation) -> u32 {
-        match operation {
+    pub fn update(&mut self, operation: &Operation) -> io::Result<u32> {
+        Ok(match operation {
             Operation::New {
                 activity,
                 term_begin,
                 term_end,
                 fields,
-            } => self.create_row(activity, term_begin, term_end, fields),
+            } => self.create_row(activity, term_begin, term_end, fields)?,
             Operation::Update {
                 row,
                 activity,
@@ -112,14 +105,14 @@ impl Data {
                 term_end,
                 fields,
             } => {
-                self.update_row(*row, activity, term_begin, term_end, fields);
+                self.update_row(*row, activity, term_begin, term_end, fields)?;
                 *row
             }
             Operation::Delete { row } => {
                 self.delete(*row);
                 0
             }
-        }
+        })
     }
 
     pub fn create_row(
@@ -128,15 +121,13 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> u32 {
+    ) -> io::Result<u32> {
         if self.serial.read().unwrap().exists_blank() {
-            let row = self.serial.write().unwrap().pop_blank().unwrap();
-            self.create_row_recycled(row, activity, term_begin, term_end, fields);
-            row
+            let row = self.serial.write().unwrap().pop_blank()?.unwrap();
+            self.create_row_recycled(row, activity, term_begin, term_end, fields)
         } else {
-            let row = self.serial.write().unwrap().add().unwrap();
-            self.create_row_new(row, activity, term_begin, term_end, fields);
-            row
+            let row = self.serial.write().unwrap().add()?;
+            self.create_row_new(row, activity, term_begin, term_end, fields)
         }
     }
     fn create_row_recycled(
@@ -146,7 +137,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) {
+    ) -> io::Result<u32> {
         let mut handles = Vec::new();
 
         let index = self.uuid.clone();
@@ -178,11 +169,13 @@ impl Data {
             },
         ));
 
-        handles.append(&mut self.update_fields(row, fields));
+        handles.append(&mut self.update_fields(row, fields)?);
 
         for h in handles {
             h.join().unwrap();
         }
+
+        Ok(row)
     }
     fn create_row_new(
         &mut self,
@@ -191,7 +184,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) {
+    ) -> io::Result<u32> {
         let mut handles = Vec::new();
 
         let index = self.uuid.clone();
@@ -229,11 +222,13 @@ impl Data {
             index.write().unwrap().update(row, term_end).unwrap();
         }));
 
-        handles.append(&mut self.update_fields(row, fields));
+        handles.append(&mut self.update_fields(row, fields)?);
 
         for h in handles {
             h.join().unwrap();
         }
+
+        Ok(row)
     }
 
     pub fn update_row(
@@ -243,7 +238,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) {
+    ) -> io::Result<()> {
         let mut handles = Vec::new();
 
         handles.push(self.update_activity_async(row, *activity));
@@ -266,11 +261,13 @@ impl Data {
             },
         ));
 
-        handles.append(&mut self.update_fields(row, fields));
+        handles.append(&mut self.update_fields(row, fields)?);
 
         for h in handles {
             h.join().unwrap();
         }
+
+        Ok(())
     }
 
     pub fn update_row_single_thread(
@@ -280,53 +277,37 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) {
+    ) -> io::Result<()> {
         self.activity
             .clone()
             .write()
             .unwrap()
-            .update(row, *activity as u8)
-            .unwrap();
-        self.term_begin
-            .clone()
-            .write()
-            .unwrap()
-            .update(
-                row,
-                if let Term::Overwrite(term_begin) = term_begin {
-                    *term_begin
-                } else {
-                    chrono::Local::now().timestamp()
-                },
-            )
-            .unwrap();
-        self.term_end
-            .clone()
-            .write()
-            .unwrap()
-            .update(
-                row,
-                if let Term::Overwrite(term_end) = term_end {
-                    *term_end
-                } else {
-                    0
-                },
-            )
-            .unwrap();
+            .update(row, *activity as u8)?;
+        self.term_begin.clone().write().unwrap().update(
+            row,
+            if let Term::Overwrite(term_begin) = term_begin {
+                *term_begin
+            } else {
+                chrono::Local::now().timestamp()
+            },
+        )?;
+        self.term_end.clone().write().unwrap().update(
+            row,
+            if let Term::Overwrite(term_end) = term_end {
+                *term_end
+            } else {
+                0
+            },
+        )?;
         for kv in fields.iter() {
             let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
             } else {
-                self.create_field(&kv.key).unwrap()
+                self.create_field(&kv.key)?
             };
-            field
-                .clone()
-                .write()
-                .unwrap()
-                .update(row, &kv.value)
-                .unwrap();
+            field.clone().write().unwrap().update(row, &kv.value)?;
         }
-        self.last_update_now(row).unwrap();
+        self.last_update_now(row)
     }
     fn last_update_now(&mut self, row: u32) -> io::Result<()> {
         self.last_updated
@@ -375,30 +356,30 @@ impl Data {
         &mut self,
         row: u32,
         fields: &Vec<KeyValue>,
-    ) -> Vec<thread::JoinHandle<()>> {
+    ) -> io::Result<Vec<thread::JoinHandle<()>>> {
         let mut handles = Vec::new();
         for kv in fields.iter() {
-            handles.push(self.update_field_async(row, &kv.key, &kv.value));
+            handles.push(self.update_field_async(row, &kv.key, &kv.value)?);
         }
-        self.last_update_now(row).unwrap();
-        handles
+        self.last_update_now(row)?;
+        Ok(handles)
     }
     pub fn update_field_async(
         &mut self,
         row: u32,
         field_name: &str,
         cont: &Vec<u8>,
-    ) -> thread::JoinHandle<()> {
+    ) -> io::Result<thread::JoinHandle<()>> {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {
-            self.create_field(field_name).unwrap()
+            self.create_field(field_name)?
         };
         let cont = cont.to_owned();
         let index = field.clone();
-        thread::spawn(move || {
+        Ok(thread::spawn(move || {
             index.write().unwrap().update(row, &cont).unwrap();
-        })
+        }))
     }
     pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> io::Result<()> {
         let field = if self.fields_cache.contains_key(field_name) {
@@ -414,7 +395,7 @@ impl Data {
         fields_dir.push(field_name);
         std::fs::create_dir_all(&fields_dir)?;
         if fields_dir.exists() {
-            let field = FieldData::new(&fields_dir)?;
+            let field = FieldData::new(fields_dir)?;
             self.fields_cache
                 .entry(String::from(field_name))
                 .or_insert(Arc::new(RwLock::new(field)));
@@ -449,7 +430,7 @@ impl Data {
             index.write().unwrap().delete(row);
         }));
 
-        self.load_fields();
+        self.load_fields().unwrap();
         for (_, v) in &mut self.fields_cache {
             let index = v.clone();
             handles.push(thread::spawn(move || {
@@ -547,26 +528,24 @@ impl Data {
         }
         fields
     }
-    pub fn load_fields(&mut self) {
-        if let Ok(dir) = self.fields_dir.read_dir() {
-            for p in dir {
-                if let Ok(p) = p {
-                    let path = p.path();
-                    if path.is_dir() {
-                        if let Some(fname) = path.file_name() {
-                            if let Some(str_fname) = fname.to_str() {
-                                if !self.fields_cache.contains_key(str_fname) {
-                                    let field = FieldData::new(&path).unwrap();
-                                    self.fields_cache
-                                        .entry(String::from(str_fname))
-                                        .or_insert(Arc::new(RwLock::new(field)));
-                                }
-                            }
+    pub fn load_fields(&mut self) -> io::Result<()> {
+        if self.fields_dir.exists() {
+            for p in self.fields_dir.read_dir()? {
+                let p = p?;
+                let path = p.path();
+                if path.is_dir() {
+                    if let Some(str_fname) = p.file_name().to_str() {
+                        if !self.fields_cache.contains_key(str_fname) {
+                            let field = FieldData::new(&path)?;
+                            self.fields_cache
+                                .entry(String::from(str_fname))
+                                .or_insert(Arc::new(RwLock::new(field)));
                         }
                     }
                 }
             }
         }
+        Ok(())
     }
 
     pub fn field(&self, name: &str) -> Option<&Arc<RwLock<FieldData>>> {

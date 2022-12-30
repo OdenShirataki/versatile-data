@@ -1,6 +1,6 @@
 use file_mmap::FileMmap;
 use idx_sized::IdxSized;
-use std::{io, mem::ManuallyDrop, path::Path};
+use std::{io, mem::ManuallyDrop, path::PathBuf};
 
 const U32_SIZE: usize = std::mem::size_of::<u32>();
 const INIT_SIZE: usize = U32_SIZE * 2;
@@ -11,7 +11,7 @@ struct Fragment {
     blank_count: u32,
 }
 impl Fragment {
-    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+    pub fn new(path: PathBuf) -> io::Result<Self> {
         let mut filemmap = FileMmap::new(path)?;
         if filemmap.len()? == 0 {
             filemmap.set_len(INIT_SIZE as u64)?;
@@ -70,23 +70,24 @@ pub(crate) struct SerialNumber {
     fragment: Fragment,
 }
 impl SerialNumber {
-    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let path = path.as_ref();
-        let file_name_prefix = if let Some(file_name) = path.file_name() {
-            file_name.to_string_lossy().into_owned()
+    pub fn new(path: PathBuf) -> io::Result<Self> {
+        let file_name = if let Some(file_name) = path.file_name() {
+            file_name.to_string_lossy()
         } else {
-            "".to_owned()
+            "".into()
         };
 
-        let mut indx_file_name = path.to_path_buf();
-        indx_file_name.set_file_name(&(file_name_prefix.to_owned() + ".i"));
-
-        let mut fragment_file_name = path.to_path_buf();
-        fragment_file_name.set_file_name(&(file_name_prefix + ".f"));
-
         Ok(SerialNumber {
-            index: IdxSized::new(indx_file_name)?,
-            fragment: Fragment::new(fragment_file_name)?,
+            index: IdxSized::new({
+                let mut path = path.clone();
+                path.set_file_name(&(file_name.to_string() + ".i"));
+                path
+            })?,
+            fragment: Fragment::new({
+                let mut path = path.clone();
+                path.set_file_name(&(file_name.into_owned() + ".f"));
+                path
+            })?,
         })
     }
     pub fn index(&self) -> &IdxSized<u32> {
@@ -96,19 +97,15 @@ impl SerialNumber {
         self.fragment.blank_count > 0
     }
     pub fn add(&mut self) -> io::Result<u32> {
-        //追加されたrowを返す
-        let row = self.index.insert(self.fragment.increment())?;
-        Ok(row)
+        self.index.insert(self.fragment.increment())
     }
-    pub fn pop_blank(&mut self) -> Option<u32> {
-        if let Some(exists_row) = self.fragment.pop() {
-            self.index
-                .update(exists_row, self.fragment.increment())
-                .unwrap();
+    pub fn pop_blank(&mut self) -> io::Result<Option<u32>> {
+        Ok(if let Some(exists_row) = self.fragment.pop() {
+            self.index.update(exists_row, self.fragment.increment())?;
             Some(exists_row)
         } else {
             None
-        }
+        })
     }
     pub fn delete(&mut self, row: u32) {
         self.index.delete(row);

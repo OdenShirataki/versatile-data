@@ -17,7 +17,7 @@ fn test3() {
             ,fields:vec![
                 KeyValue::new("test","TEST".to_owned())
             ]
-        });
+        }).unwrap();
         if let Ok(str)=std::str::from_utf8(data.field_bytes(1,"test")){
             println!("FIELD:{}",str);
         }

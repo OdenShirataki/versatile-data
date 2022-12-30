@@ -17,7 +17,7 @@ fn test2() {
                 KeyValue::new("name", "Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
             term_begin: Term::Defalut,
@@ -26,7 +26,7 @@ fn test2() {
                 KeyValue::new("name", "Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
             term_begin: Term::Defalut,
@@ -35,7 +35,7 @@ fn test2() {
                 KeyValue::new("name", "Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 1,
             activity: Activity::Active,
@@ -45,7 +45,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 2,
             activity: Activity::Active,
@@ -55,7 +55,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 3,
             activity: Activity::Active,
@@ -65,7 +65,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
 
         //2
         data.update(&Operation::New {
@@ -76,7 +76,7 @@ fn test2() {
                 KeyValue::new("name", "Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
             term_begin: Term::Defalut,
@@ -85,7 +85,7 @@ fn test2() {
                 KeyValue::new("name", "Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
             term_begin: Term::Defalut,
@@ -94,7 +94,7 @@ fn test2() {
                 KeyValue::new("name", "Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 1,
             activity: Activity::Active,
@@ -104,7 +104,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 2,
             activity: Activity::Active,
@@ -114,7 +114,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 3,
             activity: Activity::Active,
@@ -124,7 +124,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 4,
             activity: Activity::Active,
@@ -134,7 +134,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 5,
             activity: Activity::Active,
@@ -144,7 +144,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 6,
             activity: Activity::Active,
@@ -154,7 +154,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
 
         //3
         data.update(&Operation::New {
@@ -165,7 +165,7 @@ fn test2() {
                 KeyValue::new("name", "Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
             term_begin: Term::Defalut,
@@ -174,7 +174,7 @@ fn test2() {
                 KeyValue::new("name", "Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
             term_begin: Term::Defalut,
@@ -183,7 +183,7 @@ fn test2() {
                 KeyValue::new("name", "Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 1,
             activity: Activity::Active,
@@ -193,7 +193,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Renamed Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 2,
             activity: Activity::Active,
@@ -203,7 +203,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Renamed Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 3,
             activity: Activity::Active,
@@ -213,7 +213,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Renamed Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 4,
             activity: Activity::Active,
@@ -223,7 +223,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 5,
             activity: Activity::Active,
@@ -233,7 +233,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 6,
             activity: Activity::Active,
@@ -243,7 +243,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Renamed Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 7,
             activity: Activity::Active,
@@ -253,7 +253,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Noah"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 8,
             activity: Activity::Active,
@@ -263,7 +263,7 @@ fn test2() {
                 KeyValue::new("name", "Renamed Liam"),
                 KeyValue::new("country", "US"),
             ],
-        });
+        }).unwrap();
         data.update(&Operation::Update {
             row: 9,
             activity: Activity::Active,
@@ -273,6 +273,6 @@ fn test2() {
                 KeyValue::new("name", "Renamed Olivia"),
                 KeyValue::new("country", "UK"),
             ],
-        });
+        }).unwrap();
     }
 }

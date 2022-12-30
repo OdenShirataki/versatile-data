@@ -20,7 +20,7 @@ fn test() {
                     ,KeyValue::new("num_by3",(i*3).to_string())
                     ,KeyValue::new("num_mod3",(i%3).to_string())
                 ]
-            });
+            }).unwrap();
         }
         let mut sam=0.0;
         for i in range.clone(){
