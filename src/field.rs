@@ -12,21 +12,17 @@ pub struct FieldData {
 impl FieldData {
     pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let path = path.as_ref();
-        let file_name_prefix = if let Some(file_name) = path.file_name() {
-            file_name.to_string_lossy().into_owned()
-        } else {
-            "".to_owned()
-        };
-
-        let mut indx_file_name = path.to_path_buf();
-        indx_file_name.set_file_name(&(file_name_prefix.to_owned() + ".i"));
-
-        let mut data_file_name = path.to_path_buf();
-        data_file_name.set_file_name(&(file_name_prefix + ".d"));
-
         Ok(FieldData {
-            index: IdxSized::new(indx_file_name)?,
-            data_file: VariousDataFile::new(data_file_name)?,
+            index: IdxSized::new({
+                let mut path = path.to_path_buf();
+                path.push(".i");
+                path
+            })?,
+            data_file: VariousDataFile::new({
+                let mut path = path.to_path_buf();
+                path.push(".d");
+                path
+            })?,
         })
     }
     pub fn entity(&self, row: u32) -> Option<&FieldEntity> {
