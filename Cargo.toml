@@ -1,6 +1,6 @@
 [package]
 name = "versatile-data"
-version = "0.57.0"
+version = "0.57.1"
 edition = "2021"
 
 authors = ["Oden Shirataki <oden.srtk@gmail.com>"]
@@ -14,8 +14,10 @@ categories = ["database-implementations"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-natord="1.0"
-chrono="0.4"
+natord = "1.0"
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11"
 
 file_mmap={version="0.12",path="../file_mmap"}
 various_data_file={version="0.9",path="../various_data_file"}
