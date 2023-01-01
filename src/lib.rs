@@ -407,7 +407,7 @@ impl Data {
         let mut handles = Vec::new();
         let index = self.serial.clone();
         handles.push(thread::spawn(move || {
-            index.write().unwrap().delete(row);
+            index.write().unwrap().delete(row).unwrap();
         }));
 
         let index = self.uuid.clone();

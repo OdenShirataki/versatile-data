@@ -37,12 +37,14 @@ impl Fragment {
         **self.increment += 1;
         **self.increment
     }
-    pub fn insert_blank(&mut self, id: u32) {
-        self.filemmap.append(&[0, 0, 0, 0]).unwrap();
+    pub fn insert_blank(&mut self, id: u32) -> io::Result<()> {
+        self.filemmap.append(&[0, 0, 0, 0])?;
         unsafe {
             *(&mut **self.blank_list as *mut u32).offset(self.blank_count as isize) = id;
         }
         self.blank_count += 1;
+
+        Ok(())
     }
 
     pub fn pop(&mut self) -> Option<u32> {
@@ -107,8 +109,8 @@ impl SerialNumber {
             None
         })
     }
-    pub fn delete(&mut self, row: u32) {
+    pub fn delete(&mut self, row: u32) -> io::Result<()> {
         self.index.delete(row);
-        self.fragment.insert_blank(row);
+        self.fragment.insert_blank(row)
     }
 }

@@ -64,11 +64,10 @@ impl FieldData {
             }
             //変更がある場合はまず消去
             if let Removed::Last(data) = self.index.delete(row) {
-                unsafe {
-                    self.data_file.remove(&data.data_address()); //削除対象がユニークの場合は対象文字列を完全削除
-                }
+                self.data_file.remove(&data.data_address())?; //削除対象がユニークの場合は対象文字列を完全削除
             }
         }
+        //TODO:handle unwrap
         let cont_str = std::str::from_utf8(content).unwrap();
         let tree = self.index.triee();
         let (ord, found_row) = tree.search_cb(|data| -> Ordering {
@@ -76,6 +75,7 @@ impl FieldData {
             if content == bytes {
                 Ordering::Equal
             } else {
+                //TODO:handle unwrap
                 natord::compare(cont_str, std::str::from_utf8(bytes).unwrap())
             }
         });
@@ -112,6 +112,7 @@ impl FieldData {
             if cont == str2 {
                 Ordering::Equal
             } else {
+                //TODO:handle unwrap
                 natord::compare(
                     std::str::from_utf8(cont).unwrap(),
                     std::str::from_utf8(str2).unwrap(),
