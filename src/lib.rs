@@ -431,7 +431,7 @@ impl Data {
         }));
 
         self.load_fields().unwrap();
-        for (_, v) in &mut self.fields_cache {
+        for (_, v) in self.fields_cache.iter() {
             let index = v.clone();
             handles.push(thread::spawn(move || {
                 index.write().unwrap().delete(row);
@@ -523,7 +523,7 @@ impl Data {
 
     pub fn fields(&self) -> Vec<&String> {
         let mut fields = Vec::new();
-        for (key, _) in &self.fields_cache {
+        for (key, _) in self.fields_cache.iter() {
             fields.push(key);
         }
         fields

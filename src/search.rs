@@ -88,7 +88,7 @@ impl<'a> Search<'a> {
         let mut rows = RowSet::default();
         if self.conditions.len() > 0 {
             let (tx, rx) = std::sync::mpsc::channel();
-            for c in &self.conditions {
+            for c in self.conditions.iter() {
                 let tx = tx.clone();
                 Self::search_exec_cond(self.data, c, tx)?;
             }
