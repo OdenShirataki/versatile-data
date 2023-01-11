@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     thread,
+    time::{SystemTime, UNIX_EPOCH},
 };
 use uuid::Uuid;
 
@@ -30,9 +31,9 @@ pub struct Data {
     serial: Arc<RwLock<SerialNumber>>,
     uuid: Arc<RwLock<IdxSized<u128>>>,
     activity: Arc<RwLock<IdxSized<u8>>>,
-    term_begin: Arc<RwLock<IdxSized<i64>>>,
-    term_end: Arc<RwLock<IdxSized<i64>>>,
-    last_updated: Arc<RwLock<IdxSized<i64>>>,
+    term_begin: Arc<RwLock<IdxSized<u64>>>,
+    term_end: Arc<RwLock<IdxSized<u64>>>,
+    last_updated: Arc<RwLock<IdxSized<u64>>>,
     fields_cache: HashMap<String, Arc<RwLock<FieldData>>>,
 }
 impl Data {
@@ -156,7 +157,10 @@ impl Data {
             if let Term::Overwrite(term_begin) = term_begin {
                 *term_begin
             } else {
-                chrono::Local::now().timestamp()
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
             },
         ));
 
@@ -205,7 +209,10 @@ impl Data {
         let term_begin = if let Term::Overwrite(term_begin) = term_begin {
             *term_begin
         } else {
-            chrono::Local::now().timestamp()
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
         };
         let index = self.term_begin.clone();
         handles.push(thread::spawn(move || {
@@ -248,7 +255,10 @@ impl Data {
             if let Term::Overwrite(term_begin) = term_begin {
                 *term_begin
             } else {
-                chrono::Local::now().timestamp()
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
             },
         ));
 
@@ -288,7 +298,10 @@ impl Data {
             if let Term::Overwrite(term_begin) = term_begin {
                 *term_begin
             } else {
-                chrono::Local::now().timestamp()
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
             },
         )?;
         self.term_end.clone().write().unwrap().update(
@@ -310,10 +323,13 @@ impl Data {
         self.last_update_now(row)
     }
     fn last_update_now(&mut self, row: u32) -> io::Result<()> {
-        self.last_updated
-            .write()
-            .unwrap()
-            .update(row, chrono::Local::now().timestamp())?;
+        self.last_updated.write().unwrap().update(
+            row,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )?;
         Ok(())
     }
     fn update_activity_async(&mut self, row: u32, activity: Activity) -> thread::JoinHandle<()> {
@@ -328,25 +344,25 @@ impl Data {
         h.join().unwrap();
         Ok(())
     }
-    fn update_term_begin_async(&mut self, row: u32, from: i64) -> thread::JoinHandle<()> {
+    fn update_term_begin_async(&mut self, row: u32, from: u64) -> thread::JoinHandle<()> {
         let index = self.term_begin.clone();
         thread::spawn(move || {
             index.write().unwrap().update(row, from).unwrap();
         })
     }
-    pub fn update_term_begin(&mut self, row: u32, from: i64) -> io::Result<()> {
+    pub fn update_term_begin(&mut self, row: u32, from: u64) -> io::Result<()> {
         let h = self.update_term_begin_async(row, from);
         self.last_update_now(row)?;
         h.join().unwrap();
         Ok(())
     }
-    fn update_term_end_async(&mut self, row: u32, to: i64) -> thread::JoinHandle<()> {
+    fn update_term_end_async(&mut self, row: u32, to: u64) -> thread::JoinHandle<()> {
         let index = self.term_end.clone();
         thread::spawn(move || {
             index.write().unwrap().update(row, to).unwrap();
         })
     }
-    pub fn update_term_end(&mut self, row: u32, to: i64) -> io::Result<()> {
+    pub fn update_term_end(&mut self, row: u32, to: u64) -> io::Result<()> {
         let h = self.update_term_end_async(row, to);
         self.last_update_now(row)?;
         h.join().unwrap();
@@ -477,21 +493,21 @@ impl Data {
             Activity::Inactive
         }
     }
-    pub fn term_begin(&self, row: u32) -> i64 {
+    pub fn term_begin(&self, row: u32) -> u64 {
         if let Some(v) = self.term_begin.read().unwrap().value(row) {
             v
         } else {
             0
         }
     }
-    pub fn term_end(&self, row: u32) -> i64 {
+    pub fn term_end(&self, row: u32) -> u64 {
         if let Some(v) = self.term_end.read().unwrap().value(row) {
             v
         } else {
             0
         }
     }
-    pub fn last_updated(&self, row: u32) -> i64 {
+    pub fn last_updated(&self, row: u32) -> u64 {
         if let Some(v) = self.last_updated.read().unwrap().value(row) {
             v
         } else {

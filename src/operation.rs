@@ -41,7 +41,7 @@ pub enum Activity {
 
 pub enum Term {
     Defalut,
-    Overwrite(i64),
+    Overwrite(u64),
 }
 
 pub enum Operation {

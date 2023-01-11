@@ -1,7 +1,10 @@
 use idx_sized::RowSet;
-use std::cmp::Ordering;
-use std::sync::mpsc::Sender;
-use std::thread;
+use std::{
+    cmp::Ordering,
+    sync::mpsc::Sender,
+    thread,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use super::{Activity, Data};
 
@@ -20,8 +23,12 @@ impl<'a> Search<'a> {
         }
     }
     pub fn search_default(mut self) -> Self {
-        self.conditions
-            .push(Condition::Term(Term::In(chrono::Local::now().timestamp())));
+        self.conditions.push(Condition::Term(Term::In(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )));
         self.conditions.push(Condition::Activity(Activity::Active));
         self
     }
@@ -132,7 +139,7 @@ impl<'a> Search<'a> {
             .unwrap();
         });
     }
-    fn search_exec_term_in(data: &Data, base: i64, tx: Sender<RowSet>) {
+    fn search_exec_term_in(data: &Data, base: u64, tx: Sender<RowSet>) {
         let term_begin = data.term_begin.clone();
         let term_end = data.term_end.clone();
         thread::spawn(move || {
@@ -376,14 +383,14 @@ impl<'a> Search<'a> {
             Number::Min(v) => {
                 let v = v.clone();
                 std::thread::spawn(move || {
-                    tx.send(index.read().unwrap().select_by_value_from(&(v as i64)))
+                    tx.send(index.read().unwrap().select_by_value_from(&(v as u64)))
                         .unwrap();
                 });
             }
             Number::Max(v) => {
                 let v = v.clone();
                 std::thread::spawn(move || {
-                    tx.send(index.read().unwrap().select_by_value_to(&(v as i64)))
+                    tx.send(index.read().unwrap().select_by_value_to(&(v as u64)))
                         .unwrap();
                 });
             }
@@ -392,8 +399,8 @@ impl<'a> Search<'a> {
                 std::thread::spawn(move || {
                     tx.send(
                         index.read().unwrap().select_by_value_from_to(
-                            &(*range.start() as i64),
-                            &(*range.end() as i64),
+                            &(*range.start() as u64),
+                            &(*range.end() as u64),
                         ),
                     )
                     .unwrap();
@@ -404,7 +411,7 @@ impl<'a> Search<'a> {
                 std::thread::spawn(move || {
                     let mut r = RowSet::default();
                     for i in rows {
-                        for row in index.read().unwrap().select_by_value(&(i as i64)) {
+                        for row in index.read().unwrap().select_by_value(&(i as u64)) {
                             r.insert(row);
                         }
                     }

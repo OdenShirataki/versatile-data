@@ -3,9 +3,9 @@ use std::ops::RangeInclusive;
 
 #[derive(Clone)]
 pub enum Term {
-    In(i64),
-    Past(i64),
-    Future(i64),
+    In(u64),
+    Past(u64),
+    Future(u64),
 }
 
 #[derive(Clone)]
