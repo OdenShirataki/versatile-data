@@ -24,6 +24,8 @@ pub use search::{Condition, Order, OrderKey, Search};
 mod operation;
 pub use operation::*;
 
+pub use natord;
+
 pub mod prelude;
 
 pub struct Data {
@@ -608,8 +610,7 @@ impl Data {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
             for i in 0..sub_orders.len() {
-                let order = sub_orders[i];
-                match order {
+                match sub_orders[i] {
                     Order::Asc(order_key) => match order_key {
                         OrderKey::Serial => {
                             let a = self.serial.read().unwrap().index().value(*a).unwrap();
