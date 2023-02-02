@@ -1,8 +1,8 @@
 use idx_sized::RowSet;
 use std::{
     cmp::Ordering,
-    sync::mpsc::Sender,
-    thread,
+    sync::mpsc::{channel, SendError, Sender},
+    thread::spawn,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -54,7 +54,7 @@ impl<'a> Search<'a> {
         data: &Data,
         condition: &Condition,
         tx: Sender<RowSet>,
-    ) -> Result<(), std::sync::mpsc::SendError<RowSet>> {
+    ) -> Result<(), SendError<RowSet>> {
         match condition {
             Condition::Activity(condition) => Self::search_exec_activity(data, condition, tx),
             Condition::Term(condition) => Self::search_exec_term(data, condition, tx),
@@ -74,13 +74,13 @@ impl<'a> Search<'a> {
                 tx.send(new_search.result()?)?;
             }
             Condition::Wide(conditions) => {
-                let (tx_inner, rx) = std::sync::mpsc::channel();
+                let (tx_inner, rx) = channel();
                 for c in conditions {
                     let tx_inner = tx_inner.clone();
                     Self::search_exec_cond(data, c, tx_inner)?;
                 }
                 drop(tx_inner);
-                std::thread::spawn(move || {
+                spawn(move || {
                     let mut tmp = RowSet::default();
                     for ref mut rs in rx {
                         tmp.append(rs);
@@ -91,10 +91,10 @@ impl<'a> Search<'a> {
         };
         Ok(())
     }
-    fn search_exec(&mut self) -> Result<RowSet, std::sync::mpsc::SendError<RowSet>> {
+    fn search_exec(&mut self) -> Result<RowSet, SendError<RowSet>> {
         let mut rows = RowSet::default();
         if self.conditions.len() > 0 {
-            let (tx, rx) = std::sync::mpsc::channel();
+            let (tx, rx) = channel();
             for c in self.conditions.iter() {
                 let tx = tx.clone();
                 Self::search_exec_cond(self.data, c, tx)?;
@@ -116,20 +116,17 @@ impl<'a> Search<'a> {
         }
         Ok(rows)
     }
-    pub fn result(mut self) -> Result<RowSet, std::sync::mpsc::SendError<RowSet>> {
+    pub fn result(mut self) -> Result<RowSet, SendError<RowSet>> {
         self.search_exec()
     }
-    pub fn result_with_sort(
-        &mut self,
-        orders: Vec<Order>,
-    ) -> Result<Vec<u32>, std::sync::mpsc::SendError<RowSet>> {
+    pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Result<Vec<u32>, SendError<RowSet>> {
         let rows = self.search_exec()?;
-        Ok(self.data.sort(rows, orders))
+        Ok(self.data.sort(rows, &orders))
     }
     fn search_exec_activity(data: &Data, condition: &Activity, tx: Sender<RowSet>) {
         let activity = *condition as u8;
         let index = data.activity.clone();
-        thread::spawn(move || {
+        spawn(move || {
             tx.send(
                 index
                     .read()
@@ -142,7 +139,7 @@ impl<'a> Search<'a> {
     fn search_exec_term_in(data: &Data, base: u64, tx: Sender<RowSet>) {
         let term_begin = data.term_begin.clone();
         let term_end = data.term_end.clone();
-        thread::spawn(move || {
+        spawn(move || {
             let mut result = RowSet::default();
             let tmp = term_begin.read().unwrap().select_by_value_to(&base);
             for row in tmp {
@@ -162,7 +159,7 @@ impl<'a> Search<'a> {
             Term::Future(base) => {
                 let index = data.term_begin.clone();
                 let base = base.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     tx.send(index.read().unwrap().select_by_value_from(&base))
                         .unwrap();
                 });
@@ -170,7 +167,7 @@ impl<'a> Search<'a> {
             Term::Past(base) => {
                 let index = data.term_end.clone();
                 let base = base.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     tx.send(index.read().unwrap().select_by_value_from_to(&1, &base))
                         .unwrap();
                 });
@@ -183,7 +180,7 @@ impl<'a> Search<'a> {
         match condition {
             Number::Min(row) => {
                 let row = row.clone();
-                thread::spawn(move || {
+                spawn(move || {
                     for i in serial.read().unwrap().index().triee().iter() {
                         let i = i.row();
                         if i as isize >= row {
@@ -195,7 +192,7 @@ impl<'a> Search<'a> {
             }
             Number::Max(row) => {
                 let row = row.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     for i in serial.read().unwrap().index().triee().iter() {
                         let i = i.row();
                         if i as isize <= row {
@@ -207,7 +204,7 @@ impl<'a> Search<'a> {
             }
             Number::Range(range) => {
                 let range = range.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     for i in range {
                         if let Some(_) =
                             unsafe { serial.read().unwrap().index().triee().node(i as u32) }
@@ -220,7 +217,7 @@ impl<'a> Search<'a> {
             }
             Number::In(rows) => {
                 let rows = rows.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     for i in rows {
                         if let Some(_) =
                             unsafe { serial.read().unwrap().index().triee().node(i as u32) }
@@ -240,7 +237,7 @@ impl<'a> Search<'a> {
             match condition {
                 Field::Match(v) => {
                     let v = v.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let (ord, found_row) = field.read().unwrap().search_cb(&v);
                         if ord == Ordering::Equal {
                             r.insert(found_row);
@@ -256,7 +253,7 @@ impl<'a> Search<'a> {
                 }
                 Field::Min(min) => {
                     let min = min.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let (_, min_found_row) = field.read().unwrap().search_cb(&min);
                         for row in field
                             .read()
@@ -278,7 +275,7 @@ impl<'a> Search<'a> {
                 }
                 Field::Max(max) => {
                     let max = max.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let (_, max_found_row) = field.read().unwrap().search_cb(&max);
                         for row in field.read().unwrap().triee().iter_by_row_to(max_found_row) {
                             let row = row.row();
@@ -296,7 +293,7 @@ impl<'a> Search<'a> {
                 Field::Range(min, max) => {
                     let min = min.clone();
                     let max = max.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let (_, min_found_row) = field.read().unwrap().search_cb(&min);
                         let (_, max_found_row) = field.read().unwrap().search_cb(&max);
                         for row in field
@@ -319,7 +316,7 @@ impl<'a> Search<'a> {
                 }
                 Field::Forward(cont) => {
                     let cont = cont.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let len = cont.len();
                         for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
@@ -337,7 +334,7 @@ impl<'a> Search<'a> {
                 }
                 Field::Partial(cont) => {
                     let cont = cont.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let len = cont.len();
                         for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
@@ -358,7 +355,7 @@ impl<'a> Search<'a> {
                 }
                 Field::Backward(cont) => {
                     let cont = cont.clone();
-                    std::thread::spawn(move || {
+                    spawn(move || {
                         let len = cont.len();
                         for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
@@ -382,21 +379,21 @@ impl<'a> Search<'a> {
         match condition {
             Number::Min(v) => {
                 let v = v.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     tx.send(index.read().unwrap().select_by_value_from(&(v as u64)))
                         .unwrap();
                 });
             }
             Number::Max(v) => {
                 let v = v.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     tx.send(index.read().unwrap().select_by_value_to(&(v as u64)))
                         .unwrap();
                 });
             }
             Number::Range(range) => {
                 let range = range.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     tx.send(
                         index.read().unwrap().select_by_value_from_to(
                             &(*range.start() as u64),
@@ -408,7 +405,7 @@ impl<'a> Search<'a> {
             }
             Number::In(rows) => {
                 let rows = rows.clone();
-                std::thread::spawn(move || {
+                spawn(move || {
                     let mut r = RowSet::default();
                     for i in rows {
                         for row in index.read().unwrap().select_by_value(&(i as u64)) {
@@ -423,7 +420,7 @@ impl<'a> Search<'a> {
     pub fn search_exec_uuid(data: &Data, uuid: &u128, tx: Sender<RowSet>) {
         let index = data.uuid.clone();
         let uuid = uuid.clone();
-        std::thread::spawn(move || {
+        spawn(move || {
             tx.send(if let Ok(index) = index.read() {
                 index.select_by_value(&uuid)
             } else {

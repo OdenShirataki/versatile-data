@@ -2,7 +2,7 @@ use idx_sized::AvltrieeIter;
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     thread,
@@ -42,7 +42,7 @@ impl Data {
     pub fn new<P: AsRef<Path>>(dir: P) -> io::Result<Self> {
         let dir = dir.as_ref();
         if !dir.exists() {
-            std::fs::create_dir_all(dir).unwrap();
+            fs::create_dir_all(dir).unwrap();
         }
 
         let mut fields_cache = HashMap::new();
@@ -411,7 +411,7 @@ impl Data {
     fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<FieldData>>> {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);
-        std::fs::create_dir_all(&fields_dir)?;
+        fs::create_dir_all(&fields_dir)?;
         if fields_dir.exists() {
             let field = FieldData::new(fields_dir)?;
             self.fields_cache
@@ -599,14 +599,14 @@ impl Data {
         Search::new(self).search_default()
     }
 
-    pub fn sort(&self, rows: RowSet, orders: Vec<Order>) -> Vec<u32> {
+    pub fn sort(&self, rows: RowSet, orders: &[Order]) -> Vec<u32> {
         let mut sub_orders = vec![];
         for i in 1..orders.len() {
             sub_orders.push(&orders[i]);
         }
         self.sort_with_suborders(rows, &orders[0], sub_orders)
     }
-    fn subsort(&self, tmp: Vec<u32>, sub_orders: &mut Vec<&Order>) -> Vec<u32> {
+    fn subsort(&self, tmp: Vec<u32>, sub_orders: &[&Order]) -> Vec<u32> {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
             for i in 0..sub_orders.len() {
