@@ -125,21 +125,12 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<u32> {
-        if self.serial.read().unwrap().exists_blank() {
-            let row = self.serial.write().unwrap().pop_blank()?.unwrap();
-            self.create_row_recycled(row, activity, term_begin, term_end, fields)
+        let row = if self.serial.read().unwrap().exists_blank() {
+            self.serial.write().unwrap().pop_blank()?.unwrap()
         } else {
-            self.create_row_new(activity, term_begin, term_end, fields)
-        }
-    }
-    fn create_row_recycled(
-        &mut self,
-        row: u32,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> io::Result<u32> {
+            self.serial.write().unwrap().add()?
+        };
+
         let mut handles = Vec::new();
 
         let index = self.uuid.clone();
@@ -173,63 +164,6 @@ impl Data {
                 0
             },
         ));
-
-        handles.append(&mut self.update_fields(row, fields)?);
-
-        for h in handles {
-            h.join().unwrap();
-        }
-
-        Ok(row)
-    }
-    fn create_row_new(
-        &mut self,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> io::Result<u32> {
-        let row = self.serial.write().unwrap().add()?;
-
-        let mut handles = Vec::new();
-
-        let index = self.uuid.clone();
-        handles.push(thread::spawn(move || {
-            index
-                .write()
-                .unwrap()
-                .update(row, Uuid::new_v4().as_u128())
-                .unwrap();
-        }));
-
-        let activity = *activity as u8;
-        let index = self.activity.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().update(row, activity).unwrap();
-        }));
-
-        let term_begin = if let Term::Overwrite(term_begin) = term_begin {
-            *term_begin
-        } else {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        };
-        let index = self.term_begin.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().update(row, term_begin).unwrap();
-        }));
-
-        let term_end = if let Term::Overwrite(term_end) = term_end {
-            *term_end
-        } else {
-            0
-        };
-        let index = self.term_end.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().update(row, term_end).unwrap();
-        }));
 
         handles.append(&mut self.update_fields(row, fields)?);
 
