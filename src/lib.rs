@@ -248,8 +248,7 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<()> {
-        let serial = self.serial.read().unwrap().index().value(row);
-        if let Some(_) = serial {
+        if self.exists(row) {
             let mut handles = Vec::new();
 
             handles.push(self.update_activity_async(row, *activity));
@@ -293,8 +292,7 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<()> {
-        let serial = self.serial.read().unwrap().index().value(row);
-        if let Some(_) = serial {
+        if self.exists(row) {
             self.activity
                 .clone()
                 .write()
@@ -428,9 +426,11 @@ impl Data {
         }
         Ok(self.fields_cache.get_mut(field_name).unwrap())
     }
+    pub fn exists(&self, row: u32) -> bool {
+        self.serial.read().unwrap().index().value(row) != None
+    }
     pub fn delete(&mut self, row: u32) {
-        let serial = self.serial.read().unwrap().index().value(row);
-        if let Some(_) = serial {
+        if self.exists(row) {
             let mut handles = Vec::new();
             let index = self.serial.clone();
             handles.push(thread::spawn(move || {
