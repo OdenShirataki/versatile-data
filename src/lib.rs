@@ -81,7 +81,7 @@ impl Data {
         let mut last_updated_path = dir.to_path_buf();
         last_updated_path.push("last_updated.i");
 
-        Ok(Data {
+        Ok(Self {
             fields_dir,
             serial: Arc::new(RwLock::new(SerialNumber::new(serial_path)?)),
             uuid: Arc::new(RwLock::new(IdxSized::new(uuid_path)?)),
@@ -129,8 +129,7 @@ impl Data {
             let row = self.serial.write().unwrap().pop_blank()?.unwrap();
             self.create_row_recycled(row, activity, term_begin, term_end, fields)
         } else {
-            let row = self.serial.write().unwrap().add()?;
-            self.create_row_new(row, activity, term_begin, term_end, fields)
+            self.create_row_new(activity, term_begin, term_end, fields)
         }
     }
     fn create_row_recycled(
@@ -185,12 +184,13 @@ impl Data {
     }
     fn create_row_new(
         &mut self,
-        row: u32,
         activity: &Activity,
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<u32> {
+        let row = self.serial.write().unwrap().add()?;
+
         let mut handles = Vec::new();
 
         let index = self.uuid.clone();
@@ -248,35 +248,38 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<()> {
-        let mut handles = Vec::new();
+        let serial = self.serial.read().unwrap().index().value(row);
+        if let Some(_) = serial {
+            let mut handles = Vec::new();
 
-        handles.push(self.update_activity_async(row, *activity));
+            handles.push(self.update_activity_async(row, *activity));
 
-        handles.push(self.update_term_begin_async(
-            row,
-            if let Term::Overwrite(term_begin) = term_begin {
-                *term_begin
-            } else {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-            },
-        ));
+            handles.push(self.update_term_begin_async(
+                row,
+                if let Term::Overwrite(term_begin) = term_begin {
+                    *term_begin
+                } else {
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                },
+            ));
 
-        handles.push(self.update_term_end_async(
-            row,
-            if let Term::Overwrite(term_end) = term_end {
-                *term_end
-            } else {
-                0
-            },
-        ));
+            handles.push(self.update_term_end_async(
+                row,
+                if let Term::Overwrite(term_end) = term_end {
+                    *term_end
+                } else {
+                    0
+                },
+            ));
 
-        handles.append(&mut self.update_fields(row, fields)?);
+            handles.append(&mut self.update_fields(row, fields)?);
 
-        for h in handles {
-            h.join().unwrap();
+            for h in handles {
+                h.join().unwrap();
+            }
         }
 
         Ok(())
@@ -290,39 +293,44 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<()> {
-        self.activity
-            .clone()
-            .write()
-            .unwrap()
-            .update(row, *activity as u8)?;
-        self.term_begin.clone().write().unwrap().update(
-            row,
-            if let Term::Overwrite(term_begin) = term_begin {
-                *term_begin
-            } else {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-            },
-        )?;
-        self.term_end.clone().write().unwrap().update(
-            row,
-            if let Term::Overwrite(term_end) = term_end {
-                *term_end
-            } else {
-                0
-            },
-        )?;
-        for kv in fields.iter() {
-            let field = if self.fields_cache.contains_key(&kv.key) {
-                self.fields_cache.get_mut(&kv.key).unwrap()
-            } else {
-                self.create_field(&kv.key)?
-            };
-            field.clone().write().unwrap().update(row, &kv.value)?;
+        let serial = self.serial.read().unwrap().index().value(row);
+        if let Some(_) = serial {
+            self.activity
+                .clone()
+                .write()
+                .unwrap()
+                .update(row, *activity as u8)?;
+            self.term_begin.clone().write().unwrap().update(
+                row,
+                if let Term::Overwrite(term_begin) = term_begin {
+                    *term_begin
+                } else {
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                },
+            )?;
+            self.term_end.clone().write().unwrap().update(
+                row,
+                if let Term::Overwrite(term_end) = term_end {
+                    *term_end
+                } else {
+                    0
+                },
+            )?;
+            for kv in fields.iter() {
+                let field = if self.fields_cache.contains_key(&kv.key) {
+                    self.fields_cache.get_mut(&kv.key).unwrap()
+                } else {
+                    self.create_field(&kv.key)?
+                };
+                field.clone().write().unwrap().update(row, &kv.value)?;
+            }
+            self.last_update_now(row)
+        } else {
+            Ok(())
         }
-        self.last_update_now(row)
     }
     fn last_update_now(&mut self, row: u32) -> io::Result<()> {
         self.last_updated.write().unwrap().update(
@@ -421,45 +429,47 @@ impl Data {
         Ok(self.fields_cache.get_mut(field_name).unwrap())
     }
     pub fn delete(&mut self, row: u32) {
-        //TODO: check exists record
-        let mut handles = Vec::new();
-        let index = self.serial.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().delete(row).unwrap();
-        }));
+        let serial = self.serial.read().unwrap().index().value(row);
+        if let Some(_) = serial {
+            let mut handles = Vec::new();
+            let index = self.serial.clone();
+            handles.push(thread::spawn(move || {
+                index.write().unwrap().delete(row).unwrap();
+            }));
 
-        let index = self.uuid.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().delete(row);
-        }));
-
-        let index = self.activity.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().delete(row);
-        }));
-
-        let index = self.term_begin.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().delete(row);
-        }));
-
-        let index = self.term_end.clone();
-        handles.push(thread::spawn(move || {
-            index.write().unwrap().delete(row);
-        }));
-
-        self.load_fields().unwrap();
-        for (_, v) in self.fields_cache.iter() {
-            let index = v.clone();
+            let index = self.uuid.clone();
             handles.push(thread::spawn(move || {
                 index.write().unwrap().delete(row);
             }));
-        }
 
-        self.last_updated.write().unwrap().delete(row);
+            let index = self.activity.clone();
+            handles.push(thread::spawn(move || {
+                index.write().unwrap().delete(row);
+            }));
 
-        for h in handles {
-            h.join().unwrap();
+            let index = self.term_begin.clone();
+            handles.push(thread::spawn(move || {
+                index.write().unwrap().delete(row);
+            }));
+
+            let index = self.term_end.clone();
+            handles.push(thread::spawn(move || {
+                index.write().unwrap().delete(row);
+            }));
+
+            self.load_fields().unwrap();
+            for (_, v) in self.fields_cache.iter() {
+                let index = v.clone();
+                handles.push(thread::spawn(move || {
+                    index.write().unwrap().delete(row);
+                }));
+            }
+
+            self.last_updated.write().unwrap().delete(row);
+
+            for h in handles {
+                h.join().unwrap();
+            }
         }
     }
 
