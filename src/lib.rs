@@ -46,7 +46,6 @@ impl Data {
         }
 
         let mut fields_cache = HashMap::new();
-
         let mut fields_dir = dir.to_path_buf();
         fields_dir.push("fields");
         if fields_dir.exists() {
@@ -62,33 +61,38 @@ impl Data {
                 }
             }
         }
-
-        let mut serial_path = dir.to_path_buf();
-        serial_path.push("serial");
-
-        let mut uuid_path = dir.to_path_buf();
-        uuid_path.push("uuid.i");
-
-        let mut activity_path = dir.to_path_buf();
-        activity_path.push("activity.i");
-
-        let mut term_begin_path = dir.to_path_buf();
-        term_begin_path.push("term_begin.i");
-
-        let mut term_end_path = dir.to_path_buf();
-        term_end_path.push("term_end.i");
-
-        let mut last_updated_path = dir.to_path_buf();
-        last_updated_path.push("last_updated.i");
-
         Ok(Self {
             fields_dir,
-            serial: Arc::new(RwLock::new(SerialNumber::new(serial_path)?)),
-            uuid: Arc::new(RwLock::new(IdxSized::new(uuid_path)?)),
-            activity: Arc::new(RwLock::new(IdxSized::new(activity_path)?)),
-            term_begin: Arc::new(RwLock::new(IdxSized::new(term_begin_path)?)),
-            term_end: Arc::new(RwLock::new(IdxSized::new(term_end_path)?)),
-            last_updated: Arc::new(RwLock::new(IdxSized::new(last_updated_path)?)),
+            serial: Arc::new(RwLock::new(SerialNumber::new({
+                let mut path = dir.to_path_buf();
+                path.push("serial");
+                path
+            })?)),
+            uuid: Arc::new(RwLock::new(IdxSized::new({
+                let mut path = dir.to_path_buf();
+                path.push("uuid.i");
+                path
+            })?)),
+            activity: Arc::new(RwLock::new(IdxSized::new({
+                let mut path = dir.to_path_buf();
+                path.push("activity.i");
+                path
+            })?)),
+            term_begin: Arc::new(RwLock::new(IdxSized::new({
+                let mut path = dir.to_path_buf();
+                path.push("term_begin.i");
+                path
+            })?)),
+            term_end: Arc::new(RwLock::new(IdxSized::new({
+                let mut path = dir.to_path_buf();
+                path.push("term_end.i");
+                path
+            })?)),
+            last_updated: Arc::new(RwLock::new(IdxSized::new({
+                let mut path = dir.to_path_buf();
+                path.push("last_updated.i");
+                path
+            })?)),
             fields_cache,
         })
     }

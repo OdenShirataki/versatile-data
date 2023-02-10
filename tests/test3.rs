@@ -12,8 +12,8 @@ fn test3() {
     if let Ok(mut data)=Data::new(dir){
         data.update(&Operation::New{
             activity:Activity::Active
-            ,term_begin:Term::Defalut
-            ,term_end:Term::Defalut
+            ,term_begin:Term::Default
+            ,term_end:Term::Default
             ,fields:vec![
                 KeyValue::new("test","TEST".to_owned())
             ]

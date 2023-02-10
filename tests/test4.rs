@@ -11,8 +11,8 @@ fn test4() {
     if let Ok(mut data) = Data::new(dir) {
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "test".to_owned()),
                 KeyValue::new("password", "test".to_owned()),
@@ -21,8 +21,8 @@ fn test4() {
         .unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "test2".to_owned()),
                 KeyValue::new("password", "test".to_owned()),
@@ -31,8 +31,8 @@ fn test4() {
         .unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "test3".to_owned()),
                 KeyValue::new("password", "test".to_owned()),
@@ -42,8 +42,8 @@ fn test4() {
         data.update(&Operation::Delete { row: 2 }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "test4".to_owned()),
                 KeyValue::new("password", "test".to_owned()),
@@ -58,8 +58,8 @@ fn test4() {
     if let Ok(mut data) = Data::new(dir) {
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "test5".to_owned()),
                 KeyValue::new("password", "test".to_owned()),

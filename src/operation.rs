@@ -40,7 +40,7 @@ pub enum Activity {
 }
 
 pub enum Term {
-    Defalut,
+    Default,
     Overwrite(u64),
 }
 

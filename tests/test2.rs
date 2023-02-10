@@ -11,8 +11,8 @@ fn test2() {
         //1
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Noah"),
                 KeyValue::new("country", "US"),
@@ -20,8 +20,8 @@ fn test2() {
         }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Liam"),
                 KeyValue::new("country", "US"),
@@ -29,8 +29,8 @@ fn test2() {
         }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Olivia"),
                 KeyValue::new("country", "UK"),
@@ -39,8 +39,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 1,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Noah"),
                 KeyValue::new("country", "US"),
@@ -49,8 +49,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 2,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Liam"),
                 KeyValue::new("country", "US"),
@@ -59,8 +59,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 3,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Olivia"),
                 KeyValue::new("country", "UK"),
@@ -70,8 +70,8 @@ fn test2() {
         //2
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Noah"),
                 KeyValue::new("country", "US"),
@@ -79,8 +79,8 @@ fn test2() {
         }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Liam"),
                 KeyValue::new("country", "US"),
@@ -88,8 +88,8 @@ fn test2() {
         }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Olivia"),
                 KeyValue::new("country", "UK"),
@@ -98,8 +98,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 1,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Noah"),
                 KeyValue::new("country", "US"),
@@ -108,8 +108,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 2,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Liam"),
                 KeyValue::new("country", "US"),
@@ -118,8 +118,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 3,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Olivia"),
                 KeyValue::new("country", "UK"),
@@ -128,8 +128,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 4,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Noah"),
                 KeyValue::new("country", "US"),
@@ -138,8 +138,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 5,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Liam"),
                 KeyValue::new("country", "US"),
@@ -148,8 +148,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 6,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Olivia"),
                 KeyValue::new("country", "UK"),
@@ -159,8 +159,8 @@ fn test2() {
         //3
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Noah"),
                 KeyValue::new("country", "US"),
@@ -168,8 +168,8 @@ fn test2() {
         }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Liam"),
                 KeyValue::new("country", "US"),
@@ -177,8 +177,8 @@ fn test2() {
         }).unwrap();
         data.update(&Operation::New {
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Olivia"),
                 KeyValue::new("country", "UK"),
@@ -187,8 +187,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 1,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Renamed Noah"),
                 KeyValue::new("country", "US"),
@@ -197,8 +197,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 2,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Renamed Liam"),
                 KeyValue::new("country", "US"),
@@ -207,8 +207,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 3,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Renamed Olivia"),
                 KeyValue::new("country", "UK"),
@@ -217,8 +217,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 4,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Noah"),
                 KeyValue::new("country", "US"),
@@ -227,8 +227,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 5,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Liam"),
                 KeyValue::new("country", "US"),
@@ -237,8 +237,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 6,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Renamed Olivia"),
                 KeyValue::new("country", "UK"),
@@ -247,8 +247,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 7,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Noah"),
                 KeyValue::new("country", "US"),
@@ -257,8 +257,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 8,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Liam"),
                 KeyValue::new("country", "US"),
@@ -267,8 +267,8 @@ fn test2() {
         data.update(&Operation::Update {
             row: 9,
             activity: Activity::Active,
-            term_begin: Term::Defalut,
-            term_end: Term::Defalut,
+            term_begin: Term::Default,
+            term_end: Term::Default,
             fields: vec![
                 KeyValue::new("name", "Renamed Olivia"),
                 KeyValue::new("country", "UK"),
