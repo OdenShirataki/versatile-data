@@ -26,9 +26,6 @@ impl RowFragment {
     pub fn insert_blank(&mut self, row: u32) -> io::Result<u64> {
         self.filemmap.append(&row.to_ne_bytes())
     }
-    pub fn exists_blank(&self) -> bool {
-        self.blank_count() > 0
-    }
     pub fn pop(&mut self) -> io::Result<Option<u32>> {
         let count = self.blank_count();
         if count > 0 {

@@ -132,11 +132,7 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> io::Result<u32> {
-        let row = if self.serial.read().unwrap().exists_blank() {
-            self.serial.write().unwrap().pop_blank()?.unwrap()
-        } else {
-            self.serial.write().unwrap().add()?
-        };
+        let row = self.serial.write().unwrap().next_row()?;
 
         let mut handles = Vec::new();
 
