@@ -21,6 +21,9 @@ pub use field::FieldData;
 pub mod search;
 pub use search::{Condition, Order, OrderKey, Search};
 
+mod row_fragment;
+pub use row_fragment::RowFragment;
+
 mod operation;
 pub use operation::*;
 
