@@ -23,17 +23,25 @@ impl RowFragment {
     fn blank_count(&self) -> u64 {
         self.filemmap.len().unwrap() / U32_SIZE as u64 - 1
     }
+    fn remap(&mut self) {
+        self.blank_list =
+            ManuallyDrop::new(unsafe { Box::from_raw(self.filemmap.as_ptr() as *mut u32) });
+    }
     pub fn insert_blank(&mut self, row: u32) -> io::Result<u64> {
-        self.filemmap.append(&row.to_ne_bytes())
+        let r = self.filemmap.append(&row.to_ne_bytes())?;
+        self.remap();
+        Ok(r)
     }
     pub fn pop(&mut self) -> io::Result<Option<u32>> {
         let count = self.blank_count();
-        if count > 0 {
+        Ok(if count > 0 {
             let last = unsafe { *(&mut **self.blank_list as *mut u32).offset(count as isize) };
             self.filemmap.set_len(count * U32_SIZE as u64)?;
-            return Ok(Some(last));
-        }
-        Ok(None)
+            self.remap();
+            Some(last)
+        } else {
+            None
+        })
     }
     pub fn serial_increment(&mut self) -> u32 {
         **self.blank_list += 1;

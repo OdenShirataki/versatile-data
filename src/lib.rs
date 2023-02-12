@@ -249,12 +249,9 @@ impl Data {
         self.uuid
             .write()
             .unwrap()
-            .update(row, Uuid::new_v4().as_u128())
-            .unwrap(); //recycled serial_number,uuid recreate.
+            .update(row, Uuid::new_v4().as_u128())?; //recycled serial_number,uuid recreate.
 
-        self.update_common(row, activity, term_begin, term_end, fields)?;
-
-        Ok(row)
+        self.update_common(row, activity, term_begin, term_end, fields)
     }
 
     fn update_row(
@@ -266,10 +263,9 @@ impl Data {
         fields: &Vec<KeyValue>,
     ) -> io::Result<()> {
         if self.exists(row) {
-            self.update_common(row, activity, term_begin, term_end, fields)
-        } else {
-            Ok(())
+            self.update_common(row, activity, term_begin, term_end, fields)?;
         }
+        Ok(())
     }
 
     fn update_common(
@@ -279,7 +275,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> io::Result<()> {
+    ) -> io::Result<u32> {
         self.activity
             .write()
             .unwrap()
@@ -310,7 +306,7 @@ impl Data {
             } else {
                 self.create_field(&kv.key)?
             };
-            field.write().unwrap().update(row, &kv.value).unwrap();
+            field.write().unwrap().update(row, &kv.value)?;
         }
 
         self.last_updated.write().unwrap().update(
@@ -319,9 +315,7 @@ impl Data {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
-        )?;
-
-        Ok(())
+        )
     }
 
     fn delete(&mut self, row: u32) -> io::Result<()> {
