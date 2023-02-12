@@ -99,182 +99,8 @@ impl Data {
         })
     }
 
-    pub fn update(&mut self, operation: &Operation) -> io::Result<u32> {
-        Ok(match operation {
-            Operation::New {
-                activity,
-                term_begin,
-                term_end,
-                fields,
-            } => self.create_row(activity, term_begin, term_end, fields)?,
-            Operation::Update {
-                row,
-                activity,
-                term_begin,
-                term_end,
-                fields,
-            } => {
-                self.update_row(*row, activity, term_begin, term_end, fields)?;
-                *row
-            }
-            Operation::Delete { row } => {
-                self.delete(*row)?;
-                0
-            }
-        })
-    }
-
-    pub fn create_row(
-        &mut self,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> io::Result<u32> {
-        let row = self.serial.write().unwrap().next_row()?;
-
-        self.uuid
-            .write()
-            .unwrap()
-            .update(row, Uuid::new_v4().as_u128())
-            .unwrap(); //recycled serial_number,uuid recreate.
-
-        self.activity
-            .write()
-            .unwrap()
-            .update(row, *activity as u8)?;
-        self.term_begin.write().unwrap().update(
-            row,
-            if let Term::Overwrite(term_begin) = term_begin {
-                *term_begin
-            } else {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-            },
-        )?;
-        self.term_end.write().unwrap().update(
-            row,
-            if let Term::Overwrite(term_end) = term_end {
-                *term_end
-            } else {
-                0
-            },
-        )?;
-
-        self.update_fields(row, fields)?;
-        self.last_update_now(row)?;
-
-        Ok(row)
-    }
-
-    pub fn update_row(
-        &mut self,
-        row: u32,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> io::Result<()> {
-        if self.exists(row) {
-            self.activity
-                .write()
-                .unwrap()
-                .update(row, *activity as u8)?;
-            self.term_begin.write().unwrap().update(
-                row,
-                if let Term::Overwrite(term_begin) = term_begin {
-                    *term_begin
-                } else {
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
-                },
-            )?;
-            self.term_end.write().unwrap().update(
-                row,
-                if let Term::Overwrite(term_end) = term_end {
-                    *term_end
-                } else {
-                    0
-                },
-            )?;
-            for kv in fields.iter() {
-                let field = if self.fields_cache.contains_key(&kv.key) {
-                    self.fields_cache.get_mut(&kv.key).unwrap()
-                } else {
-                    self.create_field(&kv.key)?
-                };
-                field.write().unwrap().update(row, &kv.value)?;
-            }
-            self.last_update_now(row)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn last_update_now(&mut self, row: u32) -> io::Result<()> {
-        self.last_updated.write().unwrap().update(
-            row,
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        )?;
-        Ok(())
-    }
-    fn update_fields(&mut self, row: u32, fields: &Vec<KeyValue>) -> io::Result<()> {
-        for kv in fields.iter() {
-            let field = if self.fields_cache.contains_key(&kv.key) {
-                self.fields_cache.get_mut(&kv.key).unwrap()
-            } else {
-                self.create_field(&kv.key)?
-            };
-            field.write().unwrap().update(row, &kv.value).unwrap();
-        }
-        Ok(())
-    }
-    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> io::Result<()> {
-        let field = if self.fields_cache.contains_key(field_name) {
-            self.fields_cache.get_mut(field_name).unwrap()
-        } else {
-            self.create_field(field_name)?
-        };
-        field.write().unwrap().update(row, cont)?;
-        self.last_update_now(row)
-    }
-    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<FieldData>>> {
-        let mut fields_dir = self.fields_dir.clone();
-        fields_dir.push(field_name);
-        fs::create_dir_all(&fields_dir)?;
-        if fields_dir.exists() {
-            let field = FieldData::new(fields_dir)?;
-            self.fields_cache
-                .entry(String::from(field_name))
-                .or_insert(Arc::new(RwLock::new(field)));
-        }
-        Ok(self.fields_cache.get_mut(field_name).unwrap())
-    }
     pub fn exists(&self, row: u32) -> bool {
         self.serial.read().unwrap().index().value(row) != None
-    }
-    pub fn delete(&mut self, row: u32) -> io::Result<()> {
-        if self.exists(row) {
-            self.serial.write().unwrap().delete(row)?;
-            self.uuid.write().unwrap().delete(row);
-            self.activity.write().unwrap().delete(row);
-            self.term_begin.write().unwrap().delete(row);
-            self.term_end.write().unwrap().delete(row);
-            self.last_updated.write().unwrap().delete(row);
-
-            self.load_fields()?;
-            for (_, v) in self.fields_cache.iter() {
-                v.write().unwrap().delete(row);
-            }
-        }
-        Ok(())
     }
 
     pub fn serial(&self, row: u32) -> u32 {
@@ -352,15 +178,10 @@ impl Data {
             0.0
         }
     }
-
-    pub fn fields(&self) -> Vec<&String> {
-        let mut fields = Vec::new();
-        for (key, _) in self.fields_cache.iter() {
-            fields.push(key);
-        }
-        fields
+    fn field(&self, name: &str) -> Option<&Arc<RwLock<FieldData>>> {
+        self.fields_cache.get(name)
     }
-    pub fn load_fields(&mut self) -> io::Result<()> {
+    fn load_fields(&mut self) -> io::Result<()> {
         if self.fields_dir.exists() {
             for p in self.fields_dir.read_dir()? {
                 let p = p?;
@@ -380,8 +201,157 @@ impl Data {
         Ok(())
     }
 
-    pub fn field(&self, name: &str) -> Option<&Arc<RwLock<FieldData>>> {
-        self.fields_cache.get(name)
+    pub fn update(&mut self, operation: &Operation) -> io::Result<u32> {
+        Ok(match operation {
+            Operation::New {
+                activity,
+                term_begin,
+                term_end,
+                fields,
+            } => self.create_row(activity, term_begin, term_end, fields)?,
+            Operation::Update {
+                row,
+                activity,
+                term_begin,
+                term_end,
+                fields,
+            } => {
+                self.update_row(*row, activity, term_begin, term_end, fields)?;
+                *row
+            }
+            Operation::Delete { row } => {
+                self.delete(*row)?;
+                0
+            }
+        })
+    }
+
+    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> io::Result<()> {
+        let field = if self.fields_cache.contains_key(field_name) {
+            self.fields_cache.get_mut(field_name).unwrap()
+        } else {
+            self.create_field(field_name)?
+        };
+        field.write().unwrap().update(row, cont)?;
+
+        Ok(())
+    }
+
+    fn create_row(
+        &mut self,
+        activity: &Activity,
+        term_begin: &Term,
+        term_end: &Term,
+        fields: &Vec<KeyValue>,
+    ) -> io::Result<u32> {
+        let row = self.serial.write().unwrap().next_row()?;
+
+        self.uuid
+            .write()
+            .unwrap()
+            .update(row, Uuid::new_v4().as_u128())
+            .unwrap(); //recycled serial_number,uuid recreate.
+
+        self.update_common(row, activity, term_begin, term_end, fields)?;
+
+        Ok(row)
+    }
+
+    fn update_row(
+        &mut self,
+        row: u32,
+        activity: &Activity,
+        term_begin: &Term,
+        term_end: &Term,
+        fields: &Vec<KeyValue>,
+    ) -> io::Result<()> {
+        if self.exists(row) {
+            self.update_common(row, activity, term_begin, term_end, fields)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn update_common(
+        &mut self,
+        row: u32,
+        activity: &Activity,
+        term_begin: &Term,
+        term_end: &Term,
+        fields: &Vec<KeyValue>,
+    ) -> io::Result<()> {
+        self.activity
+            .write()
+            .unwrap()
+            .update(row, *activity as u8)?;
+        self.term_begin.write().unwrap().update(
+            row,
+            if let Term::Overwrite(term) = term_begin {
+                *term
+            } else {
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+            },
+        )?;
+        self.term_end.write().unwrap().update(
+            row,
+            if let Term::Overwrite(term) = term_end {
+                *term
+            } else {
+                0
+            },
+        )?;
+
+        for kv in fields.iter() {
+            let field = if self.fields_cache.contains_key(&kv.key) {
+                self.fields_cache.get_mut(&kv.key).unwrap()
+            } else {
+                self.create_field(&kv.key)?
+            };
+            field.write().unwrap().update(row, &kv.value).unwrap();
+        }
+
+        self.last_updated.write().unwrap().update(
+            row,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )?;
+
+        Ok(())
+    }
+
+    fn delete(&mut self, row: u32) -> io::Result<()> {
+        if self.exists(row) {
+            self.serial.write().unwrap().delete(row)?;
+            self.uuid.write().unwrap().delete(row);
+            self.activity.write().unwrap().delete(row);
+            self.term_begin.write().unwrap().delete(row);
+            self.term_end.write().unwrap().delete(row);
+            self.last_updated.write().unwrap().delete(row);
+
+            self.load_fields()?;
+            for (_, v) in self.fields_cache.iter() {
+                v.write().unwrap().delete(row);
+            }
+        }
+        Ok(())
+    }
+
+    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<FieldData>>> {
+        let mut fields_dir = self.fields_dir.clone();
+        fields_dir.push(field_name);
+        fs::create_dir_all(&fields_dir)?;
+        if fields_dir.exists() {
+            let field = FieldData::new(fields_dir)?;
+            self.fields_cache
+                .entry(String::from(field_name))
+                .or_insert(Arc::new(RwLock::new(field)));
+        }
+        Ok(self.fields_cache.get_mut(field_name).unwrap())
     }
 
     pub fn all(&self) -> RowSet {
