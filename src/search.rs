@@ -206,10 +206,12 @@ impl<'a> Search<'a> {
                 let range = range.clone();
                 spawn(move || {
                     for i in range {
-                        if let Some(_) =
-                            unsafe { serial.read().unwrap().index().triee().node(i as u32) }
-                        {
-                            r.insert(i as u32);
+                        if i > 0 {
+                            if let Some(_) =
+                                unsafe { serial.read().unwrap().index().triee().node(i as u32) }
+                            {
+                                r.insert(i as u32);
+                            }
                         }
                     }
                     tx.send(r).unwrap();
@@ -219,10 +221,12 @@ impl<'a> Search<'a> {
                 let rows = rows.clone();
                 spawn(move || {
                     for i in rows {
-                        if let Some(_) =
-                            unsafe { serial.read().unwrap().index().triee().node(i as u32) }
-                        {
-                            r.insert(i as u32);
+                        if i > 0 {
+                            if let Some(_) =
+                                unsafe { serial.read().unwrap().index().triee().node(i as u32) }
+                            {
+                                r.insert(i as u32);
+                            }
                         }
                     }
                     tx.send(r).unwrap();
