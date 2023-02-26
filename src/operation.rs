@@ -1,5 +1,6 @@
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
+#[derive(Debug)]
 pub struct KeyValue {
     pub(super) key: String,
     pub(super) value: Vec<u8>,
@@ -33,12 +34,13 @@ impl KeyValue {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Activity {
     Inactive = 0,
     Active = 1,
 }
 
+#[derive(Debug)]
 pub enum Term {
     Default,
     Overwrite(u64),

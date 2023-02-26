@@ -1,14 +1,14 @@
 use crate::Activity;
 use std::ops::RangeInclusive;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Term {
     In(u64),
     Past(u64),
     Future(u64),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Number {
     Min(isize),
     Max(isize),
@@ -16,7 +16,7 @@ pub enum Number {
     In(Vec<isize>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Field {
     Match(Vec<u8>),
     Range(Vec<u8>, Vec<u8>),
@@ -27,7 +27,7 @@ pub enum Field {
     Backward(String),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Condition {
     Activity(Activity),
     Term(Term),
@@ -39,6 +39,7 @@ pub enum Condition {
     Wide(Vec<Condition>),
 }
 
+#[derive(Debug)]
 pub enum OrderKey {
     Serial,
     Row,
@@ -48,6 +49,7 @@ pub enum OrderKey {
     Field(String),
 }
 
+#[derive(Debug)]
 pub enum Order {
     Asc(OrderKey),
     Desc(OrderKey),
