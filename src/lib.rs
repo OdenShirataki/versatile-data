@@ -30,6 +30,13 @@ pub use natord;
 
 pub mod prelude;
 
+pub fn create_uuid() -> u128 {
+    Uuid::new_v4().as_u128()
+}
+pub fn uuid_string(uuid: u128) -> String {
+    Uuid::from_u128(uuid).to_string()
+}
+
 pub struct Data {
     fields_dir: PathBuf,
     serial: Arc<RwLock<SerialNumber>>,
@@ -117,7 +124,7 @@ impl Data {
             0
         }
     }
-    pub fn uuid_str(&self, row: u32) -> String {
+    pub fn uuid_string(&self, row: u32) -> String {
         if let Some(v) = self.uuid.read().unwrap().value(row) {
             uuid::Uuid::from_u128(v).to_string()
         } else {
@@ -246,10 +253,7 @@ impl Data {
     ) -> io::Result<u32> {
         let row = self.serial.write().unwrap().next_row()?;
 
-        self.uuid
-            .write()
-            .unwrap()
-            .update(row, Uuid::new_v4().as_u128())?; //recycled serial_number,uuid recreate.
+        self.uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
 
         self.update_common(row, activity, term_begin, term_end, fields)
     }
