@@ -386,7 +386,10 @@ impl Data {
         for i in 1..orders.len() {
             sub_orders.push(&orders[i]);
         }
-        self.sort_with_suborders(rows, &orders[0], sub_orders)
+        match &orders[0] {
+            Order::Asc(key) => self.sort_with_key(rows, key, sub_orders),
+            Order::Desc(key) => self.sort_with_key_desc(rows, key, sub_orders),
+        }
     }
     fn subsort(&self, tmp: Vec<u32>, sub_orders: &[&Order]) -> Vec<u32> {
         let mut tmp = tmp;
@@ -543,50 +546,40 @@ impl Data {
         ret
     }
     fn sort_with_key(&self, rows: RowSet, key: &OrderKey, sub_orders: Vec<&Order>) -> Vec<u32> {
-        let mut ret = Vec::new();
         match key {
-            OrderKey::Serial => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.serial.read().unwrap().index().triee().iter(),
-                    vec![],
-                );
-            }
-            OrderKey::Row => {
-                ret = rows.iter().map(|&x| x).collect::<Vec<u32>>();
-            }
-            OrderKey::TermBegin => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.term_begin.read().unwrap().triee().iter(),
-                    sub_orders,
-                );
-            }
-            OrderKey::TermEnd => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.term_end.read().unwrap().triee().iter(),
-                    sub_orders,
-                );
-            }
-            OrderKey::LastUpdated => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.last_updated.read().unwrap().triee().iter(),
-                    sub_orders,
-                );
-            }
+            OrderKey::Serial => self.sort_with_iter(
+                rows,
+                &mut self.serial.read().unwrap().index().triee().iter(),
+                vec![],
+            ),
+            OrderKey::Row => rows.iter().map(|&x| x).collect::<Vec<u32>>(),
+            OrderKey::TermBegin => self.sort_with_iter(
+                rows,
+                &mut self.term_begin.read().unwrap().triee().iter(),
+                sub_orders,
+            ),
+            OrderKey::TermEnd => self.sort_with_iter(
+                rows,
+                &mut self.term_end.read().unwrap().triee().iter(),
+                sub_orders,
+            ),
+            OrderKey::LastUpdated => self.sort_with_iter(
+                rows,
+                &mut self.last_updated.read().unwrap().triee().iter(),
+                sub_orders,
+            ),
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
-                    ret = self.sort_with_iter(
+                    self.sort_with_iter(
                         rows,
                         &mut field.read().unwrap().index().triee().iter(),
                         sub_orders,
-                    );
+                    )
+                } else {
+                    rows.into_iter().collect()
                 }
             }
         }
-        ret
     }
     fn sort_with_key_desc(
         &self,
@@ -594,60 +587,39 @@ impl Data {
         key: &OrderKey,
         sub_orders: Vec<&Order>,
     ) -> Vec<u32> {
-        let mut ret = Vec::new();
         match key {
-            OrderKey::Serial => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.serial.read().unwrap().index().triee().desc_iter(),
-                    vec![],
-                );
-            }
-            OrderKey::Row => {
-                ret = rows.iter().rev().map(|&x| x).collect::<Vec<u32>>();
-            }
-            OrderKey::TermBegin => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.term_begin.read().unwrap().triee().desc_iter(),
-                    sub_orders,
-                );
-            }
-            OrderKey::TermEnd => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.term_end.read().unwrap().triee().desc_iter(),
-                    sub_orders,
-                );
-            }
-            OrderKey::LastUpdated => {
-                ret = self.sort_with_iter(
-                    rows,
-                    &mut self.last_updated.read().unwrap().triee().desc_iter(),
-                    sub_orders,
-                );
-            }
+            OrderKey::Serial => self.sort_with_iter(
+                rows,
+                &mut self.serial.read().unwrap().index().triee().desc_iter(),
+                vec![],
+            ),
+            OrderKey::Row => rows.iter().rev().map(|&x| x).collect::<Vec<u32>>(),
+            OrderKey::TermBegin => self.sort_with_iter(
+                rows,
+                &mut self.term_begin.read().unwrap().triee().desc_iter(),
+                sub_orders,
+            ),
+            OrderKey::TermEnd => self.sort_with_iter(
+                rows,
+                &mut self.term_end.read().unwrap().triee().desc_iter(),
+                sub_orders,
+            ),
+            OrderKey::LastUpdated => self.sort_with_iter(
+                rows,
+                &mut self.last_updated.read().unwrap().triee().desc_iter(),
+                sub_orders,
+            ),
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
-                    ret = self.sort_with_iter(
+                    self.sort_with_iter(
                         rows,
                         &mut field.read().unwrap().index().triee().desc_iter(),
                         sub_orders,
-                    );
+                    )
+                } else {
+                    rows.into_iter().collect()
                 }
             }
-        }
-        ret
-    }
-    fn sort_with_suborders(
-        &self,
-        rows: RowSet,
-        order: &Order,
-        sub_orders: Vec<&Order>,
-    ) -> Vec<u32> {
-        match order {
-            Order::Asc(key) => self.sort_with_key(rows, key, sub_orders),
-            Order::Desc(key) => self.sort_with_key_desc(rows, key, sub_orders),
         }
     }
 }
