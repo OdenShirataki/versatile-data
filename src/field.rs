@@ -97,7 +97,7 @@ impl FieldData {
             }
         }
     }
-    pub(crate) fn delete(&mut self, row: u32) {
+    pub fn delete(&mut self, row: u32) {
         self.index.delete(row);
     }
 
