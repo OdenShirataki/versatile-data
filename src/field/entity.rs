@@ -1,6 +1,6 @@
 use various_data_file::DataAddress;
 
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq, Debug)]
 pub struct FieldEntity {
     data_address: DataAddress,
     num: f64,

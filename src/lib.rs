@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
-use uuid::Uuid;
+pub use uuid::Uuid;
 
 pub use idx_sized::{IdxSized, RowSet};
 

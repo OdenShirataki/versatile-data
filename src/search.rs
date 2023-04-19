@@ -421,16 +421,17 @@ impl<'a> Search<'a> {
             }
         }
     }
-    pub fn search_exec_uuid(data: &Data, uuid: &u128, tx: Sender<RowSet>) {
+    pub fn search_exec_uuid(data: &Data, uuids: &Vec<u128>, tx: Sender<RowSet>) {
         let index = data.uuid.clone();
-        let uuid = uuid.clone();
+        let uuids = uuids.clone();
         spawn(move || {
-            tx.send(if let Ok(index) = index.read() {
-                index.select_by_value(&uuid)
-            } else {
-                RowSet::default()
-            })
-            .unwrap();
+            let mut r = RowSet::default();
+            for uuid in uuids {
+                for row in index.read().unwrap().select_by_value(&uuid) {
+                    r.insert(row);
+                }
+            }
+            tx.send(r).unwrap();
         });
     }
 }
