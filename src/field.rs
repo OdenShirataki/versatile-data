@@ -83,17 +83,18 @@ impl FieldData {
         if ord == Ordering::Equal && found_row != 0 {
             self.index.insert_same(found_row, row)
         } else {
-            //新しく作る
             let data_address = self.data_file.insert(content)?;
             let e = FieldEntity::new(data_address.address(), cont_str.parse().unwrap_or(0.0));
-            if let Some(_entity) = unsafe { self.index.triee().node(row) } {
-                //既存データの更新処理
+            if let Some(_entity) = if self.index.max_rows()? > row {
+                unsafe { self.index.triee().node(row) }
+            } else {
+                None
+            } {
                 unsafe {
                     self.index.triee_mut().update_node(found_row, row, e, ord);
                 }
                 Ok(row)
             } else {
-                //追加
                 self.index.insert_unique(e, found_row, ord, row)
             }
         }
