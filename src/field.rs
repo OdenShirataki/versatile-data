@@ -26,11 +26,12 @@ impl FieldData {
         })
     }
     pub fn entity(&self, row: u32) -> Option<&FieldEntity> {
-        if let Some(v) = unsafe { self.index.triee().value(row) } {
-            Some(&v)
-        } else {
-            None
+        if let Ok(max_rows) = self.index.max_rows() {
+            if max_rows >= row {
+                return unsafe { self.index.triee().value(row) };
+            }
         }
+        None
     }
     pub fn get<'a>(&self, row: u32) -> Option<&'a [u8]> {
         if let Some(e) = self.entity(row) {
