@@ -37,7 +37,7 @@ fn test() {
 
         let r=data
             .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))
-            .search_default()   //Automatic execution of the following two lines
+            .search_default().unwrap()   //Automatic execution of the following two lines
             //.search_term(Term::In(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()))
             //.search_activity(Activity::Active)
             .result()
@@ -45,7 +45,7 @@ fn test() {
         println!("{:?}",r);
 
         let r=data
-            .search_default()
+            .search_default().unwrap()
             .search(Condition::Wide(vec![
                 Condition::Field("num".to_string(),search::Field::Match(b"4".to_vec()))
                 ,Condition::Field("num".to_string(),search::Field::Match(b"6".to_vec()))
@@ -55,19 +55,19 @@ fn test() {
         println!("Wide test:{:?}",r);
 
         let r=data
-            .search_default() 
+            .search_default().unwrap() 
             .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
         ;
         println!("sorted-serial:{:?}",r);
 
         let r=data
-            .search_default() 
+            .search_default().unwrap() 
             .result_with_sort(vec![Order::Desc(OrderKey::Field("num".to_owned()))])   //natural order
         ;
         println!("sorted-num-desc:{:?}",r);
 
         let r=data
-            .search_default() 
+            .search_default().unwrap() 
             .result_with_sort(vec![
                 Order::Desc(OrderKey::Field("num_mod3".to_owned()))
             ])
@@ -75,7 +75,7 @@ fn test() {
         println!("sorted-mod3-desc:{:?}",r);
 
         let r=data
-            .search_default() 
+            .search_default().unwrap() 
             .result_with_sort(vec![
                 Order::Asc(OrderKey::Field("num_mod3".to_owned()))
                 ,Order::Asc(OrderKey::Field("num".to_owned()))
@@ -84,7 +84,7 @@ fn test() {
         println!("sorted mod3-asc num-asc:{:?}",r);
 
         let r=data
-            .search_default() 
+            .search_default().unwrap() 
             .result_with_sort(vec![
                 Order::Asc(OrderKey::Field("num_mod3".to_owned()))
                 ,Order::Desc(OrderKey::Field("num".to_owned()))
@@ -95,7 +95,7 @@ fn test() {
         let r=data
             .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))
             .search_row(search::Number::Range(4..=7))
-            .search_default()
+            .search_default().unwrap()
             .result()
         ;
         println!("{:?}",r);

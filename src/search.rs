@@ -22,15 +22,12 @@ impl<'a> Search<'a> {
             conditions: Vec::new(),
         }
     }
-    pub fn search_default(mut self) -> Self {
+    pub fn search_default(mut self) -> Result<Self, std::time::SystemTimeError> {
         self.conditions.push(Condition::Term(Term::In(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+            SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
         )));
         self.conditions.push(Condition::Activity(Activity::Active));
-        self
+        Ok(self)
     }
     pub fn search_field(self, field_name: impl Into<String>, condition: Field) -> Self {
         self.search(Condition::Field(field_name.into(), condition))
@@ -242,7 +239,7 @@ impl<'a> Search<'a> {
                 Field::Match(v) => {
                     let v = v.clone();
                     spawn(move || {
-                        let (ord, found_row) = field.read().unwrap().search_cb(&v);
+                        let (ord, found_row) = field.read().unwrap().search(&v);
                         if ord == Ordering::Equal {
                             r.insert(found_row);
                             r.append(
@@ -258,7 +255,7 @@ impl<'a> Search<'a> {
                 Field::Min(min) => {
                     let min = min.clone();
                     spawn(move || {
-                        let (_, min_found_row) = field.read().unwrap().search_cb(&min);
+                        let (_, min_found_row) = field.read().unwrap().search(&min);
                         for row in field
                             .read()
                             .unwrap()
@@ -280,7 +277,7 @@ impl<'a> Search<'a> {
                 Field::Max(max) => {
                     let max = max.clone();
                     spawn(move || {
-                        let (_, max_found_row) = field.read().unwrap().search_cb(&max);
+                        let (_, max_found_row) = field.read().unwrap().search(&max);
                         for row in field.read().unwrap().triee().iter_by_row_to(max_found_row) {
                             let row = row.row();
                             r.insert(row);
@@ -298,8 +295,8 @@ impl<'a> Search<'a> {
                     let min = min.clone();
                     let max = max.clone();
                     spawn(move || {
-                        let (_, min_found_row) = field.read().unwrap().search_cb(&min);
-                        let (_, max_found_row) = field.read().unwrap().search_cb(&max);
+                        let (_, min_found_row) = field.read().unwrap().search(&min);
+                        let (_, max_found_row) = field.read().unwrap().search(&max);
                         for row in field
                             .read()
                             .unwrap()

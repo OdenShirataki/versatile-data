@@ -32,7 +32,7 @@ impl SerialNumber {
         &self.index
     }
     pub fn delete(&mut self, row: u32) -> io::Result<u64> {
-        self.index.delete(row);
+        self.index.delete(row)?;
         self.fragment.insert_blank(row)
     }
     pub fn next_row(&mut self) -> io::Result<u32> {

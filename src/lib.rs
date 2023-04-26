@@ -11,6 +11,9 @@ pub use uuid::Uuid;
 
 pub use idx_sized::{IdxSized, RowSet};
 
+pub use anyhow;
+use anyhow::Result;
+
 mod serial;
 use serial::SerialNumber;
 
@@ -51,7 +54,7 @@ impl Data {
     pub fn new<P: AsRef<Path>>(dir: P) -> io::Result<Self> {
         let dir = dir.as_ref();
         if !dir.exists() {
-            fs::create_dir_all(dir).unwrap();
+            fs::create_dir_all(dir)?;
         }
 
         let mut fields_cache = HashMap::new();
@@ -208,7 +211,7 @@ impl Data {
         Ok(())
     }
 
-    pub fn update(&mut self, operation: &Operation) -> io::Result<u32> {
+    pub fn update(&mut self, operation: &Operation) -> Result<u32> {
         Ok(match operation {
             Operation::New {
                 activity,
@@ -233,7 +236,7 @@ impl Data {
         })
     }
 
-    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> io::Result<()> {
+    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> Result<()> {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {
@@ -250,7 +253,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> io::Result<u32> {
+    ) -> Result<u32> {
         let row = self.serial.write().unwrap().next_row()?;
 
         self.uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
@@ -265,7 +268,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         if self.exists(row) {
             self.update_common(row, activity, term_begin, term_end, fields)?;
         }
@@ -279,7 +282,7 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> io::Result<u32> {
+    ) -> Result<u32> {
         self.activity
             .write()
             .unwrap()
@@ -289,10 +292,7 @@ impl Data {
             if let Term::Overwrite(term) = term_begin {
                 *term
             } else {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
             },
         )?;
         self.term_end.write().unwrap().update(
@@ -313,27 +313,25 @@ impl Data {
             field.write().unwrap().update(row, &kv.value)?;
         }
 
-        self.last_updated.write().unwrap().update(
-            row,
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        )
+        Ok(self
+            .last_updated
+            .write()
+            .unwrap()
+            .update(row, SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?)
     }
 
     fn delete(&mut self, row: u32) -> io::Result<()> {
         if self.exists(row) {
             self.serial.write().unwrap().delete(row)?;
-            self.uuid.write().unwrap().delete(row);
-            self.activity.write().unwrap().delete(row);
-            self.term_begin.write().unwrap().delete(row);
-            self.term_end.write().unwrap().delete(row);
-            self.last_updated.write().unwrap().delete(row);
+            self.uuid.write().unwrap().delete(row)?;
+            self.activity.write().unwrap().delete(row)?;
+            self.term_begin.write().unwrap().delete(row)?;
+            self.term_end.write().unwrap().delete(row)?;
+            self.last_updated.write().unwrap().delete(row)?;
 
             self.load_fields()?;
             for (_, v) in self.fields_cache.iter() {
-                v.write().unwrap().delete(row);
+                v.write().unwrap().delete(row)?;
             }
         }
         Ok(())
@@ -377,7 +375,7 @@ impl Data {
     pub fn search_row(&self, condition: search::Number) -> Search {
         Search::new(self).search_row(condition)
     }
-    pub fn search_default(&self) -> Search {
+    pub fn search_default(&self) -> Result<Search, std::time::SystemTimeError> {
         Search::new(self).search_default()
     }
 
@@ -432,8 +430,8 @@ impl Data {
                                 let a = field.read().unwrap().get(*a).unwrap();
                                 let b = field.read().unwrap().get(*b).unwrap();
                                 let ord = natord::compare(
-                                    std::str::from_utf8(a).unwrap(),
-                                    std::str::from_utf8(b).unwrap(),
+                                    unsafe { std::str::from_utf8_unchecked(a) },
+                                    unsafe { std::str::from_utf8_unchecked(b) },
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -479,8 +477,8 @@ impl Data {
                                 let a = field.read().unwrap().get(*a).unwrap();
                                 let b = field.read().unwrap().get(*b).unwrap();
                                 let ord = natord::compare(
-                                    std::str::from_utf8(b).unwrap(),
-                                    std::str::from_utf8(a).unwrap(),
+                                    unsafe { std::str::from_utf8_unchecked(b) },
+                                    unsafe { std::str::from_utf8_unchecked(a) },
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;

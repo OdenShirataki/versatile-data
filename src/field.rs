@@ -1,3 +1,4 @@
+use anyhow::Result;
 use idx_sized::{Avltriee, IdxSized, Removed};
 use std::{cmp::Ordering, io, path::Path};
 use various_data_file::VariousDataFile;
@@ -58,30 +59,27 @@ impl FieldData {
     pub fn triee(&self) -> &Avltriee<FieldEntity> {
         &self.index.triee()
     }
-    pub fn update(&mut self, row: u32, content: &[u8]) -> io::Result<u32> {
+    pub fn update(&mut self, row: u32, content: &[u8]) -> Result<u32> {
         if let Some(org) = self.index.value(row) {
             if unsafe { self.data_file.bytes(org.data_address()) } == content {
                 return Ok(row);
             }
-            //変更がある場合はまず消去
-            if let Removed::Last(data) = self.index.delete(row) {
-                self.data_file.remove(&data.data_address())?; //削除対象がユニークの場合は対象文字列を完全削除
+            if let Removed::Last(data) = self.index.delete(row)? {
+                self.data_file.remove(&data.data_address())?;
             }
         }
-        //TODO:handle unwrap
-        let cont_str = std::str::from_utf8(content).unwrap();
+        let cont_str = std::str::from_utf8(content)?;
         let tree = self.index.triee();
         let (ord, found_row) = tree.search_cb(|data| -> Ordering {
             let bytes = unsafe { self.data_file.bytes(data.data_address()) };
             if content == bytes {
                 Ordering::Equal
             } else {
-                //TODO:handle unwrap
-                natord::compare(cont_str, std::str::from_utf8(bytes).unwrap())
+                natord::compare(cont_str, unsafe { std::str::from_utf8_unchecked(bytes) })
             }
         });
         if ord == Ordering::Equal && found_row != 0 {
-            self.index.insert_same(found_row, row)
+            Ok(self.index.insert_same(found_row, row)?)
         } else {
             let data_address = self.data_file.insert(content)?;
             let e = FieldEntity::new(data_address.address(), cont_str.parse().unwrap_or(0.0));
@@ -95,15 +93,16 @@ impl FieldData {
                 }
                 Ok(row)
             } else {
-                self.index.insert_unique(e, found_row, ord, row)
+                Ok(self.index.insert_unique(e, found_row, ord, row)?)
             }
         }
     }
-    pub fn delete(&mut self, row: u32) {
-        self.index.delete(row);
+    pub fn delete(&mut self, row: u32) -> std::io::Result<()> {
+        self.index.delete(row)?;
+        Ok(())
     }
 
-    pub(crate) fn search_cb(&self, cont: &[u8]) -> (Ordering, u32) {
+    pub(crate) fn search(&self, cont: &[u8]) -> (Ordering, u32) {
         self.index.triee().search_cb(|data| -> Ordering {
             let str2 = unsafe {
                 std::slice::from_raw_parts(
@@ -114,11 +113,9 @@ impl FieldData {
             if cont == str2 {
                 Ordering::Equal
             } else {
-                //TODO:handle unwrap
-                natord::compare(
-                    std::str::from_utf8(cont).unwrap(),
-                    std::str::from_utf8(str2).unwrap(),
-                )
+                natord::compare(unsafe { std::str::from_utf8_unchecked(cont) }, unsafe {
+                    std::str::from_utf8_unchecked(str2)
+                })
             }
         })
     }

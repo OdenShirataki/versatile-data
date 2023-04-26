@@ -15,14 +15,14 @@ impl RowFragment {
         }
         Ok(Self { filemmap })
     }
-    fn blank_count(&self) -> u64 {
-        self.filemmap.len().unwrap() / U32_SIZE as u64 - 1
+    fn blank_count(&self) -> io::Result<u64> {
+        Ok(self.filemmap.len()? / U32_SIZE as u64 - 1)
     }
     pub fn insert_blank(&mut self, row: u32) -> io::Result<u64> {
         self.filemmap.append(&row.to_ne_bytes())
     }
     pub fn pop(&mut self) -> io::Result<Option<u32>> {
-        let count = self.blank_count();
+        let count = self.blank_count()?;
         Ok(if count > 0 {
             let last = unsafe { *(self.filemmap.as_ptr() as *mut u32).offset(count as isize) };
             self.filemmap.set_len(count * U32_SIZE as u64)?;
