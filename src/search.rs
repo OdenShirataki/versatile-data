@@ -1,4 +1,3 @@
-use idx_sized::RowSet;
 use std::{
     cmp::Ordering,
     sync::mpsc::{channel, SendError, Sender},
@@ -6,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use super::{Activity, Data};
+use super::{Activity, Data, RowSet};
 
 mod enums;
 pub use enums::*;
@@ -128,7 +127,10 @@ impl<'a> Search<'a> {
                 index
                     .read()
                     .unwrap()
-                    .select_by_value_from_to(&activity, &activity),
+                    .triee()
+                    .iter_by_value_from_to(&activity, &activity)
+                    .map(|v| v.row())
+                    .collect(),
             )
             .unwrap();
         });
@@ -138,9 +140,9 @@ impl<'a> Search<'a> {
         let term_end = data.term_end.clone();
         spawn(move || {
             let mut result = RowSet::default();
-            let tmp = term_begin.read().unwrap().select_by_value_to(&base);
-            for row in tmp {
-                let end = term_end.read().unwrap().value(row).unwrap_or(0);
+            for node in term_begin.read().unwrap().triee().iter_by_value_to(&base) {
+                let row = node.row();
+                let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
                 if end == 0 || end > base {
                     result.replace(row);
                 }
@@ -157,16 +159,32 @@ impl<'a> Search<'a> {
                 let index = data.term_begin.clone();
                 let base = base.clone();
                 spawn(move || {
-                    tx.send(index.read().unwrap().select_by_value_from(&base))
-                        .unwrap();
+                    tx.send(
+                        index
+                            .read()
+                            .unwrap()
+                            .triee()
+                            .iter_by_value_from(&base)
+                            .map(|v| v.row())
+                            .collect(),
+                    )
+                    .unwrap();
                 });
             }
             Term::Past(base) => {
                 let index = data.term_end.clone();
                 let base = base.clone();
                 spawn(move || {
-                    tx.send(index.read().unwrap().select_by_value_from_to(&1, &base))
-                        .unwrap();
+                    tx.send(
+                        index
+                            .read()
+                            .unwrap()
+                            .triee()
+                            .iter_by_value_from_to(&1, &base)
+                            .map(|v| v.row())
+                            .collect(),
+                    )
+                    .unwrap();
                 });
             }
         }
@@ -176,7 +194,7 @@ impl<'a> Search<'a> {
         let mut r = RowSet::default();
         match condition {
             Number::Min(row) => {
-                let row = row.clone();
+                let row = *row;
                 spawn(move || {
                     for i in serial.read().unwrap().index().triee().iter() {
                         let i = i.row();
@@ -188,7 +206,7 @@ impl<'a> Search<'a> {
                 });
             }
             Number::Max(row) => {
-                let row = row.clone();
+                let row = *row;
                 spawn(move || {
                     for i in serial.read().unwrap().index().triee().iter() {
                         let i = i.row();
@@ -204,9 +222,7 @@ impl<'a> Search<'a> {
                 spawn(move || {
                     for i in range {
                         if i > 0 {
-                            if let Some(_) =
-                                unsafe { serial.read().unwrap().index().triee().node(i as u32) }
-                            {
+                            if serial.read().unwrap().index().exists(i as u32) {
                                 r.insert(i as u32);
                             }
                         }
@@ -219,9 +235,7 @@ impl<'a> Search<'a> {
                 spawn(move || {
                     for i in rows {
                         if i > 0 {
-                            if let Some(_) =
-                                unsafe { serial.read().unwrap().index().triee().node(i as u32) }
-                            {
+                            if serial.read().unwrap().index().exists(i as u32) {
                                 r.insert(i as u32);
                             }
                         }
@@ -239,11 +253,12 @@ impl<'a> Search<'a> {
                 Field::Match(v) => {
                     let v = v.clone();
                     spawn(move || {
-                        let (ord, found_row) = field.read().unwrap().search(&v);
-                        if ord == Ordering::Equal {
-                            r.insert(found_row);
+                        let found = field.read().unwrap().search(&v);
+                        let row = found.row();
+                        if found.ord() == Ordering::Equal {
+                            r.insert(row);
                             r.append(
-                                &mut unsafe { field.read().unwrap().triee().sames(found_row) }
+                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
                                     .iter()
                                     .map(|&x| x)
                                     .collect(),
@@ -255,17 +270,18 @@ impl<'a> Search<'a> {
                 Field::Min(min) => {
                     let min = min.clone();
                     spawn(move || {
-                        let (_, min_found_row) = field.read().unwrap().search(&min);
+                        let found = field.read().unwrap().search(&min);
                         for row in field
                             .read()
                             .unwrap()
+                            .index
                             .triee()
-                            .iter_by_row_from(min_found_row)
+                            .iter_by_row_from(found.row())
+                            .map(|x| x.row())
                         {
-                            let row = row.row();
                             r.insert(row);
                             r.append(
-                                &mut unsafe { field.read().unwrap().triee().sames(row) }
+                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
                                     .iter()
                                     .map(|&x| x)
                                     .collect(),
@@ -277,12 +293,18 @@ impl<'a> Search<'a> {
                 Field::Max(max) => {
                     let max = max.clone();
                     spawn(move || {
-                        let (_, max_found_row) = field.read().unwrap().search(&max);
-                        for row in field.read().unwrap().triee().iter_by_row_to(max_found_row) {
-                            let row = row.row();
+                        let found = field.read().unwrap().search(&max);
+                        for row in field
+                            .read()
+                            .unwrap()
+                            .index
+                            .triee()
+                            .iter_by_row_to(found.row())
+                            .map(|x| x.row())
+                        {
                             r.insert(row);
                             r.append(
-                                &mut unsafe { field.read().unwrap().triee().sames(row) }
+                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
                                     .iter()
                                     .map(|&x| x)
                                     .collect(),
@@ -295,18 +317,20 @@ impl<'a> Search<'a> {
                     let min = min.clone();
                     let max = max.clone();
                     spawn(move || {
-                        let (_, min_found_row) = field.read().unwrap().search(&min);
-                        let (_, max_found_row) = field.read().unwrap().search(&max);
                         for row in field
                             .read()
                             .unwrap()
+                            .index
                             .triee()
-                            .iter_by_row_from_to(min_found_row, max_found_row)
+                            .iter_by_row_from_to(
+                                field.read().unwrap().search(&min).row(),
+                                field.read().unwrap().search(&max).row(),
+                            )
+                            .map(|x| x.row())
                         {
-                            let row = row.row();
                             r.insert(row);
                             r.append(
-                                &mut unsafe { field.read().unwrap().triee().sames(row) }
+                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
                                     .iter()
                                     .map(|&x| x)
                                     .collect(),
@@ -319,10 +343,10 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().triee().iter() {
+                        for row in field.read().unwrap().index.triee().iter() {
                             let data = row.value();
                             let row = row.row();
-                            if len as u64 <= data.len() {
+                            if len as u64 <= data.data_address().len() {
                                 if let Some(bytes2) = field.read().unwrap().get(row) {
                                     if bytes2.starts_with(cont.as_bytes()) {
                                         r.insert(row);
@@ -337,10 +361,10 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().triee().iter() {
+                        for row in field.read().unwrap().index.triee().iter() {
                             let data = row.value();
                             let row = row.row();
-                            if len as u64 <= data.len() {
+                            if len as u64 <= data.data_address().len() {
                                 if let Some(bytes2) = field.read().unwrap().get(row) {
                                     let bytes = cont.as_bytes();
                                     if let Some(_) =
@@ -358,10 +382,10 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().triee().iter() {
+                        for row in field.read().unwrap().index.triee().iter() {
                             let data = row.value();
                             let row = row.row();
-                            if len as u64 <= data.len() {
+                            if len as u64 <= data.data_address().len() {
                                 if let Some(bytes2) = field.read().unwrap().get(row) {
                                     if bytes2.ends_with(cont.as_bytes()) {
                                         r.insert(row);
@@ -381,25 +405,44 @@ impl<'a> Search<'a> {
             Number::Min(v) => {
                 let v = v.clone();
                 spawn(move || {
-                    tx.send(index.read().unwrap().select_by_value_from(&(v as u64)))
-                        .unwrap();
+                    tx.send(
+                        index
+                            .read()
+                            .unwrap()
+                            .triee()
+                            .iter_by_value_from(&(v as u64))
+                            .map(|v| v.row())
+                            .collect(),
+                    )
+                    .unwrap();
                 });
             }
             Number::Max(v) => {
                 let v = v.clone();
                 spawn(move || {
-                    tx.send(index.read().unwrap().select_by_value_to(&(v as u64)))
-                        .unwrap();
+                    tx.send(
+                        index
+                            .read()
+                            .unwrap()
+                            .triee()
+                            .iter_by_value_to(&(v as u64))
+                            .map(|v| v.row())
+                            .collect(),
+                    )
+                    .unwrap();
                 });
             }
             Number::Range(range) => {
                 let range = range.clone();
                 spawn(move || {
                     tx.send(
-                        index.read().unwrap().select_by_value_from_to(
-                            &(*range.start() as u64),
-                            &(*range.end() as u64),
-                        ),
+                        index
+                            .read()
+                            .unwrap()
+                            .triee()
+                            .iter_by_value_from_to(&(*range.start() as u64), &(*range.end() as u64))
+                            .map(|v| v.row())
+                            .collect(),
                     )
                     .unwrap();
                 });
@@ -409,9 +452,15 @@ impl<'a> Search<'a> {
                 spawn(move || {
                     let mut r = RowSet::default();
                     for i in rows {
-                        for row in index.read().unwrap().select_by_value(&(i as u64)) {
-                            r.insert(row);
-                        }
+                        r.append(
+                            &mut index
+                                .read()
+                                .unwrap()
+                                .triee()
+                                .iter_by_value(&(i as u64))
+                                .map(|x| x.row())
+                                .collect(),
+                        );
                     }
                     tx.send(r).unwrap();
                 });
@@ -424,9 +473,15 @@ impl<'a> Search<'a> {
         spawn(move || {
             let mut r = RowSet::default();
             for uuid in uuids {
-                for row in index.read().unwrap().select_by_value(&uuid) {
-                    r.insert(row);
-                }
+                r.append(
+                    &mut index
+                        .read()
+                        .unwrap()
+                        .triee()
+                        .iter_by_value(&uuid)
+                        .map(|x| x.row())
+                        .collect(),
+                );
             }
             tx.send(r).unwrap();
         });

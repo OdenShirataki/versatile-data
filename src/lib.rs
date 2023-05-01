@@ -1,7 +1,7 @@
 use idx_sized::AvltrieeIter;
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     fs, io,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
@@ -9,10 +9,8 @@ use std::{
 };
 pub use uuid::Uuid;
 
-pub use idx_sized::{IdxSized, RowSet};
-
-pub use anyhow;
 use anyhow::Result;
+pub use idx_sized::{anyhow, IdxSized};
 
 mod serial;
 use serial::SerialNumber;
@@ -32,6 +30,8 @@ pub use operation::*;
 pub use natord;
 
 pub mod prelude;
+
+pub type RowSet = BTreeSet<u32>;
 
 pub fn create_uuid() -> u128 {
     Uuid::new_v4().as_u128()
@@ -115,28 +115,28 @@ impl Data {
 
     pub fn serial(&self, row: u32) -> u32 {
         if let Some(v) = self.serial.read().unwrap().index().value(row) {
-            v
+            *v
         } else {
             0
         }
     }
     pub fn uuid(&self, row: u32) -> u128 {
         if let Some(v) = self.uuid.read().unwrap().value(row) {
-            v
+            *v
         } else {
             0
         }
     }
     pub fn uuid_string(&self, row: u32) -> String {
         if let Some(v) = self.uuid.read().unwrap().value(row) {
-            uuid::Uuid::from_u128(v).to_string()
+            uuid::Uuid::from_u128(*v).to_string()
         } else {
             "".to_string()
         }
     }
     pub fn activity(&self, row: u32) -> Activity {
         if let Some(v) = self.activity.read().unwrap().value(row) {
-            if v != 0 {
+            if *v != 0 {
                 Activity::Active
             } else {
                 Activity::Inactive
@@ -147,21 +147,21 @@ impl Data {
     }
     pub fn term_begin(&self, row: u32) -> u64 {
         if let Some(v) = self.term_begin.read().unwrap().value(row) {
-            v
+            *v
         } else {
             0
         }
     }
     pub fn term_end(&self, row: u32) -> u64 {
         if let Some(v) = self.term_end.read().unwrap().value(row) {
-            v
+            *v
         } else {
             0
         }
     }
     pub fn last_updated(&self, row: u32) -> u64 {
         if let Some(v) = self.last_updated.read().unwrap().value(row) {
-            v
+            *v
         } else {
             0
         }
@@ -396,42 +396,65 @@ impl Data {
                 match sub_orders[i] {
                     Order::Asc(order_key) => match order_key {
                         OrderKey::Serial => {
-                            let a = self.serial.read().unwrap().index().value(*a).unwrap();
-                            let b = self.serial.read().unwrap().index().value(*b).unwrap();
-                            return a.cmp(&b);
+                            return self
+                                .serial
+                                .read()
+                                .unwrap()
+                                .index()
+                                .value(*a)
+                                .unwrap()
+                                .cmp(self.serial.read().unwrap().index().value(*b).unwrap());
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
-                            let a = self.term_begin.read().unwrap().value(*a).unwrap();
-                            let b = self.term_begin.read().unwrap().value(*b).unwrap();
-                            let ord = a.cmp(&b);
+                            let ord = self
+                                .term_begin
+                                .read()
+                                .unwrap()
+                                .value(*a)
+                                .unwrap()
+                                .cmp(self.term_begin.read().unwrap().value(*b).unwrap());
                             if ord != Ordering::Equal {
                                 return ord;
                             }
                         }
                         OrderKey::TermEnd => {
-                            let a = self.term_end.read().unwrap().value(*a).unwrap();
-                            let b = self.term_end.read().unwrap().value(*b).unwrap();
-                            let ord = a.cmp(&b);
+                            let ord = self
+                                .term_end
+                                .read()
+                                .unwrap()
+                                .value(*a)
+                                .unwrap()
+                                .cmp(self.term_end.read().unwrap().value(*b).unwrap());
                             if ord != Ordering::Equal {
                                 return ord;
                             }
                         }
                         OrderKey::LastUpdated => {
-                            let a = self.last_updated.read().unwrap().value(*a).unwrap();
-                            let b = self.last_updated.read().unwrap().value(*b).unwrap();
-                            let ord = a.cmp(&b);
+                            let ord = self
+                                .last_updated
+                                .read()
+                                .unwrap()
+                                .value(*a)
+                                .unwrap()
+                                .cmp(self.last_updated.read().unwrap().value(*b).unwrap());
                             if ord != Ordering::Equal {
                                 return ord;
                             }
                         }
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
-                                let a = field.read().unwrap().get(*a).unwrap();
-                                let b = field.read().unwrap().get(*b).unwrap();
                                 let ord = natord::compare(
-                                    unsafe { std::str::from_utf8_unchecked(a) },
-                                    unsafe { std::str::from_utf8_unchecked(b) },
+                                    unsafe {
+                                        std::str::from_utf8_unchecked(
+                                            field.read().unwrap().get(*a).unwrap(),
+                                        )
+                                    },
+                                    unsafe {
+                                        std::str::from_utf8_unchecked(
+                                            field.read().unwrap().get(*b).unwrap(),
+                                        )
+                                    },
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -441,44 +464,67 @@ impl Data {
                     },
                     Order::Desc(order_key) => match order_key {
                         OrderKey::Serial => {
-                            let a = self.serial.read().unwrap().index().value(*a).unwrap();
-                            let b = self.serial.read().unwrap().index().value(*b).unwrap();
-                            return b.cmp(&a);
+                            return self
+                                .serial
+                                .read()
+                                .unwrap()
+                                .index()
+                                .value(*b)
+                                .unwrap()
+                                .cmp(self.serial.read().unwrap().index().value(*a).unwrap());
                         }
                         OrderKey::Row => {
                             return b.cmp(a);
                         }
                         OrderKey::TermBegin => {
-                            let a = self.term_begin.read().unwrap().value(*a).unwrap();
-                            let b = self.term_begin.read().unwrap().value(*b).unwrap();
-                            let ord = b.cmp(&a);
+                            let ord = self
+                                .term_begin
+                                .read()
+                                .unwrap()
+                                .value(*b)
+                                .unwrap()
+                                .cmp(self.term_begin.read().unwrap().value(*a).unwrap());
                             if ord != Ordering::Equal {
                                 return ord;
                             }
                         }
                         OrderKey::TermEnd => {
-                            let a = self.term_end.read().unwrap().value(*a).unwrap();
-                            let b = self.term_end.read().unwrap().value(*b).unwrap();
-                            let ord = b.cmp(&a);
+                            let ord = self
+                                .term_end
+                                .read()
+                                .unwrap()
+                                .value(*b)
+                                .unwrap()
+                                .cmp(self.term_end.read().unwrap().value(*a).unwrap());
                             if ord != Ordering::Equal {
                                 return ord;
                             }
                         }
                         OrderKey::LastUpdated => {
-                            let a = self.last_updated.read().unwrap().value(*a).unwrap();
-                            let b = self.last_updated.read().unwrap().value(*b).unwrap();
-                            let ord = b.cmp(&a);
+                            let ord = self
+                                .last_updated
+                                .read()
+                                .unwrap()
+                                .value(*b)
+                                .unwrap()
+                                .cmp(self.last_updated.read().unwrap().value(*a).unwrap());
                             if ord != Ordering::Equal {
                                 return ord;
                             }
                         }
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
-                                let a = field.read().unwrap().get(*a).unwrap();
-                                let b = field.read().unwrap().get(*b).unwrap();
                                 let ord = natord::compare(
-                                    unsafe { std::str::from_utf8_unchecked(b) },
-                                    unsafe { std::str::from_utf8_unchecked(a) },
+                                    unsafe {
+                                        std::str::from_utf8_unchecked(
+                                            field.read().unwrap().get(*b).unwrap(),
+                                        )
+                                    },
+                                    unsafe {
+                                        std::str::from_utf8_unchecked(
+                                            field.read().unwrap().get(*a).unwrap(),
+                                        )
+                                    },
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -570,7 +616,7 @@ impl Data {
                 if let Some(field) = self.field(&field_name) {
                     self.sort_with_iter(
                         rows,
-                        &mut field.read().unwrap().index().triee().iter(),
+                        &mut field.read().unwrap().index.triee().iter(),
                         sub_orders,
                     )
                 } else {
@@ -611,7 +657,7 @@ impl Data {
                 if let Some(field) = self.field(&field_name) {
                     self.sort_with_iter(
                         rows,
-                        &mut field.read().unwrap().index().triee().desc_iter(),
+                        &mut field.read().unwrap().index.triee().desc_iter(),
                         sub_orders,
                     )
                 } else {
