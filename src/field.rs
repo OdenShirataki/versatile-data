@@ -11,7 +11,7 @@ use entity::FieldEntity;
 
 pub struct FieldData {
     pub(crate) index: IdxSized<FieldEntity>,
-    data_file: VariousDataFile,
+    pub(crate) data_file: VariousDataFile,
 }
 impl FieldData {
     pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
@@ -74,15 +74,27 @@ impl FieldData {
     }
 
     pub(super) fn search(&self, content: &[u8]) -> Found {
-        self.index.triee().search_cb(|data| -> Ordering {
-            let bytes = unsafe { self.data_file.bytes(data.data_address()) };
-            if content == bytes {
-                Ordering::Equal
-            } else {
-                natord::compare(unsafe { std::str::from_utf8_unchecked(content) }, unsafe {
-                    std::str::from_utf8_unchecked(bytes)
-                })
+        self.index
+            .triee()
+            .search(|data| self.search_inner(data, content))
+    }
+
+    pub(crate) fn search_inner(&self, data: &FieldEntity, content: &[u8]) -> Ordering {
+        self.cmpare_bytes(
+            unsafe { self.data_file.bytes(data.data_address()) },
+            content,
+        )
+    }
+    pub(crate) fn cmpare_bytes(&self, left: &[u8], right: &[u8]) -> Ordering {
+        if left == right {
+            Ordering::Equal
+        } else {
+            unsafe {
+                natord::compare(
+                    std::str::from_utf8_unchecked(left),
+                    std::str::from_utf8_unchecked(right),
+                )
             }
-        })
+        }
     }
 }

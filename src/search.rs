@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     sync::mpsc::{channel, SendError, Sender},
     thread::spawn,
     time::{SystemTime, UNIX_EPOCH},
@@ -128,7 +127,7 @@ impl<'a> Search<'a> {
                     .read()
                     .unwrap()
                     .triee()
-                    .iter_by_value_from_to(&activity, &activity)
+                    .iter_by(|v| v.cmp(&activity))
                     .map(|v| v.row())
                     .collect(),
             )
@@ -140,7 +139,7 @@ impl<'a> Search<'a> {
         let term_end = data.term_end.clone();
         spawn(move || {
             let mut result = RowSet::default();
-            for node in term_begin.read().unwrap().triee().iter_by_value_to(&base) {
+            for node in term_begin.read().unwrap().triee().iter_to(|v| v.cmp(&base)) {
                 let row = node.row();
                 let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
                 if end == 0 || end > base {
@@ -164,7 +163,7 @@ impl<'a> Search<'a> {
                             .read()
                             .unwrap()
                             .triee()
-                            .iter_by_value_from(&base)
+                            .iter_from(|v| v.cmp(&base))
                             .map(|v| v.row())
                             .collect(),
                     )
@@ -180,7 +179,7 @@ impl<'a> Search<'a> {
                             .read()
                             .unwrap()
                             .triee()
-                            .iter_by_value_from_to(&1, &base)
+                            .iter_range(|v| v.cmp(&1), |v| v.cmp(&base))
                             .map(|v| v.row())
                             .collect(),
                     )
@@ -253,90 +252,67 @@ impl<'a> Search<'a> {
                 Field::Match(v) => {
                     let v = v.clone();
                     spawn(move || {
-                        let found = field.read().unwrap().search(&v);
-                        let row = found.row();
-                        if found.ord() == Ordering::Equal {
-                            r.insert(row);
-                            r.append(
-                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
-                                    .iter()
-                                    .map(|&x| x)
-                                    .collect(),
-                            );
-                        }
-                        tx.send(r).unwrap();
+                        let field = field.read().unwrap();
+                        tx.send(
+                            field
+                                .index
+                                .triee()
+                                .iter_by(|data| field.search_inner(data, &v))
+                                .map(|x| x.row())
+                                .collect(),
+                        )
+                        .unwrap();
                     });
                 }
                 Field::Min(min) => {
                     let min = min.clone();
                     spawn(move || {
-                        let found = field.read().unwrap().search(&min);
-                        for row in field
-                            .read()
-                            .unwrap()
-                            .index
-                            .triee()
-                            .iter_by_row_from(found.row())
-                            .map(|x| x.row())
-                        {
-                            r.insert(row);
-                            r.append(
-                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
-                                    .iter()
-                                    .map(|&x| x)
-                                    .collect(),
-                            );
-                        }
-                        tx.send(r).unwrap();
+                        let field = field.read().unwrap();
+
+                        tx.send(
+                            field
+                                .index
+                                .triee()
+                                .iter_from(|data| field.search_inner(data, &min))
+                                .map(|x| x.row())
+                                .collect(),
+                        )
+                        .unwrap();
                     });
                 }
                 Field::Max(max) => {
                     let max = max.clone();
                     spawn(move || {
-                        let found = field.read().unwrap().search(&max);
-                        for row in field
-                            .read()
-                            .unwrap()
-                            .index
-                            .triee()
-                            .iter_by_row_to(found.row())
-                            .map(|x| x.row())
-                        {
-                            r.insert(row);
-                            r.append(
-                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
-                                    .iter()
-                                    .map(|&x| x)
-                                    .collect(),
-                            );
-                        }
-                        tx.send(r).unwrap();
+                        let field = field.read().unwrap();
+                        tx.send(
+                            field
+                                .index
+                                .triee()
+                                .iter_to(|data| field.search_inner(data, &max))
+                                .map(|x| x.row())
+                                .collect(),
+                        )
+                        .unwrap();
                     });
                 }
                 Field::Range(min, max) => {
                     let min = min.clone();
                     let max = max.clone();
                     spawn(move || {
-                        for row in field
-                            .read()
-                            .unwrap()
-                            .index
-                            .triee()
-                            .iter_by_row_from_to(
-                                field.read().unwrap().search(&min).row(),
-                                field.read().unwrap().search(&max).row(),
-                            )
-                            .map(|x| x.row())
-                        {
-                            r.insert(row);
-                            r.append(
-                                &mut unsafe { field.read().unwrap().index.triee().sames(row) }
-                                    .iter()
-                                    .map(|&x| x)
-                                    .collect(),
-                            );
-                        }
-                        tx.send(r).unwrap();
+                        let field = field.read().unwrap();
+
+                        tx.send(
+                            field
+                                .index
+                                .triee()
+                                .iter_range(
+                                    |data| field.search_inner(data, &min),
+                                    |data| field.search_inner(data, &max),
+                                )
+                                .map(|x| x.row())
+                                .collect(),
+                        )
+                        .unwrap();
                     });
                 }
                 Field::Forward(cont) => {
@@ -402,30 +378,30 @@ impl<'a> Search<'a> {
     fn search_exec_last_updated(data: &Data, condition: &Number, tx: Sender<RowSet>) {
         let index = data.last_updated.clone();
         match condition {
-            Number::Min(v) => {
-                let v = v.clone();
+            Number::Min(min) => {
+                let min = min.clone() as u64;
                 spawn(move || {
                     tx.send(
                         index
                             .read()
                             .unwrap()
                             .triee()
-                            .iter_by_value_from(&(v as u64))
+                            .iter_from(|v| v.cmp(&min))
                             .map(|v| v.row())
                             .collect(),
                     )
                     .unwrap();
                 });
             }
-            Number::Max(v) => {
-                let v = v.clone();
+            Number::Max(max) => {
+                let max = max.clone() as u64;
                 spawn(move || {
                     tx.send(
                         index
                             .read()
                             .unwrap()
                             .triee()
-                            .iter_by_value_to(&(v as u64))
+                            .iter_to(|v| v.cmp(&max))
                             .map(|v| v.row())
                             .collect(),
                     )
@@ -440,7 +416,10 @@ impl<'a> Search<'a> {
                             .read()
                             .unwrap()
                             .triee()
-                            .iter_by_value_from_to(&(*range.start() as u64), &(*range.end() as u64))
+                            .iter_range(
+                                |v| v.cmp(&(*range.start() as u64)),
+                                |v| v.cmp(&(*range.end() as u64)),
+                            )
                             .map(|v| v.row())
                             .collect(),
                     )
@@ -457,7 +436,7 @@ impl<'a> Search<'a> {
                                 .read()
                                 .unwrap()
                                 .triee()
-                                .iter_by_value(&(i as u64))
+                                .iter_by(|v| v.cmp(&(i as u64)))
                                 .map(|x| x.row())
                                 .collect(),
                         );
@@ -478,7 +457,7 @@ impl<'a> Search<'a> {
                         .read()
                         .unwrap()
                         .triee()
-                        .iter_by_value(&uuid)
+                        .iter_by(|v| v.cmp(&uuid))
                         .map(|x| x.row())
                         .collect(),
                 );
