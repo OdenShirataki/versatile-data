@@ -3,7 +3,7 @@ use std::{cmp::Ordering, io, path::Path};
 use anyhow::Result;
 pub use idx_sized::anyhow;
 
-use idx_sized::{Found, IdxSized, Removed};
+use idx_sized::{Found, IdxSized};
 use various_data_file::VariousDataFile;
 
 pub mod entity;
@@ -49,9 +49,10 @@ impl FieldData {
             if unsafe { self.data_file.bytes(org.data_address()) } == content {
                 return Ok(row);
             }
-            if let Removed::Last(data) = self.index.delete(row)? {
-                self.data_file.remove(&data.data_address())?;
+            if !unsafe { self.index.triee().has_same(row) } {
+                self.data_file.delete(&org.data_address()).unwrap();
             }
+            self.index.delete(row)?;
         }
         let found = self.search(content);
         self.index.update_manually(
