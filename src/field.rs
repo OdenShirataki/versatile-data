@@ -3,7 +3,7 @@ use std::{cmp::Ordering, io, path::Path};
 use anyhow::Result;
 pub use idx_sized::anyhow;
 
-use idx_sized::{Found, IdxSized};
+use idx_sized::IdxSized;
 use various_data_file::VariousDataFile;
 
 pub mod entity;
@@ -54,10 +54,13 @@ impl FieldData {
             }
             self.index.delete(row)?;
         }
-        let found = self.search(content);
-        self.index.update_manually(
+        let found = self
+            .index
+            .triee()
+            .search_nord(|data| self.search(data, content));
+        self.index.update_nord(
             row,
-            || -> Result<FieldEntity> {
+            || {
                 let data_address = self.data_file.insert(content)?;
                 Ok(FieldEntity::new(
                     data_address.address(),
@@ -74,26 +77,15 @@ impl FieldData {
         Ok(())
     }
 
-    pub(super) fn search(&self, content: &[u8]) -> Found {
-        self.index
-            .triee()
-            .search(|data| self.search_inner(data, content))
-    }
-
-    pub(crate) fn search_inner(&self, data: &FieldEntity, content: &[u8]) -> Ordering {
-        self.cmpare_bytes(
-            unsafe { self.data_file.bytes(data.data_address()) },
-            content,
-        )
-    }
-    pub(crate) fn cmpare_bytes(&self, left: &[u8], right: &[u8]) -> Ordering {
-        if left == right {
+    pub(crate) fn search(&self, data: &FieldEntity, content: &[u8]) -> Ordering {
+        let left = unsafe { self.data_file.bytes(data.data_address()) };
+        if left == content {
             Ordering::Equal
         } else {
             unsafe {
                 natord::compare(
                     std::str::from_utf8_unchecked(left),
-                    std::str::from_utf8_unchecked(right),
+                    std::str::from_utf8_unchecked(content),
                 )
             }
         }

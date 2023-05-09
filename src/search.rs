@@ -257,7 +257,7 @@ impl<'a> Search<'a> {
                             field
                                 .index
                                 .triee()
-                                .iter_by(|data| field.search_inner(data, &v))
+                                .iter_by(|data| field.search(data, &v))
                                 .map(|x| x.row())
                                 .collect(),
                         )
@@ -273,7 +273,7 @@ impl<'a> Search<'a> {
                             field
                                 .index
                                 .triee()
-                                .iter_from(|data| field.search_inner(data, &min))
+                                .iter_from(|data| field.search(data, &min))
                                 .map(|x| x.row())
                                 .collect(),
                         )
@@ -288,7 +288,7 @@ impl<'a> Search<'a> {
                             field
                                 .index
                                 .triee()
-                                .iter_to(|data| field.search_inner(data, &max))
+                                .iter_to(|data| field.search(data, &max))
                                 .map(|x| x.row())
                                 .collect(),
                         )
@@ -306,8 +306,8 @@ impl<'a> Search<'a> {
                                 .index
                                 .triee()
                                 .iter_range(
-                                    |data| field.search_inner(data, &min),
-                                    |data| field.search_inner(data, &max),
+                                    |data| field.search(data, &min),
+                                    |data| field.search(data, &max),
                                 )
                                 .map(|x| x.row())
                                 .collect(),

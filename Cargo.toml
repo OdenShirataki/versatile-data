@@ -1,6 +1,6 @@
 [package]
 name = "versatile-data"
-version = "0.68.2"
+version = "0.68.3"
 edition = "2021"
 
 authors = ["Oden Shirataki <oden.srtk@gmail.com>"]
@@ -19,7 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 file_mmap= { version = "0.15" , path = "../file_mmap" }
 various_data_file = { version = "0.11" , path = "../various_data_file" }
-idx_sized = { version = "0.27" , path = "../idx_sized" }
+idx_sized = { version = "0.28" , path = "../idx_sized" }
 
 [dependencies.uuid]
 version = "1"
