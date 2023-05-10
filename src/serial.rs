@@ -1,10 +1,10 @@
-use idx_sized::IdxSized;
+use idx_file::IdxFile;
 use std::{io, path::PathBuf};
 
 use crate::RowFragment;
 
 pub(crate) struct SerialNumber {
-    index: IdxSized<u32>,
+    index: IdxFile<u32>,
     fragment: RowFragment,
 }
 impl SerialNumber {
@@ -16,7 +16,7 @@ impl SerialNumber {
         };
 
         Ok(SerialNumber {
-            index: IdxSized::new({
+            index: IdxFile::new({
                 let mut path = path.clone();
                 path.set_file_name(&(file_name.to_string() + ".i"));
                 path
@@ -28,7 +28,7 @@ impl SerialNumber {
             })?,
         })
     }
-    pub fn index(&self) -> &IdxSized<u32> {
+    pub fn index(&self) -> &IdxFile<u32> {
         &self.index
     }
     pub fn delete(&mut self, row: u32) -> io::Result<u64> {

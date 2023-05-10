@@ -1,23 +1,65 @@
 use std::{cmp::Ordering, io, path::Path};
 
 use anyhow::Result;
-pub use idx_sized::anyhow;
+pub use idx_file::anyhow;
 
-use idx_sized::IdxSized;
+use idx_file::{Avltriee, Found, IdxFile, UOrd};
 use various_data_file::VariousDataFile;
 
 pub mod entity;
 use entity::FieldEntity;
 
 pub struct FieldData {
-    pub(crate) index: IdxSized<FieldEntity>,
+    pub(crate) index: IdxFile<FieldEntity>,
     pub(crate) data_file: VariousDataFile,
 }
+
+impl idx_file::RefIdxFile<FieldEntity> for FieldData {
+    fn idx(&mut self) -> &mut IdxFile<FieldEntity> {
+        &mut self.index
+    }
+}
+impl UOrd<FieldEntity, &[u8]> for FieldData {
+    fn triee(&self) -> &Avltriee<FieldEntity> {
+        self.index.triee()
+    }
+    fn triee_mut(&mut self) -> &mut Avltriee<FieldEntity> {
+        self.index.triee_mut()
+    }
+    fn cmp(&self, left: &FieldEntity, right: &&[u8]) -> Ordering {
+        self.search(left, right)
+    }
+
+    fn search(&self, input: &&[u8]) -> Found {
+        self.index
+            .triee()
+            .search_uord(|data| self.search(data, input))
+    }
+
+    fn value(&mut self, input: &&[u8]) -> Result<FieldEntity> {
+        let data_address = self.data_file.insert(input)?;
+        Ok(FieldEntity::new(
+            data_address.address(),
+            unsafe { std::str::from_utf8_unchecked(input) }
+                .parse()
+                .unwrap_or(0.0),
+        ))
+    }
+
+    fn delete(&mut self, row: u32, delete_node: &FieldEntity) -> Result<()> {
+        if !unsafe { self.index.triee().has_same(row) } {
+            self.data_file.delete(&delete_node.data_address()).unwrap();
+        }
+        self.index.delete(row)?;
+        Ok(())
+    }
+}
+
 impl FieldData {
     pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let path = path.as_ref();
         Ok(FieldData {
-            index: IdxSized::new({
+            index: IdxFile::new({
                 let mut path = path.to_path_buf();
                 path.push(".i");
                 path
@@ -45,32 +87,7 @@ impl FieldData {
         }
     }
     pub fn update(&mut self, row: u32, content: &[u8]) -> Result<u32> {
-        if let Some(org) = self.index.value(row) {
-            if unsafe { self.data_file.bytes(org.data_address()) } == content {
-                return Ok(row);
-            }
-            if !unsafe { self.index.triee().has_same(row) } {
-                self.data_file.delete(&org.data_address()).unwrap();
-            }
-            self.index.delete(row)?;
-        }
-        let found = self
-            .index
-            .triee()
-            .search_nord(|data| self.search(data, content));
-        self.index.update_nord(
-            row,
-            || {
-                let data_address = self.data_file.insert(content)?;
-                Ok(FieldEntity::new(
-                    data_address.address(),
-                    unsafe { std::str::from_utf8_unchecked(content) }
-                        .parse()
-                        .unwrap_or(0.0),
-                ))
-            },
-            found,
-        )
+        IdxFile::update_uord(self, row, content)
     }
     pub fn delete(&mut self, row: u32) -> std::io::Result<()> {
         self.index.delete(row)?;

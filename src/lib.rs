@@ -1,4 +1,4 @@
-use idx_sized::AvltrieeIter;
+use idx_file::AvltrieeIter;
 use std::{
     cmp::Ordering,
     collections::{BTreeSet, HashMap},
@@ -10,7 +10,7 @@ use std::{
 pub use uuid::Uuid;
 
 use anyhow::Result;
-pub use idx_sized::{anyhow, IdxSized};
+pub use idx_file::{anyhow, IdxFile};
 
 mod serial;
 use serial::SerialNumber;
@@ -43,11 +43,11 @@ pub fn uuid_string(uuid: u128) -> String {
 pub struct Data {
     fields_dir: PathBuf,
     serial: Arc<RwLock<SerialNumber>>,
-    uuid: Arc<RwLock<IdxSized<u128>>>,
-    activity: Arc<RwLock<IdxSized<u8>>>,
-    term_begin: Arc<RwLock<IdxSized<u64>>>,
-    term_end: Arc<RwLock<IdxSized<u64>>>,
-    last_updated: Arc<RwLock<IdxSized<u64>>>,
+    uuid: Arc<RwLock<IdxFile<u128>>>,
+    activity: Arc<RwLock<IdxFile<u8>>>,
+    term_begin: Arc<RwLock<IdxFile<u64>>>,
+    term_end: Arc<RwLock<IdxFile<u64>>>,
+    last_updated: Arc<RwLock<IdxFile<u64>>>,
     fields_cache: HashMap<String, Arc<RwLock<FieldData>>>,
 }
 impl Data {
@@ -80,27 +80,27 @@ impl Data {
                 path.push("serial");
                 path
             })?)),
-            uuid: Arc::new(RwLock::new(IdxSized::new({
+            uuid: Arc::new(RwLock::new(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("uuid.i");
                 path
             })?)),
-            activity: Arc::new(RwLock::new(IdxSized::new({
+            activity: Arc::new(RwLock::new(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("activity.i");
                 path
             })?)),
-            term_begin: Arc::new(RwLock::new(IdxSized::new({
+            term_begin: Arc::new(RwLock::new(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("term_begin.i");
                 path
             })?)),
-            term_end: Arc::new(RwLock::new(IdxSized::new({
+            term_end: Arc::new(RwLock::new(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("term_end.i");
                 path
             })?)),
-            last_updated: Arc::new(RwLock::new(IdxSized::new({
+            last_updated: Arc::new(RwLock::new(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("last_updated.i");
                 path
