@@ -1,4 +1,4 @@
-use idx_file::IdxFile;
+use idx_file::{anyhow::Result, IdxFile};
 use std::{io, path::PathBuf};
 
 use crate::RowFragment;
@@ -35,11 +35,19 @@ impl SerialNumber {
         self.index.delete(row)?;
         self.fragment.insert_blank(row)
     }
-    pub fn next_row(&mut self) -> io::Result<u32> {
-        if let Some(row) = self.fragment.pop()? {
-            self.index.update(row, self.fragment.serial_increment())
-        } else {
-            self.index.insert(self.fragment.serial_increment())
+    pub fn next_row(&mut self) -> Result<u32> {
+        let row = self
+            .index
+            .new_row(if let Some(row) = self.fragment.pop()? {
+                row
+            } else {
+                0
+            })?;
+        unsafe {
+            self.index
+                .triee_mut()
+                .update(row, self.fragment.serial_increment())?
         }
+        Ok(row)
     }
 }

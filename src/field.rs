@@ -3,7 +3,7 @@ use std::{cmp::Ordering, io, path::Path};
 use anyhow::Result;
 pub use idx_file::anyhow;
 
-use idx_file::{Avltriee, Found, IdxFile, UOrd};
+use idx_file::{Avltriee, AvltrieeHolder, Found, IdxFile};
 use various_data_file::VariousDataFile;
 
 pub mod entity;
@@ -14,12 +14,7 @@ pub struct FieldData {
     pub(crate) data_file: VariousDataFile,
 }
 
-impl idx_file::RefIdxFile<FieldEntity> for FieldData {
-    fn idx(&mut self) -> &mut IdxFile<FieldEntity> {
-        &mut self.index
-    }
-}
-impl UOrd<FieldEntity, &[u8]> for FieldData {
+impl AvltrieeHolder<FieldEntity, &[u8]> for FieldData {
     fn triee(&self) -> &Avltriee<FieldEntity> {
         self.index.triee()
     }
@@ -36,7 +31,7 @@ impl UOrd<FieldEntity, &[u8]> for FieldData {
             .search_uord(|data| self.search(data, input))
     }
 
-    fn value(&mut self, input: &&[u8]) -> Result<FieldEntity> {
+    fn value(&mut self, input: &[u8]) -> Result<FieldEntity> {
         let data_address = self.data_file.insert(input)?;
         Ok(FieldEntity::new(
             data_address.address(),
@@ -87,7 +82,11 @@ impl FieldData {
         }
     }
     pub fn update(&mut self, row: u32, content: &[u8]) -> Result<u32> {
-        IdxFile::update_uord(self, row, content)
+        let row = self.index.new_row(row)?;
+        unsafe {
+            Avltriee::update_holder(self, row, content)?;
+        }
+        Ok(row)
     }
     pub fn delete(&mut self, row: u32) -> std::io::Result<()> {
         self.index.delete(row)?;
