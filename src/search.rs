@@ -255,9 +255,8 @@ impl<'a> Search<'a> {
                         let field = field.read().unwrap();
                         tx.send(
                             field
-                                .index
                                 .triee()
-                                .iter_by(|data| field.search(data, &v))
+                                .iter_by(|data| field.cmp(data, &v))
                                 .map(|x| x.row())
                                 .collect(),
                         )
@@ -271,9 +270,8 @@ impl<'a> Search<'a> {
 
                         tx.send(
                             field
-                                .index
                                 .triee()
-                                .iter_from(|data| field.search(data, &min))
+                                .iter_from(|data| field.cmp(data, &min))
                                 .map(|x| x.row())
                                 .collect(),
                         )
@@ -286,9 +284,8 @@ impl<'a> Search<'a> {
                         let field = field.read().unwrap();
                         tx.send(
                             field
-                                .index
                                 .triee()
-                                .iter_to(|data| field.search(data, &max))
+                                .iter_to(|data| field.cmp(data, &max))
                                 .map(|x| x.row())
                                 .collect(),
                         )
@@ -303,11 +300,10 @@ impl<'a> Search<'a> {
 
                         tx.send(
                             field
-                                .index
                                 .triee()
                                 .iter_range(
-                                    |data| field.search(data, &min),
-                                    |data| field.search(data, &max),
+                                    |data| field.cmp(data, &min),
+                                    |data| field.cmp(data, &max),
                                 )
                                 .map(|x| x.row())
                                 .collect(),
@@ -319,7 +315,7 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().index.triee().iter() {
+                        for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
@@ -337,7 +333,7 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().index.triee().iter() {
+                        for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
@@ -358,7 +354,7 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().index.triee().iter() {
+                        for row in field.read().unwrap().triee().iter() {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {

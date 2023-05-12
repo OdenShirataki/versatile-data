@@ -1,6 +1,6 @@
 use std::{io, path::PathBuf};
 
-use file_mmap::FileMmap;
+use super::FileMmap;
 
 const U32_SIZE: usize = std::mem::size_of::<u32>();
 

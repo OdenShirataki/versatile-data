@@ -1,4 +1,4 @@
-use idx_file::{anyhow::Result, IdxFile};
+use idx_binary::{anyhow::Result, IdxFile};
 use std::{io, path::PathBuf};
 
 use crate::RowFragment;

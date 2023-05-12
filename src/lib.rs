@@ -1,4 +1,3 @@
-use idx_file::AvltrieeIter;
 use std::{
     cmp::Ordering,
     collections::{BTreeSet, HashMap},
@@ -10,13 +9,10 @@ use std::{
 pub use uuid::Uuid;
 
 use anyhow::Result;
-pub use idx_file::{anyhow, IdxFile};
+pub use idx_binary::{anyhow, natord, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 
 mod serial;
 use serial::SerialNumber;
-
-mod field;
-pub use field::FieldData;
 
 pub mod search;
 pub use search::{Condition, Order, OrderKey, Search};
@@ -26,8 +22,6 @@ pub use row_fragment::RowFragment;
 
 mod operation;
 pub use operation::*;
-
-pub use natord;
 
 pub mod prelude;
 
@@ -48,7 +42,7 @@ pub struct Data {
     term_begin: Arc<RwLock<IdxFile<u64>>>,
     term_end: Arc<RwLock<IdxFile<u64>>>,
     last_updated: Arc<RwLock<IdxFile<u64>>>,
-    fields_cache: HashMap<String, Arc<RwLock<FieldData>>>,
+    fields_cache: HashMap<String, Arc<RwLock<IdxBinary>>>,
 }
 impl Data {
     pub fn new<P: AsRef<Path>>(dir: P) -> io::Result<Self> {
@@ -65,7 +59,7 @@ impl Data {
                 let d = d?;
                 if d.file_type()?.is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
-                        let field = FieldData::new(d.path())?;
+                        let field = IdxBinary::new(d.path())?;
                         fields_cache
                             .entry(String::from(fname))
                             .or_insert(Arc::new(RwLock::new(field)));
@@ -188,7 +182,7 @@ impl Data {
             0.0
         }
     }
-    fn field(&self, name: &str) -> Option<&Arc<RwLock<FieldData>>> {
+    fn field(&self, name: &str) -> Option<&Arc<RwLock<IdxBinary>>> {
         self.fields_cache.get(name)
     }
     fn load_fields(&mut self) -> io::Result<()> {
@@ -199,7 +193,7 @@ impl Data {
                 if path.is_dir() {
                     if let Some(str_fname) = p.file_name().to_str() {
                         if !self.fields_cache.contains_key(str_fname) {
-                            let field = FieldData::new(&path)?;
+                            let field = IdxBinary::new(path)?;
                             self.fields_cache
                                 .entry(String::from(str_fname))
                                 .or_insert(Arc::new(RwLock::new(field)));
@@ -337,12 +331,12 @@ impl Data {
         Ok(())
     }
 
-    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<FieldData>>> {
+    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<IdxBinary>>> {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);
         fs::create_dir_all(&fields_dir)?;
         if fields_dir.exists() {
-            let field = FieldData::new(fields_dir)?;
+            let field = IdxBinary::new(fields_dir)?;
             self.fields_cache
                 .entry(String::from(field_name))
                 .or_insert(Arc::new(RwLock::new(field)));
@@ -614,11 +608,7 @@ impl Data {
             ),
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(
-                        rows,
-                        &mut field.read().unwrap().index.triee().iter(),
-                        sub_orders,
-                    )
+                    self.sort_with_iter(rows, &mut field.read().unwrap().triee().iter(), sub_orders)
                 } else {
                     rows.into_iter().collect()
                 }
@@ -657,7 +647,7 @@ impl Data {
                 if let Some(field) = self.field(&field_name) {
                     self.sort_with_iter(
                         rows,
-                        &mut field.read().unwrap().index.triee().desc_iter(),
+                        &mut field.read().unwrap().triee().desc_iter(),
                         sub_orders,
                     )
                 } else {
