@@ -64,7 +64,4 @@ impl Field {
             None
         }
     }
-    pub fn get(&self, row: u32) -> Option<&'static [u8]> {
-        self.index.bytes(row)
-    }
 }

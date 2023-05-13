@@ -319,7 +319,7 @@ impl<'a> Search<'a> {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
-                                if let Some(bytes2) = field.read().unwrap().get(row) {
+                                if let Some(bytes2) = field.read().unwrap().bytes(row) {
                                     if bytes2.starts_with(cont.as_bytes()) {
                                         r.insert(row);
                                     }
@@ -337,7 +337,7 @@ impl<'a> Search<'a> {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
-                                if let Some(bytes2) = field.read().unwrap().get(row) {
+                                if let Some(bytes2) = field.read().unwrap().bytes(row) {
                                     let bytes = cont.as_bytes();
                                     if let Some(_) =
                                         bytes2.windows(len).position(|window| window == bytes)
@@ -358,7 +358,7 @@ impl<'a> Search<'a> {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
-                                if let Some(bytes2) = field.read().unwrap().get(row) {
+                                if let Some(bytes2) = field.read().unwrap().bytes(row) {
                                     if bytes2.ends_with(cont.as_bytes()) {
                                         r.insert(row);
                                     }

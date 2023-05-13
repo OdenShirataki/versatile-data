@@ -165,7 +165,7 @@ impl Data {
     }
     pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
         if let Some(f) = self.field(name) {
-            if let Some(v) = f.read().unwrap().get(row) {
+            if let Some(v) = f.read().unwrap().bytes(row) {
                 v
             } else {
                 b""
@@ -444,12 +444,12 @@ impl Data {
                                 let ord = natord::compare(
                                     unsafe {
                                         std::str::from_utf8_unchecked(
-                                            field.read().unwrap().get(*a).unwrap(),
+                                            field.read().unwrap().bytes(*a).unwrap(),
                                         )
                                     },
                                     unsafe {
                                         std::str::from_utf8_unchecked(
-                                            field.read().unwrap().get(*b).unwrap(),
+                                            field.read().unwrap().bytes(*b).unwrap(),
                                         )
                                     },
                                 );
@@ -514,12 +514,12 @@ impl Data {
                                 let ord = natord::compare(
                                     unsafe {
                                         std::str::from_utf8_unchecked(
-                                            field.read().unwrap().get(*b).unwrap(),
+                                            field.read().unwrap().bytes(*b).unwrap(),
                                         )
                                     },
                                     unsafe {
                                         std::str::from_utf8_unchecked(
-                                            field.read().unwrap().get(*a).unwrap(),
+                                            field.read().unwrap().bytes(*a).unwrap(),
                                         )
                                     },
                                 );
