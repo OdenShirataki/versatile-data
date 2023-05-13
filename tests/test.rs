@@ -2,7 +2,7 @@
 
 #[test]
 fn test() {
-    use versatile_data::prelude::*;
+    use versatile_data::*;
 
     let dir="./vd-test/";
     if std::path::Path::new(dir).exists(){

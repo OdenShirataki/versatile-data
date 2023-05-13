@@ -26,8 +26,6 @@ pub use operation::*;
 mod field;
 pub use field::Field;
 
-pub mod prelude;
-
 pub type RowSet = BTreeSet<u32>;
 
 pub fn create_uuid() -> u128 {

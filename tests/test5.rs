@@ -1,7 +1,7 @@
 #[cfg(test)]
 #[test]
 fn test5() {
-    use versatile_data::prelude::*;
+    use versatile_data::*;
 
     let dir = "./vd-test5/";
     if std::path::Path::new(dir).exists() {
