@@ -23,6 +23,9 @@ pub use row_fragment::RowFragment;
 mod operation;
 pub use operation::*;
 
+mod field;
+pub use field::Field;
+
 pub mod prelude;
 
 pub type RowSet = BTreeSet<u32>;
@@ -42,7 +45,7 @@ pub struct Data {
     term_begin: Arc<RwLock<IdxFile<u64>>>,
     term_end: Arc<RwLock<IdxFile<u64>>>,
     last_updated: Arc<RwLock<IdxFile<u64>>>,
-    fields_cache: HashMap<String, Arc<RwLock<IdxBinary>>>,
+    fields_cache: HashMap<String, Arc<RwLock<Field>>>,
 }
 impl Data {
     pub fn new<P: AsRef<Path>>(dir: P) -> io::Result<Self> {
@@ -59,7 +62,7 @@ impl Data {
                 let d = d?;
                 if d.file_type()?.is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
-                        let field = IdxBinary::new(d.path())?;
+                        let field = Field::new(d.path())?;
                         fields_cache
                             .entry(String::from(fname))
                             .or_insert(Arc::new(RwLock::new(field)));
@@ -182,7 +185,7 @@ impl Data {
             0.0
         }
     }
-    fn field(&self, name: &str) -> Option<&Arc<RwLock<IdxBinary>>> {
+    fn field(&self, name: &str) -> Option<&Arc<RwLock<Field>>> {
         self.fields_cache.get(name)
     }
     fn load_fields(&mut self) -> io::Result<()> {
@@ -193,7 +196,7 @@ impl Data {
                 if path.is_dir() {
                     if let Some(str_fname) = p.file_name().to_str() {
                         if !self.fields_cache.contains_key(str_fname) {
-                            let field = IdxBinary::new(path)?;
+                            let field = Field::new(path)?;
                             self.fields_cache
                                 .entry(String::from(str_fname))
                                 .or_insert(Arc::new(RwLock::new(field)));
@@ -331,12 +334,12 @@ impl Data {
         Ok(())
     }
 
-    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<IdxBinary>>> {
+    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<Field>>> {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);
         fs::create_dir_all(&fields_dir)?;
         if fields_dir.exists() {
-            let field = IdxBinary::new(fields_dir)?;
+            let field = Field::new(fields_dir)?;
             self.fields_cache
                 .entry(String::from(field_name))
                 .or_insert(Arc::new(RwLock::new(field)));
