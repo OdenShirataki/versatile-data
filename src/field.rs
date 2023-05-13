@@ -15,9 +15,6 @@ impl FieldEntity {
     pub fn data_address(&self) -> &DataAddress {
         &self.data_address
     }
-    pub fn num(&self) -> f64 {
-        self.num
-    }
 }
 
 impl DataAddressHolder<FieldEntity> for FieldEntity {
