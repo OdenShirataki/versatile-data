@@ -105,11 +105,11 @@ impl Data {
     }
 
     pub fn exists(&self, row: u32) -> bool {
-        self.serial.read().unwrap().index().value(row) != None
+        self.serial.read().unwrap().value(row) != None
     }
 
     pub fn serial(&self, row: u32) -> u32 {
-        if let Some(v) = self.serial.read().unwrap().index().value(row) {
+        if let Some(v) = self.serial.read().unwrap().value(row) {
             *v
         } else {
             0
@@ -349,8 +349,6 @@ impl Data {
         self.serial
             .read()
             .unwrap()
-            .index()
-            .triee()
             .iter()
             .map(|r| r.row())
             .collect()
@@ -395,10 +393,9 @@ impl Data {
                                 .serial
                                 .read()
                                 .unwrap()
-                                .index()
                                 .value(*a)
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().index().value(*b).unwrap());
+                                .cmp(self.serial.read().unwrap().value(*b).unwrap());
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
@@ -463,10 +460,9 @@ impl Data {
                                 .serial
                                 .read()
                                 .unwrap()
-                                .index()
                                 .value(*b)
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().index().value(*a).unwrap());
+                                .cmp(self.serial.read().unwrap().value(*a).unwrap());
                         }
                         OrderKey::Row => {
                             return b.cmp(a);
@@ -586,30 +582,26 @@ impl Data {
     }
     fn sort_with_key(&self, rows: RowSet, key: &OrderKey, sub_orders: Vec<&Order>) -> Vec<u32> {
         match key {
-            OrderKey::Serial => self.sort_with_iter(
-                rows,
-                &mut self.serial.read().unwrap().index().triee().iter(),
-                vec![],
-            ),
+            OrderKey::Serial => {
+                self.sort_with_iter(rows, &mut self.serial.read().unwrap().iter(), vec![])
+            }
             OrderKey::Row => rows.iter().map(|&x| x).collect::<Vec<u32>>(),
             OrderKey::TermBegin => self.sort_with_iter(
                 rows,
-                &mut self.term_begin.read().unwrap().triee().iter(),
+                &mut self.term_begin.read().unwrap().iter(),
                 sub_orders,
             ),
-            OrderKey::TermEnd => self.sort_with_iter(
-                rows,
-                &mut self.term_end.read().unwrap().triee().iter(),
-                sub_orders,
-            ),
+            OrderKey::TermEnd => {
+                self.sort_with_iter(rows, &mut self.term_end.read().unwrap().iter(), sub_orders)
+            }
             OrderKey::LastUpdated => self.sort_with_iter(
                 rows,
-                &mut self.last_updated.read().unwrap().triee().iter(),
+                &mut self.last_updated.read().unwrap().iter(),
                 sub_orders,
             ),
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(rows, &mut field.read().unwrap().triee().iter(), sub_orders)
+                    self.sort_with_iter(rows, &mut field.read().unwrap().iter(), sub_orders)
                 } else {
                     rows.into_iter().collect()
                 }
@@ -623,34 +615,28 @@ impl Data {
         sub_orders: Vec<&Order>,
     ) -> Vec<u32> {
         match key {
-            OrderKey::Serial => self.sort_with_iter(
-                rows,
-                &mut self.serial.read().unwrap().index().triee().desc_iter(),
-                vec![],
-            ),
+            OrderKey::Serial => {
+                self.sort_with_iter(rows, &mut self.serial.read().unwrap().desc_iter(), vec![])
+            }
             OrderKey::Row => rows.iter().rev().map(|&x| x).collect::<Vec<u32>>(),
             OrderKey::TermBegin => self.sort_with_iter(
                 rows,
-                &mut self.term_begin.read().unwrap().triee().desc_iter(),
+                &mut self.term_begin.read().unwrap().desc_iter(),
                 sub_orders,
             ),
             OrderKey::TermEnd => self.sort_with_iter(
                 rows,
-                &mut self.term_end.read().unwrap().triee().desc_iter(),
+                &mut self.term_end.read().unwrap().desc_iter(),
                 sub_orders,
             ),
             OrderKey::LastUpdated => self.sort_with_iter(
                 rows,
-                &mut self.last_updated.read().unwrap().triee().desc_iter(),
+                &mut self.last_updated.read().unwrap().desc_iter(),
                 sub_orders,
             ),
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(
-                        rows,
-                        &mut field.read().unwrap().triee().desc_iter(),
-                        sub_orders,
-                    )
+                    self.sort_with_iter(rows, &mut field.read().unwrap().desc_iter(), sub_orders)
                 } else {
                     rows.into_iter().collect()
                 }

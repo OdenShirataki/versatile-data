@@ -55,7 +55,7 @@ impl Field {
     }
 
     pub fn num(&self, row: u32) -> Option<f64> {
-        if let Some(value) = self.index.value(row) {
+        if let Some(value) = self.value(row) {
             Some(value.num)
         } else {
             None

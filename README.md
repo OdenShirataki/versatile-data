@@ -18,7 +18,7 @@ You don't have to think about which fields to index. it is done automatically.
 ## Example
 
 ```rust
-use versatile_data::prelude::*;
+use versatile_data::*;
 
 let dir="./vd-test/";
 if std::path::Path::new(dir).exists(){

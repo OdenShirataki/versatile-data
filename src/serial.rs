@@ -7,6 +7,12 @@ pub(crate) struct SerialNumber {
     index: IdxFile<u32>,
     fragment: RowFragment,
 }
+impl std::ops::Deref for SerialNumber {
+    type Target = IdxFile<u32>;
+    fn deref(&self) -> &Self::Target {
+        &self.index
+    }
+}
 impl SerialNumber {
     pub fn new(path: PathBuf) -> io::Result<Self> {
         let file_name = if let Some(file_name) = path.file_name() {
@@ -28,9 +34,6 @@ impl SerialNumber {
             })?,
         })
     }
-    pub fn index(&self) -> &IdxFile<u32> {
-        &self.index
-    }
     pub fn delete(&mut self, row: u32) -> io::Result<u64> {
         self.index.delete(row)?;
         self.fragment.insert_blank(row)
@@ -43,11 +46,6 @@ impl SerialNumber {
             } else {
                 0
             })?;
-        unsafe {
-            self.index
-                .triee_mut()
-                .update(row, self.fragment.serial_increment())?
-        }
-        Ok(row)
+        self.index.update(row, self.fragment.serial_increment())
     }
 }

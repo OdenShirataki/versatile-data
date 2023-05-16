@@ -105,7 +105,7 @@ impl<'a> Search<'a> {
                 }
             }
         } else {
-            for row in self.data.serial.read().unwrap().index().triee().iter() {
+            for row in self.data.serial.read().unwrap().iter() {
                 rows.insert(row.row());
             }
         }
@@ -126,7 +126,6 @@ impl<'a> Search<'a> {
                 index
                     .read()
                     .unwrap()
-                    .triee()
                     .iter_by(|v| v.cmp(&activity))
                     .map(|v| v.row())
                     .collect(),
@@ -139,7 +138,7 @@ impl<'a> Search<'a> {
         let term_end = data.term_end.clone();
         spawn(move || {
             let mut result = RowSet::default();
-            for node in term_begin.read().unwrap().triee().iter_to(|v| v.cmp(&base)) {
+            for node in term_begin.read().unwrap().iter_to(|v| v.cmp(&base)) {
                 let row = node.row();
                 let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
                 if end == 0 || end > base {
@@ -162,7 +161,6 @@ impl<'a> Search<'a> {
                         index
                             .read()
                             .unwrap()
-                            .triee()
                             .iter_from(|v| v.cmp(&base))
                             .map(|v| v.row())
                             .collect(),
@@ -178,7 +176,6 @@ impl<'a> Search<'a> {
                         index
                             .read()
                             .unwrap()
-                            .triee()
                             .iter_range(|v| v.cmp(&1), |v| v.cmp(&base))
                             .map(|v| v.row())
                             .collect(),
@@ -195,7 +192,7 @@ impl<'a> Search<'a> {
             Number::Min(row) => {
                 let row = *row;
                 spawn(move || {
-                    for i in serial.read().unwrap().index().triee().iter() {
+                    for i in serial.read().unwrap().iter() {
                         let i = i.row();
                         if i as isize >= row {
                             r.insert(i);
@@ -207,7 +204,7 @@ impl<'a> Search<'a> {
             Number::Max(row) => {
                 let row = *row;
                 spawn(move || {
-                    for i in serial.read().unwrap().index().triee().iter() {
+                    for i in serial.read().unwrap().iter() {
                         let i = i.row();
                         if i as isize <= row {
                             r.insert(i);
@@ -221,7 +218,7 @@ impl<'a> Search<'a> {
                 spawn(move || {
                     for i in range {
                         if i > 0 {
-                            if serial.read().unwrap().index().exists(i as u32) {
+                            if serial.read().unwrap().exists(i as u32) {
                                 r.insert(i as u32);
                             }
                         }
@@ -234,7 +231,7 @@ impl<'a> Search<'a> {
                 spawn(move || {
                     for i in rows {
                         if i > 0 {
-                            if serial.read().unwrap().index().exists(i as u32) {
+                            if serial.read().unwrap().exists(i as u32) {
                                 r.insert(i as u32);
                             }
                         }
@@ -255,7 +252,6 @@ impl<'a> Search<'a> {
                         let field = field.read().unwrap();
                         tx.send(
                             field
-                                .triee()
                                 .iter_by(|data| field.cmp(data, &v))
                                 .map(|x| x.row())
                                 .collect(),
@@ -270,7 +266,6 @@ impl<'a> Search<'a> {
 
                         tx.send(
                             field
-                                .triee()
                                 .iter_from(|data| field.cmp(data, &min))
                                 .map(|x| x.row())
                                 .collect(),
@@ -284,7 +279,6 @@ impl<'a> Search<'a> {
                         let field = field.read().unwrap();
                         tx.send(
                             field
-                                .triee()
                                 .iter_to(|data| field.cmp(data, &max))
                                 .map(|x| x.row())
                                 .collect(),
@@ -300,7 +294,6 @@ impl<'a> Search<'a> {
 
                         tx.send(
                             field
-                                .triee()
                                 .iter_range(
                                     |data| field.cmp(data, &min),
                                     |data| field.cmp(data, &max),
@@ -315,7 +308,7 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().triee().iter() {
+                        for row in field.read().unwrap().iter() {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
@@ -333,7 +326,7 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().triee().iter() {
+                        for row in field.read().unwrap().iter() {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
@@ -354,7 +347,7 @@ impl<'a> Search<'a> {
                     let cont = cont.clone();
                     spawn(move || {
                         let len = cont.len();
-                        for row in field.read().unwrap().triee().iter() {
+                        for row in field.read().unwrap().iter() {
                             let data = row.value();
                             let row = row.row();
                             if len as u64 <= data.data_address().len() {
@@ -381,7 +374,6 @@ impl<'a> Search<'a> {
                         index
                             .read()
                             .unwrap()
-                            .triee()
                             .iter_from(|v| v.cmp(&min))
                             .map(|v| v.row())
                             .collect(),
@@ -396,7 +388,6 @@ impl<'a> Search<'a> {
                         index
                             .read()
                             .unwrap()
-                            .triee()
                             .iter_to(|v| v.cmp(&max))
                             .map(|v| v.row())
                             .collect(),
@@ -411,7 +402,6 @@ impl<'a> Search<'a> {
                         index
                             .read()
                             .unwrap()
-                            .triee()
                             .iter_range(
                                 |v| v.cmp(&(*range.start() as u64)),
                                 |v| v.cmp(&(*range.end() as u64)),
@@ -431,7 +421,6 @@ impl<'a> Search<'a> {
                             &mut index
                                 .read()
                                 .unwrap()
-                                .triee()
                                 .iter_by(|v| v.cmp(&(i as u64)))
                                 .map(|x| x.row())
                                 .collect(),
@@ -452,7 +441,6 @@ impl<'a> Search<'a> {
                     &mut index
                         .read()
                         .unwrap()
-                        .triee()
                         .iter_by(|v| v.cmp(&uuid))
                         .map(|x| x.row())
                         .collect(),
