@@ -161,6 +161,9 @@ impl Data {
             0
         }
     }
+    pub fn field_names(&self) -> Vec<&String> {
+        self.fields_cache.iter().map(|(key, _)| key).collect()
+    }
     pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
         if let Some(f) = self.field(name) {
             if let Some(v) = f.read().unwrap().bytes(row) {
