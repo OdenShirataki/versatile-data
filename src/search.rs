@@ -361,6 +361,51 @@ impl<'a> Search<'a> {
                         tx.send(r).unwrap();
                     });
                 }
+                Field::ValueForward(cont) => {
+                    let cont = cont.clone();
+                    spawn(move || {
+                        for row in field.read().unwrap().iter() {
+                            let row = row.row();
+                            if let Some(bytes) = field.read().unwrap().bytes(row) {
+                                if cont.as_bytes().starts_with(bytes) {
+                                    r.insert(row);
+                                }
+                            }
+                        }
+                        tx.send(r).unwrap();
+                    });
+                }
+                Field::ValueBackward(cont) => {
+                    let cont = cont.clone();
+                    spawn(move || {
+                        for row in field.read().unwrap().iter() {
+                            let row = row.row();
+                            if let Some(bytes) = field.read().unwrap().bytes(row) {
+                                if cont.as_bytes().ends_with(bytes) {
+                                    r.insert(row);
+                                }
+                            }
+                        }
+                        tx.send(r).unwrap();
+                    });
+                }
+                Field::ValuePartial(cont) => {
+                    let cont = cont.clone();
+                    spawn(move || {
+                        for row in field.read().unwrap().iter() {
+                            let row = row.row();
+                            if let Some(bytes) = field.read().unwrap().bytes(row) {
+                                if let Some(_) = bytes
+                                    .windows(bytes.len())
+                                    .position(|window| window == cont.as_bytes())
+                                {
+                                    r.insert(row);
+                                }
+                            }
+                        }
+                        tx.send(r).unwrap();
+                    });
+                }
             }
         }
     }

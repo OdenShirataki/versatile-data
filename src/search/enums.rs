@@ -25,6 +25,9 @@ pub enum Field {
     Forward(String),
     Partial(String),
     Backward(String),
+    ValueForward(String),
+    ValueBackward(String),
+    ValuePartial(String),
 }
 
 #[derive(Clone, Debug)]
