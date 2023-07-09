@@ -2,6 +2,8 @@
 
 #[test]
 fn test() {
+    use std::sync::Arc;
+
     use versatile_data::*;
 
     let dir="./vd-test/";
@@ -36,7 +38,7 @@ fn test() {
         assert_eq!(sam,55.0);
 
         let r=data
-            .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))
+            .search_field("num",search::Field::Range(Arc::new(b"3".to_vec()),Arc::new(b"8".to_vec())))
             .search_default().unwrap()   //Automatic execution of the following two lines
             //.search_term(Term::In(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()))
             //.search_activity(Activity::Active)
@@ -47,8 +49,8 @@ fn test() {
         let r=data
             .search_default().unwrap()
             .search(Condition::Wide(vec![
-                Condition::Field("num".to_string(),search::Field::Match(b"4".to_vec()))
-                ,Condition::Field("num".to_string(),search::Field::Match(b"6".to_vec()))
+                Condition::Field("num".to_string(),search::Field::Match(Arc::new(b"4".to_vec())))
+                ,Condition::Field("num".to_string(),search::Field::Match(Arc::new(b"6".to_vec())))
             ]))
             .result()
         ;
@@ -93,7 +95,7 @@ fn test() {
         println!("sorted mod3-asc num-desc:{:?}",r);
 
         let r=data
-            .search_field("num",search::Field::Range(b"3".to_vec(),b"8".to_vec()))
+            .search_field("num",search::Field::Range(Arc::new(b"3".to_vec()),Arc::new(b"8".to_vec())))
             .search_row(search::Number::Range(4..=7))
             .search_default().unwrap()
             .result()
@@ -107,25 +109,25 @@ fn test() {
         data.update_field(7,"hoge",b"ageee").unwrap();
         data.update_field(6,"hoge",b"bebebe").unwrap();
         let r=data
-            .search_field("hoge",search::Field::Match(b"HAHA".to_vec()))
+            .search_field("hoge",search::Field::Match(Arc::new(b"HAHA".to_vec())))
             .result()
         ;
         println!("match:{:?}",r);
 
         let r=data
-            .search_field("hoge",search::Field::Forward("age".to_string()))
+            .search_field("hoge",search::Field::Forward(Arc::new("age".to_string())))
             .result()
         ;
         println!("forward:{:?}",r);
 
         let r=data
-            .search_field("hoge",search::Field::Partial("eb".to_string()))
+            .search_field("hoge",search::Field::Partial(Arc::new("eb".to_string())))
             .result()
         ;
         println!("partial:{:?}",r);
 
         let r=data
-            .search_field("hoge",search::Field::Backward("be".to_string()))
+            .search_field("hoge",search::Field::Backward(Arc::new("be".to_string())))
             .result()
         ;
         println!("backward:{:?}",r);
