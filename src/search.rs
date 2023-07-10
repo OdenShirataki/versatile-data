@@ -1,5 +1,8 @@
 use std::{
-    sync::mpsc::{channel, SendError, Sender},
+    sync::{
+        mpsc::{channel, SendError, Sender},
+        Arc,
+    },
     thread::spawn,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -120,7 +123,7 @@ impl<'a> Search<'a> {
     }
     fn search_exec_activity(data: &Data, condition: &Activity, tx: Sender<RowSet>) {
         let activity = *condition as u8;
-        let index = data.activity.clone();
+        let index = Arc::clone(&data.activity);
         spawn(move || {
             tx.send(
                 index
@@ -134,8 +137,8 @@ impl<'a> Search<'a> {
         });
     }
     fn search_exec_term_in(data: &Data, base: u64, tx: Sender<RowSet>) {
-        let term_begin = data.term_begin.clone();
-        let term_end = data.term_end.clone();
+        let term_begin = Arc::clone(&data.term_begin);
+        let term_end = Arc::clone(&data.term_end);
         spawn(move || {
             let mut result = RowSet::default();
             for node in term_begin.read().unwrap().iter_to(|v| v.cmp(&base)) {
@@ -154,7 +157,7 @@ impl<'a> Search<'a> {
                 Self::search_exec_term_in(data, *base, tx);
             }
             Term::Future(base) => {
-                let index = data.term_begin.clone();
+                let index = Arc::clone(&data.term_begin);
                 let base = base.clone();
                 spawn(move || {
                     tx.send(
@@ -169,7 +172,7 @@ impl<'a> Search<'a> {
                 });
             }
             Term::Past(base) => {
-                let index = data.term_end.clone();
+                let index = Arc::clone(&data.term_end);
                 let base = base.clone();
                 spawn(move || {
                     tx.send(
@@ -186,7 +189,7 @@ impl<'a> Search<'a> {
         }
     }
     fn search_exec_row(data: &Data, condition: &Number, tx: Sender<RowSet>) {
-        let serial = data.serial.clone();
+        let serial = Arc::clone(&data.serial);
         let mut r = RowSet::default();
         match condition {
             Number::Min(row) => {
@@ -243,11 +246,11 @@ impl<'a> Search<'a> {
     }
     fn search_exec_field(data: &Data, field_name: &str, condition: &Field, tx: Sender<RowSet>) {
         if let Some(field) = data.field(field_name) {
-            let field = field.clone();
+            let field = Arc::clone(&field);
             let mut r: RowSet = RowSet::default();
             match condition {
                 Field::Match(v) => {
-                    let v = v.clone();
+                    let v = Arc::clone(&v);
                     spawn(move || {
                         let field = field.read().unwrap();
                         tx.send(
@@ -260,7 +263,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::Min(min) => {
-                    let min = min.clone();
+                    let min = Arc::clone(&min);
                     spawn(move || {
                         let field = field.read().unwrap();
 
@@ -274,7 +277,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::Max(max) => {
-                    let max = max.clone();
+                    let max = Arc::clone(&max);
                     spawn(move || {
                         let field = field.read().unwrap();
                         tx.send(
@@ -287,8 +290,8 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::Range(min, max) => {
-                    let min = min.clone();
-                    let max = max.clone();
+                    let min = Arc::clone(&min);
+                    let max = Arc::clone(&max);
                     spawn(move || {
                         let field = field.read().unwrap();
 
@@ -305,7 +308,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::Forward(cont) => {
-                    let cont = cont.clone();
+                    let cont = Arc::clone(&cont);
                     spawn(move || {
                         let len = cont.len();
                         for row in field.read().unwrap().iter() {
@@ -323,7 +326,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::Partial(cont) => {
-                    let cont = cont.clone();
+                    let cont = Arc::clone(&cont);
                     spawn(move || {
                         let len = cont.len();
                         for row in field.read().unwrap().iter() {
@@ -344,7 +347,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::Backward(cont) => {
-                    let cont = cont.clone();
+                    let cont = Arc::clone(&cont);
                     spawn(move || {
                         let len = cont.len();
                         for row in field.read().unwrap().iter() {
@@ -362,7 +365,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::ValueForward(cont) => {
-                    let cont = cont.clone();
+                    let cont = Arc::clone(&cont);
                     spawn(move || {
                         for row in field.read().unwrap().iter() {
                             let row = row.row();
@@ -376,7 +379,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::ValueBackward(cont) => {
-                    let cont = cont.clone();
+                    let cont = Arc::clone(&cont);
                     spawn(move || {
                         for row in field.read().unwrap().iter() {
                             let row = row.row();
@@ -390,7 +393,7 @@ impl<'a> Search<'a> {
                     });
                 }
                 Field::ValuePartial(cont) => {
-                    let cont = cont.clone();
+                    let cont = Arc::clone(&cont);
                     spawn(move || {
                         for row in field.read().unwrap().iter() {
                             let row = row.row();
@@ -410,7 +413,7 @@ impl<'a> Search<'a> {
         }
     }
     fn search_exec_last_updated(data: &Data, condition: &Number, tx: Sender<RowSet>) {
-        let index = data.last_updated.clone();
+        let index = Arc::clone(&data.last_updated);
         match condition {
             Number::Min(min) => {
                 let min = min.clone() as u64;
@@ -477,7 +480,7 @@ impl<'a> Search<'a> {
         }
     }
     pub fn search_exec_uuid(data: &Data, uuids: &Vec<u128>, tx: Sender<RowSet>) {
-        let index = data.uuid.clone();
+        let index = Arc::clone(&data.uuid);
         let uuids = uuids.clone();
         spawn(move || {
             let mut r = RowSet::default();
