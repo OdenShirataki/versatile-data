@@ -186,6 +186,72 @@ impl Data {
             0.0
         }
     }
+
+    pub fn update(&mut self, operation: &Operation) -> Result<u32> {
+        match operation {
+            Operation::New {
+                activity,
+                term_begin,
+                term_end,
+                fields,
+            } => self.create_row(activity, term_begin, term_end, fields),
+            Operation::Update {
+                row,
+                activity,
+                term_begin,
+                term_end,
+                fields,
+            } => {
+                let row = *row;
+                self.update_row(row, activity, term_begin, term_end, fields)?;
+                Ok(row)
+            }
+            Operation::Delete { row } => {
+                self.delete(*row)?;
+                Ok(0)
+            }
+        }
+    }
+
+    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> Result<()> {
+        let field = if self.fields_cache.contains_key(field_name) {
+            self.fields_cache.get_mut(field_name).unwrap()
+        } else {
+            self.create_field(field_name)?
+        };
+        field.write().unwrap().update(row, cont)?;
+
+        Ok(())
+    }
+
+    pub fn create_row(
+        &mut self,
+        activity: &Activity,
+        term_begin: &Term,
+        term_end: &Term,
+        fields: &Vec<KeyValue>,
+    ) -> Result<u32> {
+        let row = self.serial.write().unwrap().next_row()?;
+
+        self.uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
+
+        self.update_common(row, activity, term_begin, term_end, fields)
+    }
+
+    pub fn update_row(
+        &mut self,
+        row: u32,
+        activity: &Activity,
+        term_begin: &Term,
+        term_end: &Term,
+        fields: &Vec<KeyValue>,
+    ) -> Result<()> {
+        if self.exists(row) {
+            self.update_common(row, activity, term_begin, term_end, fields)?;
+        }
+        Ok(())
+    }
+
     fn field(&self, name: &str) -> Option<&Arc<RwLock<Field>>> {
         self.fields_cache.get(name)
     }
@@ -205,70 +271,6 @@ impl Data {
                     }
                 }
             }
-        }
-        Ok(())
-    }
-
-    pub fn update(&mut self, operation: &Operation) -> Result<u32> {
-        Ok(match operation {
-            Operation::New {
-                activity,
-                term_begin,
-                term_end,
-                fields,
-            } => self.create_row(activity, term_begin, term_end, fields)?,
-            Operation::Update {
-                row,
-                activity,
-                term_begin,
-                term_end,
-                fields,
-            } => {
-                self.update_row(*row, activity, term_begin, term_end, fields)?;
-                *row
-            }
-            Operation::Delete { row } => {
-                self.delete(*row)?;
-                0
-            }
-        })
-    }
-
-    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> Result<()> {
-        let field = if self.fields_cache.contains_key(field_name) {
-            self.fields_cache.get_mut(field_name).unwrap()
-        } else {
-            self.create_field(field_name)?
-        };
-        field.write().unwrap().update(row, cont)?;
-
-        Ok(())
-    }
-
-    fn create_row(
-        &mut self,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> Result<u32> {
-        let row = self.serial.write().unwrap().next_row()?;
-
-        self.uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
-
-        self.update_common(row, activity, term_begin, term_end, fields)
-    }
-
-    fn update_row(
-        &mut self,
-        row: u32,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> Result<()> {
-        if self.exists(row) {
-            self.update_common(row, activity, term_begin, term_end, fields)?;
         }
         Ok(())
     }
