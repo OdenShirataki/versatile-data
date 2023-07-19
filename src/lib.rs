@@ -9,7 +9,7 @@ use std::{
 pub use uuid::Uuid;
 
 use anyhow::Result;
-pub use idx_binary::{anyhow, natord, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
+pub use idx_binary::{anyhow, human_sort, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 
 mod serial;
 use serial::SerialNumber;
@@ -441,7 +441,7 @@ impl Data {
                         }
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
-                                let ord = natord::compare(
+                                let ord = human_sort::compare(
                                     unsafe {
                                         std::str::from_utf8_unchecked(
                                             field.read().unwrap().bytes(*a).unwrap(),
@@ -510,7 +510,7 @@ impl Data {
                         }
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
-                                let ord = natord::compare(
+                                let ord = human_sort::compare(
                                     unsafe {
                                         std::str::from_utf8_unchecked(
                                             field.read().unwrap().bytes(*b).unwrap(),
