@@ -9,7 +9,7 @@ use std::{
 pub use uuid::Uuid;
 
 use anyhow::Result;
-pub use idx_binary::{anyhow, human_sort, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
+pub use idx_binary::{self, anyhow, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 
 mod serial;
 use serial::SerialNumber;
@@ -441,17 +441,9 @@ impl Data {
                         }
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
-                                let ord = human_sort::compare(
-                                    unsafe {
-                                        std::str::from_utf8_unchecked(
-                                            field.read().unwrap().bytes(*a).unwrap(),
-                                        )
-                                    },
-                                    unsafe {
-                                        std::str::from_utf8_unchecked(
-                                            field.read().unwrap().bytes(*b).unwrap(),
-                                        )
-                                    },
+                                let ord = idx_binary::compare(
+                                    field.read().unwrap().bytes(*a).unwrap(),
+                                    field.read().unwrap().bytes(*b).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -510,17 +502,9 @@ impl Data {
                         }
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
-                                let ord = human_sort::compare(
-                                    unsafe {
-                                        std::str::from_utf8_unchecked(
-                                            field.read().unwrap().bytes(*b).unwrap(),
-                                        )
-                                    },
-                                    unsafe {
-                                        std::str::from_utf8_unchecked(
-                                            field.read().unwrap().bytes(*a).unwrap(),
-                                        )
-                                    },
+                                let ord = idx_binary::compare(
+                                    field.read().unwrap().bytes(*b).unwrap(),
+                                    field.read().unwrap().bytes(*a).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
