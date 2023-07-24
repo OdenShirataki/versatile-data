@@ -135,60 +135,57 @@ impl Data {
             0
         }
     }
-    pub fn uuid(&self, row: u32) -> u128 {
+    pub fn uuid(&self, row: u32) -> Option<u128> {
         if let Some(ref uuid) = self.uuid {
             if let Some(v) = uuid.read().unwrap().value(row) {
-                return *v;
+                return Some(*v);
             }
         }
-        0
+        None
     }
-    pub fn uuid_string(&self, row: u32) -> String {
+    pub fn uuid_string(&self, row: u32) -> Option<String> {
         if let Some(ref uuid) = self.uuid {
             if let Some(v) = uuid.read().unwrap().value(row) {
-                return uuid::Uuid::from_u128(*v).to_string();
+                return Some(uuid::Uuid::from_u128(*v).to_string());
             }
         }
-        "".to_string()
+        None
     }
-    pub fn activity(&self, row: u32) -> Activity {
+    pub fn activity(&self, row: u32) -> Option<Activity> {
         if let Some(ref activity) = self.activity {
             if let Some(v) = activity.read().unwrap().value(row) {
-                if *v != 0 {
+                return Some(if *v != 0 {
                     Activity::Active
                 } else {
                     Activity::Inactive
-                }
-            } else {
-                Activity::Inactive
+                });
             }
-        } else {
-            Activity::Active
         }
+        None
     }
-    pub fn term_begin(&self, row: u32) -> u64 {
+    pub fn term_begin(&self, row: u32) -> Option<u64> {
         if let Some(ref f) = self.term_begin {
             if let Some(v) = f.read().unwrap().value(row) {
-                return *v;
+                return Some(*v);
             }
         }
-        0
+        None
     }
-    pub fn term_end(&self, row: u32) -> u64 {
+    pub fn term_end(&self, row: u32) -> Option<u64> {
         if let Some(ref f) = self.term_end {
             if let Some(v) = f.read().unwrap().value(row) {
-                return *v;
+                return Some(*v);
             }
         }
-        0
+        None
     }
-    pub fn last_updated(&self, row: u32) -> u64 {
+    pub fn last_updated(&self, row: u32) -> Option<u64> {
         if let Some(ref f) = self.last_updated {
             if let Some(v) = f.read().unwrap().value(row) {
-                return *v;
+                return Some(*v);
             }
         }
-        0
+        None
     }
     pub fn field_names(&self) -> Vec<&String> {
         self.fields_cache.iter().map(|(key, _)| key).collect()

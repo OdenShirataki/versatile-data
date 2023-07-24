@@ -1,4 +1,6 @@
-#[derive(Clone)]
+use serde::Deserialize;
+
+#[derive(Clone, Deserialize)]
 pub struct DataOption {
     pub uuid: bool,
     pub activity: bool,
