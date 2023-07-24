@@ -56,7 +56,7 @@ impl Default for Term {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Record {
     pub activity: Activity,
     pub term_begin: Term,
@@ -66,11 +66,6 @@ pub struct Record {
 
 pub enum Operation {
     New(Record),
-    Update {
-        row: u32,
-        record: Record,
-    },
-    Delete {
-        row: u32,
-    },
+    Update { row: u32, record: Record },
+    Delete { row: u32 },
 }
