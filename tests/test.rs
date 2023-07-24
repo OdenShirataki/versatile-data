@@ -10,19 +10,17 @@ fn test() {
     if std::path::Path::new(dir).exists(){
         std::fs::remove_dir_all(dir).unwrap();
     }
-    if let Ok(mut data)=Data::new(dir){
+    if let Ok(mut data)=Data::new(dir,DataOption::default()){
         let range=1..=10;
         for i in range.clone(){
-            data.update(&Operation::New{
-                activity:Activity::Active
-                ,term_begin:Term::Default
-                ,term_end:Term::Default
-                ,fields:vec![
+            data.update(&Operation::New(Record{
+                fields:vec![
                     KeyValue::new("num",i.to_string())
                     ,KeyValue::new("num_by3",(i*3).to_string())
                     ,KeyValue::new("num_mod3",(i%3).to_string())
                 ]
-            }).unwrap();
+                ,..Default::default()
+            })).unwrap();
         }
         let mut sam=0.0;
         for i in range.clone(){

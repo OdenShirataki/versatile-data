@@ -24,20 +24,32 @@ impl<'a> Search<'a> {
         }
     }
     pub fn search_default(mut self) -> Result<Self, std::time::SystemTimeError> {
-        self.conditions.push(Condition::Term(Term::In(
-            SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-        )));
-        self.conditions.push(Condition::Activity(Activity::Active));
+        if let Some(_) = self.data.term_begin {
+            self.conditions.push(Condition::Term(Term::In(
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            )));
+        }
+        if let Some(_) = self.data.activity {
+            self.conditions.push(Condition::Activity(Activity::Active));
+        }
         Ok(self)
     }
     pub fn search_field(self, field_name: impl Into<String>, condition: Field) -> Self {
         self.search(Condition::Field(field_name.into(), condition))
     }
     pub fn search_term(self, condition: Term) -> Self {
-        self.search(Condition::Term(condition))
+        if let Some(_) = self.data.term_begin {
+            self.search(Condition::Term(condition))
+        } else {
+            self
+        }
     }
     pub fn search_activity(self, condition: Activity) -> Self {
-        self.search(Condition::Activity(condition))
+        if let Some(_) = self.data.term_begin {
+            self.search(Condition::Activity(condition))
+        } else {
+            self
+        }
     }
     pub fn search_row(self, condition: Number) -> Self {
         self.search(Condition::Row(condition))
@@ -122,34 +134,46 @@ impl<'a> Search<'a> {
         Ok(self.data.sort(rows, &orders))
     }
     fn search_exec_activity(data: &Data, condition: &Activity, tx: Sender<RowSet>) {
-        let activity = *condition as u8;
-        let index = Arc::clone(&data.activity);
-        spawn(move || {
-            tx.send(
-                index
-                    .read()
-                    .unwrap()
-                    .iter_by(|v| v.cmp(&activity))
-                    .map(|v| v.row())
-                    .collect(),
-            )
-            .unwrap();
-        });
+        if let Some(ref activity) = data.activity {
+            let index = Arc::clone(activity);
+            let activity = *condition as u8;
+            spawn(move || {
+                tx.send(
+                    index
+                        .read()
+                        .unwrap()
+                        .iter_by(|v| v.cmp(&activity))
+                        .map(|v| v.row())
+                        .collect(),
+                )
+                .unwrap();
+            });
+        } else {
+            unreachable!();
+        }
     }
     fn search_exec_term_in(data: &Data, base: u64, tx: Sender<RowSet>) {
-        let term_begin = Arc::clone(&data.term_begin);
-        let term_end = Arc::clone(&data.term_end);
-        spawn(move || {
-            let mut result = RowSet::default();
-            for node in term_begin.read().unwrap().iter_to(|v| v.cmp(&base)) {
-                let row = node.row();
-                let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
-                if end == 0 || end > base {
-                    result.replace(row);
-                }
+        if let Some(ref term_begin) = data.term_begin {
+            let term_begin = Arc::clone(term_begin);
+            if let Some(ref term_end) = data.term_end {
+                let term_end = Arc::clone(term_end);
+                spawn(move || {
+                    let mut result = RowSet::default();
+                    for node in term_begin.read().unwrap().iter_to(|v| v.cmp(&base)) {
+                        let row = node.row();
+                        let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
+                        if end == 0 || end > base {
+                            result.replace(row);
+                        }
+                    }
+                    tx.send(result).unwrap();
+                });
+            } else {
+                unreachable!();
             }
-            tx.send(result).unwrap();
-        });
+        } else {
+            unreachable!();
+        }
     }
     fn search_exec_term(data: &Data, condition: &Term, tx: Sender<RowSet>) {
         match condition {
@@ -157,34 +181,42 @@ impl<'a> Search<'a> {
                 Self::search_exec_term_in(data, *base, tx);
             }
             Term::Future(base) => {
-                let index = Arc::clone(&data.term_begin);
-                let base = base.clone();
-                spawn(move || {
-                    tx.send(
-                        index
-                            .read()
-                            .unwrap()
-                            .iter_from(|v| v.cmp(&base))
-                            .map(|v| v.row())
-                            .collect(),
-                    )
-                    .unwrap();
-                });
+                if let Some(ref f) = data.term_begin {
+                    let index = Arc::clone(f);
+                    let base = base.clone();
+                    spawn(move || {
+                        tx.send(
+                            index
+                                .read()
+                                .unwrap()
+                                .iter_from(|v| v.cmp(&base))
+                                .map(|v| v.row())
+                                .collect(),
+                        )
+                        .unwrap();
+                    });
+                } else {
+                    unreachable!();
+                }
             }
             Term::Past(base) => {
-                let index = Arc::clone(&data.term_end);
-                let base = base.clone();
-                spawn(move || {
-                    tx.send(
-                        index
-                            .read()
-                            .unwrap()
-                            .iter_range(|v| v.cmp(&1), |v| v.cmp(&base))
-                            .map(|v| v.row())
-                            .collect(),
-                    )
-                    .unwrap();
-                });
+                if let Some(ref f) = data.term_end {
+                    let index = Arc::clone(f);
+                    let base = base.clone();
+                    spawn(move || {
+                        tx.send(
+                            index
+                                .read()
+                                .unwrap()
+                                .iter_range(|v| v.cmp(&1), |v| v.cmp(&base))
+                                .map(|v| v.row())
+                                .collect(),
+                        )
+                        .unwrap();
+                    });
+                } else {
+                    unreachable!();
+                }
             }
         }
     }
@@ -415,88 +447,96 @@ impl<'a> Search<'a> {
         }
     }
     fn search_exec_last_updated(data: &Data, condition: &Number, tx: Sender<RowSet>) {
-        let index = Arc::clone(&data.last_updated);
-        match condition {
-            Number::Min(min) => {
-                let min = min.clone() as u64;
-                spawn(move || {
-                    tx.send(
-                        index
-                            .read()
-                            .unwrap()
-                            .iter_from(|v| v.cmp(&min))
-                            .map(|v| v.row())
-                            .collect(),
-                    )
-                    .unwrap();
-                });
-            }
-            Number::Max(max) => {
-                let max = max.clone() as u64;
-                spawn(move || {
-                    tx.send(
-                        index
-                            .read()
-                            .unwrap()
-                            .iter_to(|v| v.cmp(&max))
-                            .map(|v| v.row())
-                            .collect(),
-                    )
-                    .unwrap();
-                });
-            }
-            Number::Range(range) => {
-                let range = range.clone();
-                spawn(move || {
-                    tx.send(
-                        index
-                            .read()
-                            .unwrap()
-                            .iter_range(
-                                |v| v.cmp(&(*range.start() as u64)),
-                                |v| v.cmp(&(*range.end() as u64)),
-                            )
-                            .map(|v| v.row())
-                            .collect(),
-                    )
-                    .unwrap();
-                });
-            }
-            Number::In(rows) => {
-                let rows = rows.clone();
-                spawn(move || {
-                    let mut r = RowSet::default();
-                    for i in rows {
-                        r.append(
-                            &mut index
+        if let Some(ref f) = data.last_updated {
+            let index = Arc::clone(f);
+            match condition {
+                Number::Min(min) => {
+                    let min = min.clone() as u64;
+                    spawn(move || {
+                        tx.send(
+                            index
                                 .read()
                                 .unwrap()
-                                .iter_by(|v| v.cmp(&(i as u64)))
-                                .map(|x| x.row())
+                                .iter_from(|v| v.cmp(&min))
+                                .map(|v| v.row())
                                 .collect(),
-                        );
-                    }
-                    tx.send(r).unwrap();
-                });
+                        )
+                        .unwrap();
+                    });
+                }
+                Number::Max(max) => {
+                    let max = max.clone() as u64;
+                    spawn(move || {
+                        tx.send(
+                            index
+                                .read()
+                                .unwrap()
+                                .iter_to(|v| v.cmp(&max))
+                                .map(|v| v.row())
+                                .collect(),
+                        )
+                        .unwrap();
+                    });
+                }
+                Number::Range(range) => {
+                    let range = range.clone();
+                    spawn(move || {
+                        tx.send(
+                            index
+                                .read()
+                                .unwrap()
+                                .iter_range(
+                                    |v| v.cmp(&(*range.start() as u64)),
+                                    |v| v.cmp(&(*range.end() as u64)),
+                                )
+                                .map(|v| v.row())
+                                .collect(),
+                        )
+                        .unwrap();
+                    });
+                }
+                Number::In(rows) => {
+                    let rows = rows.clone();
+                    spawn(move || {
+                        let mut r = RowSet::default();
+                        for i in rows {
+                            r.append(
+                                &mut index
+                                    .read()
+                                    .unwrap()
+                                    .iter_by(|v| v.cmp(&(i as u64)))
+                                    .map(|x| x.row())
+                                    .collect(),
+                            );
+                        }
+                        tx.send(r).unwrap();
+                    });
+                }
             }
+        } else {
+            unreachable!();
         }
     }
     pub fn search_exec_uuid(data: &Data, uuids: &Vec<u128>, tx: Sender<RowSet>) {
-        let index = Arc::clone(&data.uuid);
-        let uuids = uuids.clone();
-        spawn(move || {
-            let mut r = RowSet::default();
-            for uuid in uuids {
-                r.append(
-                    &mut index
-                        .read()
-                        .unwrap()
-                        .iter_by(|v| v.cmp(&uuid))
-                        .map(|x| x.row())
-                        .collect(),
-                );
-            }
-            tx.send(r).unwrap();
-        });
+        if let Some(ref uuid) = data.uuid {
+            let index = Arc::clone(uuid);
+            let uuids = uuids.clone();
+            spawn(move || {
+                let mut r = RowSet::default();
+                for uuid in uuids {
+                    r.append(
+                        &mut index
+                            .read()
+                            .unwrap()
+                            .iter_by(|v| v.cmp(&uuid))
+                            .map(|x| x.row())
+                            .collect(),
+                    );
+                }
+                tx.send(r).unwrap();
+            });
+        } else {
+            unreachable!();
+        }
     }
 }

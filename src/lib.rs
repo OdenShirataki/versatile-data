@@ -1,3 +1,19 @@
+pub mod search;
+
+mod field;
+mod operation;
+mod option;
+mod row_fragment;
+mod serial;
+
+pub use field::Field;
+pub use idx_binary::{self, anyhow, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
+pub use operation::*;
+pub use option::DataOption;
+pub use row_fragment::RowFragment;
+pub use search::{Condition, Order, OrderKey, Search};
+pub use uuid::Uuid;
+
 use std::{
     cmp::Ordering,
     collections::{BTreeSet, HashMap},
@@ -6,25 +22,9 @@ use std::{
     sync::{Arc, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
-pub use uuid::Uuid;
 
 use anyhow::Result;
-pub use idx_binary::{self, anyhow, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
-
-mod serial;
 use serial::SerialNumber;
-
-pub mod search;
-pub use search::{Condition, Order, OrderKey, Search};
-
-mod row_fragment;
-pub use row_fragment::RowFragment;
-
-mod operation;
-pub use operation::*;
-
-mod field;
-pub use field::Field;
 
 pub type RowSet = BTreeSet<u32>;
 
@@ -38,15 +38,15 @@ pub fn uuid_string(uuid: u128) -> String {
 pub struct Data {
     fields_dir: PathBuf,
     serial: Arc<RwLock<SerialNumber>>,
-    uuid: Arc<RwLock<IdxFile<u128>>>,
-    activity: Arc<RwLock<IdxFile<u8>>>,
-    term_begin: Arc<RwLock<IdxFile<u64>>>,
-    term_end: Arc<RwLock<IdxFile<u64>>>,
-    last_updated: Arc<RwLock<IdxFile<u64>>>,
+    uuid: Option<Arc<RwLock<IdxFile<u128>>>>,
+    activity: Option<Arc<RwLock<IdxFile<u8>>>>,
+    term_begin: Option<Arc<RwLock<IdxFile<u64>>>>,
+    term_end: Option<Arc<RwLock<IdxFile<u64>>>>,
+    last_updated: Option<Arc<RwLock<IdxFile<u64>>>>,
     fields_cache: HashMap<String, Arc<RwLock<Field>>>,
 }
 impl Data {
-    pub fn new<P: AsRef<Path>>(dir: P) -> io::Result<Self> {
+    pub fn new<P: AsRef<Path>>(dir: P, option: DataOption) -> io::Result<Self> {
         let dir = dir.as_ref();
         if !dir.exists() {
             fs::create_dir_all(dir)?;
@@ -75,31 +75,51 @@ impl Data {
                 path.push("serial");
                 path
             })?)),
-            uuid: Arc::new(RwLock::new(IdxFile::new({
-                let mut path = dir.to_path_buf();
-                path.push("uuid.i");
-                path
-            })?)),
-            activity: Arc::new(RwLock::new(IdxFile::new({
-                let mut path = dir.to_path_buf();
-                path.push("activity.i");
-                path
-            })?)),
-            term_begin: Arc::new(RwLock::new(IdxFile::new({
-                let mut path = dir.to_path_buf();
-                path.push("term_begin.i");
-                path
-            })?)),
-            term_end: Arc::new(RwLock::new(IdxFile::new({
-                let mut path = dir.to_path_buf();
-                path.push("term_end.i");
-                path
-            })?)),
-            last_updated: Arc::new(RwLock::new(IdxFile::new({
-                let mut path = dir.to_path_buf();
-                path.push("last_updated.i");
-                path
-            })?)),
+            uuid: if option.uuid {
+                Some(Arc::new(RwLock::new(IdxFile::new({
+                    let mut path = dir.to_path_buf();
+                    path.push("uuid.i");
+                    path
+                })?)))
+            } else {
+                None
+            },
+            activity: if option.activity {
+                Some(Arc::new(RwLock::new(IdxFile::new({
+                    let mut path = dir.to_path_buf();
+                    path.push("activity.i");
+                    path
+                })?)))
+            } else {
+                None
+            },
+            term_begin: if option.term {
+                Some(Arc::new(RwLock::new(IdxFile::new({
+                    let mut path = dir.to_path_buf();
+                    path.push("term_begin.i");
+                    path
+                })?)))
+            } else {
+                None
+            },
+            term_end: if option.term {
+                Some(Arc::new(RwLock::new(IdxFile::new({
+                    let mut path = dir.to_path_buf();
+                    path.push("term_end.i");
+                    path
+                })?)))
+            } else {
+                None
+            },
+            last_updated: if option.last_updated {
+                Some(Arc::new(RwLock::new(IdxFile::new({
+                    let mut path = dir.to_path_buf();
+                    path.push("last_updated.i");
+                    path
+                })?)))
+            } else {
+                None
+            },
             fields_cache,
         })
     }
@@ -116,50 +136,59 @@ impl Data {
         }
     }
     pub fn uuid(&self, row: u32) -> u128 {
-        if let Some(v) = self.uuid.read().unwrap().value(row) {
-            *v
-        } else {
-            0
+        if let Some(ref uuid) = self.uuid {
+            if let Some(v) = uuid.read().unwrap().value(row) {
+                return *v;
+            }
         }
+        0
     }
     pub fn uuid_string(&self, row: u32) -> String {
-        if let Some(v) = self.uuid.read().unwrap().value(row) {
-            uuid::Uuid::from_u128(*v).to_string()
-        } else {
-            "".to_string()
+        if let Some(ref uuid) = self.uuid {
+            if let Some(v) = uuid.read().unwrap().value(row) {
+                return uuid::Uuid::from_u128(*v).to_string();
+            }
         }
+        "".to_string()
     }
     pub fn activity(&self, row: u32) -> Activity {
-        if let Some(v) = self.activity.read().unwrap().value(row) {
-            if *v != 0 {
-                Activity::Active
+        if let Some(ref activity) = self.activity {
+            if let Some(v) = activity.read().unwrap().value(row) {
+                if *v != 0 {
+                    Activity::Active
+                } else {
+                    Activity::Inactive
+                }
             } else {
                 Activity::Inactive
             }
         } else {
-            Activity::Inactive
+            Activity::Active
         }
     }
     pub fn term_begin(&self, row: u32) -> u64 {
-        if let Some(v) = self.term_begin.read().unwrap().value(row) {
-            *v
-        } else {
-            0
+        if let Some(ref f) = self.term_begin {
+            if let Some(v) = f.read().unwrap().value(row) {
+                return *v;
+            }
         }
+        0
     }
     pub fn term_end(&self, row: u32) -> u64 {
-        if let Some(v) = self.term_end.read().unwrap().value(row) {
-            *v
-        } else {
-            0
+        if let Some(ref f) = self.term_end {
+            if let Some(v) = f.read().unwrap().value(row) {
+                return *v;
+            }
         }
+        0
     }
     pub fn last_updated(&self, row: u32) -> u64 {
-        if let Some(v) = self.last_updated.read().unwrap().value(row) {
-            *v
-        } else {
-            0
+        if let Some(ref f) = self.last_updated {
+            if let Some(v) = f.read().unwrap().value(row) {
+                return *v;
+            }
         }
+        0
     }
     pub fn field_names(&self) -> Vec<&String> {
         self.fields_cache.iter().map(|(key, _)| key).collect()
@@ -189,21 +218,18 @@ impl Data {
 
     pub fn update(&mut self, operation: &Operation) -> Result<u32> {
         match operation {
-            Operation::New {
-                activity,
-                term_begin,
-                term_end,
-                fields,
-            } => self.create_row(activity, term_begin, term_end, fields),
-            Operation::Update {
-                row,
-                activity,
-                term_begin,
-                term_end,
-                fields,
-            } => {
+            Operation::New(r) => {
+                self.create_row(&r.activity, &r.term_begin, &r.term_end, &r.fields)
+            }
+            Operation::Update { row, record } => {
                 let row = *row;
-                self.update_row(row, activity, term_begin, term_end, fields)?;
+                self.update_row(
+                    row,
+                    &record.activity,
+                    &record.term_begin,
+                    &record.term_end,
+                    &record.fields,
+                )?;
                 Ok(row)
             }
             Operation::Delete { row } => {
@@ -233,7 +259,9 @@ impl Data {
     ) -> Result<u32> {
         let row = self.serial.write().unwrap().next_row()?;
 
-        self.uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
+        if let Some(ref uuid) = self.uuid {
+            uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
+        }
 
         self.update_common(row, activity, term_begin, term_end, fields)
     }
@@ -283,27 +311,29 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> Result<u32> {
-        self.activity
-            .write()
-            .unwrap()
-            .update(row, *activity as u8)?;
-        self.term_begin.write().unwrap().update(
-            row,
-            if let Term::Overwrite(term) = term_begin {
-                *term
-            } else {
-                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
-            },
-        )?;
-        self.term_end.write().unwrap().update(
-            row,
-            if let Term::Overwrite(term) = term_end {
-                *term
-            } else {
-                0
-            },
-        )?;
-
+        if let Some(ref f) = self.activity {
+            f.write().unwrap().update(row, *activity as u8)?;
+        }
+        if let Some(ref f) = self.term_begin {
+            f.write().unwrap().update(
+                row,
+                if let Term::Overwrite(term) = term_begin {
+                    *term
+                } else {
+                    SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+                },
+            )?;
+        }
+        if let Some(ref f) = self.term_end {
+            f.write().unwrap().update(
+                row,
+                if let Term::Overwrite(term) = term_end {
+                    *term
+                } else {
+                    0
+                },
+            )?;
+        }
         for kv in fields.iter() {
             let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
@@ -312,22 +342,33 @@ impl Data {
             };
             field.write().unwrap().update(row, &kv.value)?;
         }
-
-        Ok(self
-            .last_updated
-            .write()
-            .unwrap()
-            .update(row, SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?)
+        if let Some(ref f) = self.last_updated {
+            Ok(f.write()
+                .unwrap()
+                .update(row, SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?)
+        } else {
+            Ok(row)
+        }
     }
 
     fn delete(&mut self, row: u32) -> io::Result<()> {
         if self.exists(row) {
             self.serial.write().unwrap().delete(row)?;
-            self.uuid.write().unwrap().delete(row)?;
-            self.activity.write().unwrap().delete(row)?;
-            self.term_begin.write().unwrap().delete(row)?;
-            self.term_end.write().unwrap().delete(row)?;
-            self.last_updated.write().unwrap().delete(row)?;
+            if let Some(ref f) = self.uuid {
+                f.write().unwrap().delete(row)?;
+            }
+            if let Some(ref f) = self.activity {
+                f.write().unwrap().delete(row)?;
+            }
+            if let Some(ref f) = self.term_begin {
+                f.write().unwrap().delete(row)?;
+            }
+            if let Some(ref f) = self.term_end {
+                f.write().unwrap().delete(row)?;
+            }
+            if let Some(ref f) = self.last_updated {
+                f.write().unwrap().delete(row)?;
+            }
 
             self.load_fields()?;
             for (_, v) in self.fields_cache.iter() {
@@ -404,39 +445,42 @@ impl Data {
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
-                            let ord = self
-                                .term_begin
-                                .read()
-                                .unwrap()
-                                .value(*a)
-                                .unwrap()
-                                .cmp(self.term_begin.read().unwrap().value(*b).unwrap());
-                            if ord != Ordering::Equal {
-                                return ord;
+                            if let Some(ref f) = self.term_begin {
+                                let ord = f
+                                    .read()
+                                    .unwrap()
+                                    .value(*a)
+                                    .unwrap()
+                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                if ord != Ordering::Equal {
+                                    return ord;
+                                }
                             }
                         }
                         OrderKey::TermEnd => {
-                            let ord = self
-                                .term_end
-                                .read()
-                                .unwrap()
-                                .value(*a)
-                                .unwrap()
-                                .cmp(self.term_end.read().unwrap().value(*b).unwrap());
-                            if ord != Ordering::Equal {
-                                return ord;
+                            if let Some(ref f) = self.term_end {
+                                let ord = f
+                                    .read()
+                                    .unwrap()
+                                    .value(*a)
+                                    .unwrap()
+                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                if ord != Ordering::Equal {
+                                    return ord;
+                                }
                             }
                         }
                         OrderKey::LastUpdated => {
-                            let ord = self
-                                .last_updated
-                                .read()
-                                .unwrap()
-                                .value(*a)
-                                .unwrap()
-                                .cmp(self.last_updated.read().unwrap().value(*b).unwrap());
-                            if ord != Ordering::Equal {
-                                return ord;
+                            if let Some(ref f) = self.last_updated {
+                                let ord = f
+                                    .read()
+                                    .unwrap()
+                                    .value(*a)
+                                    .unwrap()
+                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                if ord != Ordering::Equal {
+                                    return ord;
+                                }
                             }
                         }
                         OrderKey::Field(field_name) => {
@@ -465,39 +509,42 @@ impl Data {
                             return b.cmp(a);
                         }
                         OrderKey::TermBegin => {
-                            let ord = self
-                                .term_begin
-                                .read()
-                                .unwrap()
-                                .value(*b)
-                                .unwrap()
-                                .cmp(self.term_begin.read().unwrap().value(*a).unwrap());
-                            if ord != Ordering::Equal {
-                                return ord;
+                            if let Some(ref f) = self.term_begin {
+                                let ord = f
+                                    .read()
+                                    .unwrap()
+                                    .value(*b)
+                                    .unwrap()
+                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                if ord != Ordering::Equal {
+                                    return ord;
+                                }
                             }
                         }
                         OrderKey::TermEnd => {
-                            let ord = self
-                                .term_end
-                                .read()
-                                .unwrap()
-                                .value(*b)
-                                .unwrap()
-                                .cmp(self.term_end.read().unwrap().value(*a).unwrap());
-                            if ord != Ordering::Equal {
-                                return ord;
+                            if let Some(ref f) = self.term_end {
+                                let ord = f
+                                    .read()
+                                    .unwrap()
+                                    .value(*b)
+                                    .unwrap()
+                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                if ord != Ordering::Equal {
+                                    return ord;
+                                }
                             }
                         }
                         OrderKey::LastUpdated => {
-                            let ord = self
-                                .last_updated
-                                .read()
-                                .unwrap()
-                                .value(*b)
-                                .unwrap()
-                                .cmp(self.last_updated.read().unwrap().value(*a).unwrap());
-                            if ord != Ordering::Equal {
-                                return ord;
+                            if let Some(ref f) = self.last_updated {
+                                let ord = f
+                                    .read()
+                                    .unwrap()
+                                    .value(*b)
+                                    .unwrap()
+                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                if ord != Ordering::Equal {
+                                    return ord;
+                                }
                             }
                         }
                         OrderKey::Field(field_name) => {
@@ -575,19 +622,27 @@ impl Data {
                 self.sort_with_iter(rows, &mut self.serial.read().unwrap().iter(), vec![])
             }
             OrderKey::Row => rows.iter().map(|&x| x).collect::<Vec<u32>>(),
-            OrderKey::TermBegin => self.sort_with_iter(
-                rows,
-                &mut self.term_begin.read().unwrap().iter(),
-                sub_orders,
-            ),
-            OrderKey::TermEnd => {
-                self.sort_with_iter(rows, &mut self.term_end.read().unwrap().iter(), sub_orders)
+            OrderKey::TermBegin => {
+                if let Some(ref f) = self.term_begin {
+                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
+                } else {
+                    rows.iter().map(|&x| x).collect::<Vec<u32>>()
+                }
             }
-            OrderKey::LastUpdated => self.sort_with_iter(
-                rows,
-                &mut self.last_updated.read().unwrap().iter(),
-                sub_orders,
-            ),
+            OrderKey::TermEnd => {
+                if let Some(ref f) = self.term_end {
+                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
+                } else {
+                    rows.iter().map(|&x| x).collect::<Vec<u32>>()
+                }
+            }
+            OrderKey::LastUpdated => {
+                if let Some(ref f) = self.term_end {
+                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
+                } else {
+                    rows.iter().map(|&x| x).collect::<Vec<u32>>()
+                }
+            }
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
                     self.sort_with_iter(rows, &mut field.read().unwrap().iter(), sub_orders)
@@ -608,21 +663,27 @@ impl Data {
                 self.sort_with_iter(rows, &mut self.serial.read().unwrap().desc_iter(), vec![])
             }
             OrderKey::Row => rows.iter().rev().map(|&x| x).collect::<Vec<u32>>(),
-            OrderKey::TermBegin => self.sort_with_iter(
-                rows,
-                &mut self.term_begin.read().unwrap().desc_iter(),
-                sub_orders,
-            ),
-            OrderKey::TermEnd => self.sort_with_iter(
-                rows,
-                &mut self.term_end.read().unwrap().desc_iter(),
-                sub_orders,
-            ),
-            OrderKey::LastUpdated => self.sort_with_iter(
-                rows,
-                &mut self.last_updated.read().unwrap().desc_iter(),
-                sub_orders,
-            ),
+            OrderKey::TermBegin => {
+                if let Some(ref f) = self.term_begin {
+                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
+                } else {
+                    rows.iter().rev().map(|&x| x).collect::<Vec<u32>>()
+                }
+            }
+            OrderKey::TermEnd => {
+                if let Some(ref f) = self.term_end {
+                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
+                } else {
+                    rows.iter().rev().map(|&x| x).collect::<Vec<u32>>()
+                }
+            }
+            OrderKey::LastUpdated => {
+                if let Some(ref f) = self.last_updated {
+                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
+                } else {
+                    rows.iter().rev().map(|&x| x).collect::<Vec<u32>>()
+                }
+            }
             OrderKey::Field(field_name) => {
                 if let Some(field) = self.field(&field_name) {
                     self.sort_with_iter(rows, &mut field.read().unwrap().desc_iter(), sub_orders)

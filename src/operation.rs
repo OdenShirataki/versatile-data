@@ -39,26 +39,36 @@ pub enum Activity {
     Inactive = 0,
     Active = 1,
 }
+impl Default for Activity {
+    fn default() -> Self {
+        Self::Active
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Term {
     Default,
     Overwrite(u64),
 }
+impl Default for Term {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+#[derive(Default)]
+pub struct Record {
+    pub activity: Activity,
+    pub term_begin: Term,
+    pub term_end: Term,
+    pub fields: Vec<KeyValue>,
+}
 
 pub enum Operation {
-    New {
-        activity: Activity,
-        term_begin: Term,
-        term_end: Term,
-        fields: Vec<KeyValue>,
-    },
+    New(Record),
     Update {
         row: u32,
-        activity: Activity,
-        term_begin: Term,
-        term_end: Term,
-        fields: Vec<KeyValue>,
+        record: Record,
     },
     Delete {
         row: u32,
