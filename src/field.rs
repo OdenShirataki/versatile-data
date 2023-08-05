@@ -1,10 +1,13 @@
 use std::{
-    io,
+    fs, io,
     ops::{Deref, DerefMut},
     path::Path,
+    sync::{Arc, RwLock},
 };
 
 use idx_binary::{DataAddress, DataAddressHolder, IdxBinary};
+
+use crate::Data;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct FieldEntity {
@@ -60,5 +63,46 @@ impl Field {
         } else {
             None
         }
+    }
+}
+
+impl Data {
+    pub fn field_names(&self) -> Vec<&String> {
+        self.fields_cache.iter().map(|(key, _)| key).collect()
+    }
+    pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
+        if let Some(f) = self.field(name) {
+            if let Some(v) = f.read().unwrap().bytes(row) {
+                v
+            } else {
+                b""
+            }
+        } else {
+            b""
+        }
+    }
+    pub fn field_num(&self, row: u32, name: &str) -> f64 {
+        if let Some(f) = self.field(name) {
+            if let Some(f) = f.read().unwrap().num(row) {
+                f
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
+    }
+
+    pub(crate) fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<Field>>> {
+        let mut fields_dir = self.fields_dir.clone();
+        fields_dir.push(field_name);
+        fs::create_dir_all(&fields_dir)?;
+        if fields_dir.exists() {
+            let field = Field::new(fields_dir)?;
+            self.fields_cache
+                .entry(String::from(field_name))
+                .or_insert(Arc::new(RwLock::new(field)));
+        }
+        Ok(self.fields_cache.get_mut(field_name).unwrap())
     }
 }

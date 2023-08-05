@@ -19,7 +19,7 @@ pub enum Number {
 #[derive(Clone, Debug)]
 pub enum Field {
     Match(Arc<Vec<u8>>),
-    Range(Arc<Vec<u8>>,Arc< Vec<u8>>),
+    Range(Arc<Vec<u8>>, Arc<Vec<u8>>),
     Min(Arc<Vec<u8>>),
     Max(Arc<Vec<u8>>),
     Forward(Arc<String>),
@@ -40,20 +40,4 @@ pub enum Condition {
     Field(String, Field),
     Narrow(Vec<Condition>),
     Wide(Vec<Condition>),
-}
-
-#[derive(Debug)]
-pub enum OrderKey {
-    Serial,
-    Row,
-    TermBegin,
-    TermEnd,
-    LastUpdated,
-    Field(String),
-}
-
-#[derive(Debug)]
-pub enum Order {
-    Asc(OrderKey),
-    Desc(OrderKey),
 }

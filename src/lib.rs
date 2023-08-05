@@ -5,17 +5,18 @@ mod operation;
 mod option;
 mod row_fragment;
 mod serial;
+mod sort;
 
 pub use field::Field;
 pub use idx_binary::{self, anyhow, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
 pub use option::DataOption;
 pub use row_fragment::RowFragment;
-pub use search::{Condition, Order, OrderKey, Search};
+pub use search::{Condition, Search};
+pub use sort::{CustomSort, Order, OrderKey};
 pub use uuid::Uuid;
 
 use std::{
-    cmp::Ordering,
     collections::{BTreeSet, HashMap},
     fs, io,
     path::{Path, PathBuf},
@@ -187,31 +188,6 @@ impl Data {
         }
         None
     }
-    pub fn field_names(&self) -> Vec<&String> {
-        self.fields_cache.iter().map(|(key, _)| key).collect()
-    }
-    pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
-        if let Some(f) = self.field(name) {
-            if let Some(v) = f.read().unwrap().bytes(row) {
-                v
-            } else {
-                b""
-            }
-        } else {
-            b""
-        }
-    }
-    pub fn field_num(&self, row: u32, name: &str) -> f64 {
-        if let Some(f) = self.field(name) {
-            if let Some(f) = f.read().unwrap().num(row) {
-                f
-            } else {
-                0.0
-            }
-        } else {
-            0.0
-        }
-    }
 
     pub fn update(&mut self, operation: &Operation) -> Result<u32> {
         match operation {
@@ -375,19 +351,6 @@ impl Data {
         Ok(())
     }
 
-    fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<Field>>> {
-        let mut fields_dir = self.fields_dir.clone();
-        fields_dir.push(field_name);
-        fs::create_dir_all(&fields_dir)?;
-        if fields_dir.exists() {
-            let field = Field::new(fields_dir)?;
-            self.fields_cache
-                .entry(String::from(field_name))
-                .or_insert(Arc::new(RwLock::new(field)));
-        }
-        Ok(self.fields_cache.get_mut(field_name).unwrap())
-    }
-
     pub fn all(&self) -> RowSet {
         self.serial
             .read()
@@ -413,281 +376,5 @@ impl Data {
     }
     pub fn search_default(&self) -> Result<Search, std::time::SystemTimeError> {
         Search::new(self).search_default()
-    }
-
-    pub fn sort(&self, rows: RowSet, orders: &[Order]) -> Vec<u32> {
-        let mut sub_orders = vec![];
-        for i in 1..orders.len() {
-            sub_orders.push(&orders[i]);
-        }
-        match &orders[0] {
-            Order::Asc(key) => self.sort_with_key(rows, key, sub_orders),
-            Order::Desc(key) => self.sort_with_key_desc(rows, key, sub_orders),
-        }
-    }
-    fn subsort(&self, tmp: Vec<u32>, sub_orders: &[&Order]) -> Vec<u32> {
-        let mut tmp = tmp;
-        tmp.sort_by(|a, b| {
-            for i in 0..sub_orders.len() {
-                match sub_orders[i] {
-                    Order::Asc(order_key) => match order_key {
-                        OrderKey::Serial => {
-                            return self
-                                .serial
-                                .read()
-                                .unwrap()
-                                .value(*a)
-                                .unwrap()
-                                .cmp(self.serial.read().unwrap().value(*b).unwrap());
-                        }
-                        OrderKey::Row => return a.cmp(b),
-                        OrderKey::TermBegin => {
-                            if let Some(ref f) = self.term_begin {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*a)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                        OrderKey::TermEnd => {
-                            if let Some(ref f) = self.term_end {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*a)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                        OrderKey::LastUpdated => {
-                            if let Some(ref f) = self.last_updated {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*a)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                        OrderKey::Field(field_name) => {
-                            if let Some(field) = self.field(&field_name) {
-                                let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(*a).unwrap(),
-                                    field.read().unwrap().bytes(*b).unwrap(),
-                                );
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                    },
-                    Order::Desc(order_key) => match order_key {
-                        OrderKey::Serial => {
-                            return self
-                                .serial
-                                .read()
-                                .unwrap()
-                                .value(*b)
-                                .unwrap()
-                                .cmp(self.serial.read().unwrap().value(*a).unwrap());
-                        }
-                        OrderKey::Row => {
-                            return b.cmp(a);
-                        }
-                        OrderKey::TermBegin => {
-                            if let Some(ref f) = self.term_begin {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*b)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                        OrderKey::TermEnd => {
-                            if let Some(ref f) = self.term_end {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*b)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                        OrderKey::LastUpdated => {
-                            if let Some(ref f) = self.last_updated {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*b)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                        OrderKey::Field(field_name) => {
-                            if let Some(field) = self.field(&field_name) {
-                                let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(*b).unwrap(),
-                                    field.read().unwrap().bytes(*a).unwrap(),
-                                );
-                                if ord != Ordering::Equal {
-                                    return ord;
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-            Ordering::Equal
-        });
-        tmp
-    }
-    fn sort_with_iter<T>(
-        &self,
-        rows: RowSet,
-        iter: &mut AvltrieeIter<T>,
-        sub_orders: Vec<&Order>,
-    ) -> Vec<u32>
-    where
-        T: PartialEq,
-    {
-        let mut ret = Vec::new();
-        if sub_orders.len() == 0 {
-            for row in iter {
-                let row = row.row();
-                if rows.contains(&row) {
-                    ret.push(row);
-                }
-            }
-        } else {
-            let mut before: Option<&T> = None;
-            let mut tmp: Vec<u32> = Vec::new();
-            for row in iter {
-                let r = row.row();
-                if rows.contains(&r) {
-                    let value = row.value();
-                    if let Some(before) = before {
-                        if before.ne(value) {
-                            if tmp.len() <= 1 {
-                                ret.extend(tmp);
-                            } else {
-                                let tmp = self.subsort(tmp, &mut sub_orders.clone());
-                                ret.extend(tmp);
-                            }
-                            tmp = vec![];
-                        }
-                    } else {
-                        ret.extend(tmp);
-                        tmp = vec![];
-                    }
-                    tmp.push(r);
-                    before = Some(value);
-                }
-            }
-            if tmp.len() <= 1 {
-                ret.extend(tmp);
-            } else {
-                let tmp = self.subsort(tmp, &mut sub_orders.clone());
-                ret.extend(tmp);
-            }
-        }
-        ret
-    }
-    fn sort_with_key(&self, rows: RowSet, key: &OrderKey, sub_orders: Vec<&Order>) -> Vec<u32> {
-        match key {
-            OrderKey::Serial => {
-                self.sort_with_iter(rows, &mut self.serial.read().unwrap().iter(), vec![])
-            }
-            OrderKey::Row => rows.iter().map(|&x| x).collect::<Vec<u32>>(),
-            OrderKey::TermBegin => {
-                if let Some(ref f) = self.term_begin {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect::<Vec<u32>>()
-                }
-            }
-            OrderKey::TermEnd => {
-                if let Some(ref f) = self.term_end {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect::<Vec<u32>>()
-                }
-            }
-            OrderKey::LastUpdated => {
-                if let Some(ref f) = self.term_end {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect::<Vec<u32>>()
-                }
-            }
-            OrderKey::Field(field_name) => {
-                if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(rows, &mut field.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.into_iter().collect()
-                }
-            }
-        }
-    }
-    fn sort_with_key_desc(
-        &self,
-        rows: RowSet,
-        key: &OrderKey,
-        sub_orders: Vec<&Order>,
-    ) -> Vec<u32> {
-        match key {
-            OrderKey::Serial => {
-                self.sort_with_iter(rows, &mut self.serial.read().unwrap().desc_iter(), vec![])
-            }
-            OrderKey::Row => rows.iter().rev().map(|&x| x).collect::<Vec<u32>>(),
-            OrderKey::TermBegin => {
-                if let Some(ref f) = self.term_begin {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect::<Vec<u32>>()
-                }
-            }
-            OrderKey::TermEnd => {
-                if let Some(ref f) = self.term_end {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect::<Vec<u32>>()
-                }
-            }
-            OrderKey::LastUpdated => {
-                if let Some(ref f) = self.last_updated {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect::<Vec<u32>>()
-                }
-            }
-            OrderKey::Field(field_name) => {
-                if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(rows, &mut field.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.into_iter().collect()
-                }
-            }
-        }
     }
 }
