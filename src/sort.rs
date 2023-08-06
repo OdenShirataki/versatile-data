@@ -110,7 +110,12 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::Custom(_) => todo!(),
+                        OrderKey::Custom(custom_order) => {
+                            let ord = custom_order.compare(*a, *b);
+                            if ord != Ordering::Equal {
+                                return ord;
+                            }
+                        }
                     },
                     Order::Desc(order_key) => match order_key {
                         OrderKey::Serial => {
