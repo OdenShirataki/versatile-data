@@ -62,29 +62,27 @@ impl<'a> Search<'a> {
     }
 
     fn search_exec(&mut self) -> Result<RowSet, SendError<RowSet>> {
-        let mut rows = RowSet::default();
-        if self.conditions.len() > 0 {
+        let conditions_count = self.conditions.len();
+        Ok(if conditions_count == 0 {
+            let mut rows = RowSet::default();
+            for row in self.data.serial.read().unwrap().iter() {
+                rows.insert(row.row());
+            }
+            rows
+        } else {
             let (tx, rx) = channel();
             for c in self.conditions.iter() {
                 let tx = tx.clone();
                 Self::search_exec_cond(self.data, c, tx)?;
             }
             drop(tx);
-            let mut fst = true;
-            for rs in rx {
-                if fst {
-                    rows = rs;
-                    fst = false;
-                } else {
-                    rows = rows.intersection(&rs).map(|&x| x).collect()
-                }
+            let mut iter = rx.iter();
+            let mut rows = iter.next().unwrap();
+            for rs in iter {
+                rows = rows.intersection(&rs).map(|&x| x).collect();
             }
-        } else {
-            for row in self.data.serial.read().unwrap().iter() {
-                rows.insert(row.row());
-            }
-        }
-        Ok(rows)
+            rows
+        })
     }
 
     fn search_exec_activity(data: &Data, condition: &Activity, tx: Sender<RowSet>) {

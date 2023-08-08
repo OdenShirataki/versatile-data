@@ -359,22 +359,5 @@ impl Data {
             .map(|r| r.row())
             .collect()
     }
-    pub fn begin_search(&self) -> Search {
-        Search::new(self)
-    }
-    pub fn search_field(&self, field_name: impl Into<String>, condition: search::Field) -> Search {
-        Search::new(self).search_field(field_name, condition)
-    }
-    pub fn search_activity(&self, condition: Activity) -> Search {
-        Search::new(self).search_activity(condition)
-    }
-    pub fn search_term(&self, condition: search::Term) -> Search {
-        Search::new(self).search_term(condition)
-    }
-    pub fn search_row(&self, condition: search::Number) -> Search {
-        Search::new(self).search_row(condition)
-    }
-    pub fn search_default(&self) -> Result<Search, std::time::SystemTimeError> {
-        Search::new(self).search_default()
-    }
+
 }

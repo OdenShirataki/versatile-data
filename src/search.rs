@@ -18,16 +18,19 @@ impl<'a> Search<'a> {
             conditions: Vec::new(),
         }
     }
-    pub fn search_default(mut self) -> Result<Self, std::time::SystemTimeError> {
+    pub fn search_default(mut self) -> Self {
         if let Some(_) = self.data.term_begin {
             self.conditions.push(Condition::Term(Term::In(
-                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
             )));
         }
         if let Some(_) = self.data.activity {
             self.conditions.push(Condition::Activity(Activity::Active));
         }
-        Ok(self)
+        self
     }
     pub fn search_field(self, field_name: impl Into<String>, condition: Field) -> Self {
         self.search(Condition::Field(field_name.into(), condition))
@@ -53,5 +56,26 @@ impl<'a> Search<'a> {
     pub fn search(mut self, condition: Condition) -> Self {
         self.conditions.push(condition);
         self
+    }
+}
+
+impl Data {
+    pub fn begin_search(&self) -> Search {
+        Search::new(self)
+    }
+    pub fn search_field(&self, field_name: impl Into<String>, condition: Field) -> Search {
+        Search::new(self).search_field(field_name, condition)
+    }
+    pub fn search_activity(&self, condition: Activity) -> Search {
+        Search::new(self).search_activity(condition)
+    }
+    pub fn search_term(&self, condition: Term) -> Search {
+        Search::new(self).search_term(condition)
+    }
+    pub fn search_row(&self, condition: Number) -> Search {
+        Search::new(self).search_row(condition)
+    }
+    pub fn search_default(&self) -> Search {
+        Search::new(self).search_default()
     }
 }

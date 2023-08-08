@@ -46,7 +46,6 @@ fn test4() {
         .unwrap();
         let r = data
             .search_default()
-            .unwrap()
             .result_with_sort(vec![Order::Asc(OrderKey::Serial)]);
         println!("{:?}", r);
     }
@@ -61,7 +60,6 @@ fn test4() {
         .unwrap();
         let r = data
             .search_default()
-            .unwrap()
             .result_with_sort(vec![Order::Asc(OrderKey::Serial)]);
         println!("{:?}", r);
     }
