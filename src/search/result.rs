@@ -1,10 +1,12 @@
 use std::{
     sync::{
         mpsc::{channel, SendError, Sender},
-        Arc,
+        Arc, RwLock,
     },
     thread::spawn,
 };
+
+use futures::{executor::block_on, future, Future};
 
 use crate::{Activity, Condition, Data, Order, RowSet, Search};
 
@@ -231,7 +233,6 @@ impl<'a> Search<'a> {
     fn search_exec_field(data: &Data, field_name: &str, condition: &Field, tx: Sender<RowSet>) {
         if let Some(field) = data.field(field_name) {
             let field = Arc::clone(&field);
-            let mut r: RowSet = RowSet::default();
             match condition {
                 Field::Match(v) => {
                     let v = Arc::clone(&v);
@@ -250,7 +251,6 @@ impl<'a> Search<'a> {
                     let min = Arc::clone(&min);
                     spawn(move || {
                         let field = field.read().unwrap();
-
                         tx.send(
                             field
                                 .iter_from(|data| field.cmp(data, &min))
@@ -278,7 +278,6 @@ impl<'a> Search<'a> {
                     let max = Arc::clone(&max);
                     spawn(move || {
                         let field = field.read().unwrap();
-
                         tx.send(
                             field
                                 .iter_range(
@@ -294,110 +293,148 @@ impl<'a> Search<'a> {
                 Field::Forward(cont) => {
                     let cont = Arc::clone(&cont);
                     spawn(move || {
-                        let len = cont.len();
-                        for row in field.read().unwrap().iter() {
-                            let data = row.value();
-                            let row = row.row();
-                            if len as u64 <= data.data_address().len() {
-                                if let Some(bytes2) = field.read().unwrap().bytes(row) {
-                                    if bytes2.starts_with(cont.as_bytes()) {
-                                        r.insert(row);
-                                    }
-                                }
-                            }
-                        }
-                        tx.send(r).unwrap();
+                        Self::field_result(field, cont, Self::forward, tx);
                     });
                 }
                 Field::Partial(cont) => {
                     let cont = Arc::clone(&cont);
                     spawn(move || {
-                        let len = cont.len();
-                        for row in field.read().unwrap().iter() {
-                            let data = row.value();
-                            let row = row.row();
-                            if len as u64 <= data.data_address().len() {
-                                if let Some(bytes2) = field.read().unwrap().bytes(row) {
-                                    let bytes = cont.as_bytes();
-                                    if let Some(_) =
-                                        bytes2.windows(len).position(|window| window == bytes)
-                                    {
-                                        r.insert(row);
-                                    }
-                                }
-                            }
-                        }
-                        tx.send(r).unwrap();
+                        Self::field_result(field, cont, Self::partial, tx);
                     });
                 }
                 Field::Backward(cont) => {
                     let cont = Arc::clone(&cont);
                     spawn(move || {
-                        let len = cont.len();
-                        for row in field.read().unwrap().iter() {
-                            let data = row.value();
-                            let row = row.row();
-                            if len as u64 <= data.data_address().len() {
-                                if let Some(bytes2) = field.read().unwrap().bytes(row) {
-                                    if bytes2.ends_with(cont.as_bytes()) {
-                                        r.insert(row);
-                                    }
-                                }
-                            }
-                        }
-                        tx.send(r).unwrap();
+                        Self::field_result(field, cont, Self::backward, tx);
                     });
                 }
                 Field::ValueForward(cont) => {
                     let cont = Arc::clone(&cont);
                     spawn(move || {
-                        for row in field.read().unwrap().iter() {
-                            let row = row.row();
-                            if let Some(bytes) = field.read().unwrap().bytes(row) {
-                                if cont.as_bytes().starts_with(bytes) {
-                                    r.insert(row);
-                                }
-                            }
-                        }
-                        tx.send(r).unwrap();
+                        Self::field_result(field, cont, Self::value_forward, tx);
                     });
                 }
                 Field::ValuePartial(cont) => {
                     let cont = Arc::clone(&cont);
                     spawn(move || {
-                        for row in field.read().unwrap().iter() {
-                            let row = row.row();
-                            if let Some(bytes) = field.read().unwrap().bytes(row) {
-                                let len = bytes.len();
-                                if let Some(_) = cont
-                                    .as_bytes()
-                                    .windows(len)
-                                    .position(|window| window == bytes)
-                                {
-                                    r.insert(row);
-                                }
-                            }
-                        }
-                        tx.send(r).unwrap();
+                        Self::field_result(field, cont, Self::value_partial, tx);
                     });
                 }
                 Field::ValueBackward(cont) => {
                     let cont = Arc::clone(&cont);
                     spawn(move || {
-                        for row in field.read().unwrap().iter() {
-                            let row = row.row();
-                            if let Some(bytes) = field.read().unwrap().bytes(row) {
-                                if cont.as_bytes().ends_with(bytes) {
-                                    r.insert(row);
-                                }
-                            }
-                        }
-                        tx.send(r).unwrap();
+                        Self::field_result(field, cont, Self::value_backward, tx);
                     });
                 }
             }
         }
     }
+    fn field_result<Fut>(
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+        func: fn(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> Fut,
+        tx: Sender<RowSet>,
+    ) where
+        Fut: Future<Output = (u32, bool)>,
+    {
+        let mut rows: RowSet = RowSet::default();
+        let mut fs = vec![];
+        for row in field.read().unwrap().iter() {
+            fs.push(func(row.row(), Arc::clone(&field), Arc::clone(&cont)));
+        }
+        let mut fs: Vec<_> = fs.into_iter().map(Box::pin).collect();
+        block_on(async {
+            while !fs.is_empty() {
+                let (val, _index, remaining) = future::select_all(fs).await;
+                if val.1 {
+                    rows.insert(val.0);
+                }
+                fs = remaining;
+            }
+        });
+        tx.send(rows).unwrap();
+    }
+    async fn forward(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
+        let mut ret = false;
+        if let Some(bytes) = field.read().unwrap().bytes(row) {
+            if bytes.starts_with(cont.as_bytes()) {
+                ret = true;
+            }
+        }
+        (row, ret)
+    }
+    async fn partial(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
+        let mut ret = false;
+        if let Some(bytes) = field.read().unwrap().bytes(row) {
+            let len = bytes.len();
+            if let Some(_) = cont
+                .as_bytes()
+                .windows(len)
+                .position(|window| window == bytes)
+            {
+                ret = true;
+            }
+        }
+        (row, ret)
+    }
+    async fn backward(
+        row: u32,
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+    ) -> (u32, bool) {
+        let mut ret = false;
+        if let Some(bytes) = field.read().unwrap().bytes(row) {
+            if bytes.ends_with(cont.as_bytes()) {
+                ret = true;
+            }
+        }
+        (row, ret)
+    }
+    async fn value_forward(
+        row: u32,
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+    ) -> (u32, bool) {
+        let mut ret = false;
+        if let Some(bytes) = field.read().unwrap().bytes(row) {
+            if cont.as_bytes().starts_with(bytes) {
+                ret = true;
+            }
+        }
+        (row, ret)
+    }
+    async fn value_partial(
+        row: u32,
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+    ) -> (u32, bool) {
+        let mut ret = false;
+        if let Some(bytes) = field.read().unwrap().bytes(row) {
+            let len = bytes.len();
+            if let Some(_) = cont
+                .as_bytes()
+                .windows(len)
+                .position(|window| window == bytes)
+            {
+                ret = true;
+            }
+        }
+        (row, ret)
+    }
+    async fn value_backward(
+        row: u32,
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+    ) -> (u32, bool) {
+        let mut ret = false;
+        if let Some(bytes) = field.read().unwrap().bytes(row) {
+            if cont.as_bytes().ends_with(bytes) {
+                ret = true;
+            }
+        }
+        (row, ret)
+    }
+
     fn search_exec_last_updated(data: &Data, condition: &Number, tx: Sender<RowSet>) {
         if let Some(ref f) = data.last_updated {
             let index = Arc::clone(f);
