@@ -356,6 +356,7 @@ impl<'a> Search<'a> {
     }
     async fn forward(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
         let mut ret = false;
+
         if let Some(bytes) = field.read().unwrap().bytes(row) {
             if bytes.starts_with(cont.as_bytes()) {
                 ret = true;
@@ -365,14 +366,14 @@ impl<'a> Search<'a> {
     }
     async fn partial(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
         let mut ret = false;
+
         if let Some(bytes) = field.read().unwrap().bytes(row) {
-            let len = bytes.len();
-            if let Some(_) = cont
-                .as_bytes()
-                .windows(len)
-                .position(|window| window == bytes)
-            {
-                ret = true;
+            let len = cont.len();
+            if len <= bytes.len() {
+                let cont_bytes = cont.as_bytes();
+                if let Some(_) = bytes.windows(len).position(|window| window == cont_bytes) {
+                    ret = true;
+                }
             }
         }
         (row, ret)
@@ -383,6 +384,7 @@ impl<'a> Search<'a> {
         cont: Arc<String>,
     ) -> (u32, bool) {
         let mut ret = false;
+
         if let Some(bytes) = field.read().unwrap().bytes(row) {
             if bytes.ends_with(cont.as_bytes()) {
                 ret = true;
