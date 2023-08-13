@@ -1,5 +1,5 @@
 use std::{
-    fs, io,
+    fs,
     ops::{Deref, DerefMut},
     path::Path,
     sync::{Arc, RwLock},
@@ -51,10 +51,10 @@ impl DerefMut for Field {
 }
 
 impl Field {
-    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        Ok(Self {
-            index: IdxBinary::new(path)?,
-        })
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Self {
+            index: IdxBinary::new(path),
+        }
     }
 
     pub fn num(&self, row: u32) -> Option<f64> {
@@ -93,16 +93,16 @@ impl Data {
         }
     }
 
-    pub(crate) fn create_field(&mut self, field_name: &str) -> io::Result<&mut Arc<RwLock<Field>>> {
+    pub(crate) fn create_field(&mut self, field_name: &str) -> &mut Arc<RwLock<Field>> {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);
-        fs::create_dir_all(&fields_dir)?;
+        fs::create_dir_all(&fields_dir).unwrap();
         if fields_dir.exists() {
-            let field = Field::new(fields_dir)?;
+            let field = Field::new(fields_dir);
             self.fields_cache
                 .entry(String::from(field_name))
                 .or_insert(Arc::new(RwLock::new(field)));
         }
-        Ok(self.fields_cache.get_mut(field_name).unwrap())
+        self.fields_cache.get_mut(field_name).unwrap()
     }
 }

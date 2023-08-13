@@ -8,7 +8,7 @@ mod serial;
 mod sort;
 
 pub use field::Field;
-pub use idx_binary::{self, anyhow, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
+pub use idx_binary::{self, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
 pub use option::DataOption;
 pub use row_fragment::RowFragment;
@@ -16,16 +16,14 @@ pub use search::{Condition, Search};
 pub use sort::{CustomSort, Order, OrderKey};
 pub use uuid::Uuid;
 
+use serial::SerialNumber;
 use std::{
     collections::{BTreeSet, HashMap},
-    fs, io,
+    fs,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
-
-use anyhow::Result;
-use serial::SerialNumber;
 
 pub type RowSet = BTreeSet<u32>;
 
@@ -47,21 +45,21 @@ pub struct Data {
     fields_cache: HashMap<String, Arc<RwLock<Field>>>,
 }
 impl Data {
-    pub fn new<P: AsRef<Path>>(dir: P, option: DataOption) -> io::Result<Self> {
+    pub fn new<P: AsRef<Path>>(dir: P, option: DataOption) -> Self {
         let dir = dir.as_ref();
         if !dir.exists() {
-            fs::create_dir_all(dir)?;
+            fs::create_dir_all(dir).unwrap();
         }
 
         let mut fields_cache = HashMap::new();
         let mut fields_dir = dir.to_path_buf();
         fields_dir.push("fields");
         if fields_dir.exists() {
-            for d in fields_dir.read_dir()? {
-                let d = d?;
-                if d.file_type()?.is_dir() {
+            for d in fields_dir.read_dir().unwrap() {
+                let d = d.unwrap();
+                if d.file_type().unwrap().is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
-                        let field = Field::new(d.path())?;
+                        let field = Field::new(d.path());
                         fields_cache
                             .entry(String::from(fname))
                             .or_insert(Arc::new(RwLock::new(field)));
@@ -69,19 +67,19 @@ impl Data {
                 }
             }
         }
-        Ok(Self {
+        Self {
             fields_dir,
             serial: Arc::new(RwLock::new(SerialNumber::new({
                 let mut path = dir.to_path_buf();
                 path.push("serial");
                 path
-            })?)),
+            }))),
             uuid: if option.uuid {
                 Some(Arc::new(RwLock::new(IdxFile::new({
                     let mut path = dir.to_path_buf();
                     path.push("uuid.i");
                     path
-                })?)))
+                }))))
             } else {
                 None
             },
@@ -90,7 +88,7 @@ impl Data {
                     let mut path = dir.to_path_buf();
                     path.push("activity.i");
                     path
-                })?)))
+                }))))
             } else {
                 None
             },
@@ -99,7 +97,7 @@ impl Data {
                     let mut path = dir.to_path_buf();
                     path.push("term_begin.i");
                     path
-                })?)))
+                }))))
             } else {
                 None
             },
@@ -108,7 +106,7 @@ impl Data {
                     let mut path = dir.to_path_buf();
                     path.push("term_end.i");
                     path
-                })?)))
+                }))))
             } else {
                 None
             },
@@ -117,12 +115,12 @@ impl Data {
                     let mut path = dir.to_path_buf();
                     path.push("last_updated.i");
                     path
-                })?)))
+                }))))
             } else {
                 None
             },
             fields_cache,
-        })
+        }
     }
 
     pub fn exists(&self, row: u32) -> bool {
@@ -189,7 +187,7 @@ impl Data {
         None
     }
 
-    pub fn update(&mut self, operation: &Operation) -> Result<u32> {
+    pub fn update(&mut self, operation: &Operation) -> u32 {
         match operation {
             Operation::New(r) => {
                 self.create_row(&r.activity, &r.term_begin, &r.term_end, &r.fields)
@@ -202,25 +200,23 @@ impl Data {
                     &record.term_begin,
                     &record.term_end,
                     &record.fields,
-                )?;
-                Ok(row)
+                );
+                row
             }
             Operation::Delete { row } => {
-                self.delete(*row)?;
-                Ok(0)
+                self.delete(*row);
+                0
             }
         }
     }
 
-    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) -> Result<()> {
+    pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {
-            self.create_field(field_name)?
+            self.create_field(field_name)
         };
-        field.write().unwrap().update(row, cont)?;
-
-        Ok(())
+        field.write().unwrap().update(row, cont);
     }
 
     pub fn create_row(
@@ -229,11 +225,11 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> Result<u32> {
-        let row = self.serial.write().unwrap().next_row()?;
+    ) -> u32 {
+        let row = self.serial.write().unwrap().next_row();
 
         if let Some(ref uuid) = self.uuid {
-            uuid.write().unwrap().update(row, create_uuid())?; //recycled serial_number,uuid recreate.
+            uuid.write().unwrap().update(row, create_uuid()); //recycled serial_number,uuid recreate.
         }
 
         self.update_common(row, activity, term_begin, term_end, fields)
@@ -246,25 +242,24 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> Result<()> {
+    ) {
         if self.exists(row) {
-            self.update_common(row, activity, term_begin, term_end, fields)?;
+            self.update_common(row, activity, term_begin, term_end, fields);
         }
-        Ok(())
     }
 
     fn field(&self, name: &str) -> Option<&Arc<RwLock<Field>>> {
         self.fields_cache.get(name)
     }
-    fn load_fields(&mut self) -> io::Result<()> {
+    fn load_fields(&mut self) {
         if self.fields_dir.exists() {
-            for p in self.fields_dir.read_dir()? {
-                let p = p?;
+            for p in self.fields_dir.read_dir().unwrap() {
+                let p = p.unwrap();
                 let path = p.path();
                 if path.is_dir() {
                     if let Some(str_fname) = p.file_name().to_str() {
                         if !self.fields_cache.contains_key(str_fname) {
-                            let field = Field::new(path)?;
+                            let field = Field::new(path);
                             self.fields_cache
                                 .entry(String::from(str_fname))
                                 .or_insert(Arc::new(RwLock::new(field)));
@@ -273,7 +268,6 @@ impl Data {
                 }
             }
         }
-        Ok(())
     }
 
     fn update_common(
@@ -283,19 +277,29 @@ impl Data {
         term_begin: &Term,
         term_end: &Term,
         fields: &Vec<KeyValue>,
-    ) -> Result<u32> {
+    ) -> u32 {
         if let Some(ref f) = self.activity {
-            f.write().unwrap().update(row, *activity as u8)?;
+            f.write().unwrap().update(row, *activity as u8);
         }
+        /*
+        let mut fs = vec![];
+        fs.push(async {
+            if let Some(ref f) = self.activity {
+                f.write().unwrap().update(row, *activity as u8)?;
+            }
+        }); */
         if let Some(ref f) = self.term_begin {
             f.write().unwrap().update(
                 row,
                 if let Term::Overwrite(term) = term_begin {
                     *term
                 } else {
-                    SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
                 },
-            )?;
+            );
         }
         if let Some(ref f) = self.term_end {
             f.write().unwrap().update(
@@ -305,50 +309,53 @@ impl Data {
                 } else {
                     0
                 },
-            )?;
+            );
         }
         for kv in fields.iter() {
             let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
             } else {
-                self.create_field(&kv.key)?
+                self.create_field(&kv.key)
             };
-            field.write().unwrap().update(row, &kv.value)?;
+            field.write().unwrap().update(row, &kv.value);
         }
         if let Some(ref f) = self.last_updated {
-            Ok(f.write()
-                .unwrap()
-                .update(row, SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?)
+            f.write().unwrap().update(
+                row,
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            )
         } else {
-            Ok(row)
+            row
         }
     }
 
-    fn delete(&mut self, row: u32) -> io::Result<()> {
+    fn delete(&mut self, row: u32) {
         if self.exists(row) {
-            self.serial.write().unwrap().delete(row)?;
+            self.serial.write().unwrap().delete(row);
             if let Some(ref f) = self.uuid {
-                f.write().unwrap().delete(row)?;
+                f.write().unwrap().delete(row);
             }
             if let Some(ref f) = self.activity {
-                f.write().unwrap().delete(row)?;
+                f.write().unwrap().delete(row);
             }
             if let Some(ref f) = self.term_begin {
-                f.write().unwrap().delete(row)?;
+                f.write().unwrap().delete(row);
             }
             if let Some(ref f) = self.term_end {
-                f.write().unwrap().delete(row)?;
+                f.write().unwrap().delete(row);
             }
             if let Some(ref f) = self.last_updated {
-                f.write().unwrap().delete(row)?;
+                f.write().unwrap().delete(row);
             }
 
-            self.load_fields()?;
+            self.load_fields();
             for (_, v) in self.fields_cache.iter() {
-                v.write().unwrap().delete(row)?;
+                v.write().unwrap().delete(row);
             }
         }
-        Ok(())
     }
 
     pub fn all(&self) -> RowSet {
@@ -359,5 +366,4 @@ impl Data {
             .map(|r| r.row())
             .collect()
     }
-
 }
