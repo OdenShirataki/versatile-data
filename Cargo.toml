@@ -1,6 +1,6 @@
 [package]
 name = "versatile-data"
-version = "0.83.0"
+version = "0.83.1"
 edition = "2021"
 
 authors = ["Oden Shirataki <oden.srtk@gmail.com>"]

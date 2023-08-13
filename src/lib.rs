@@ -22,6 +22,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
+    thread,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -278,83 +279,116 @@ impl Data {
         term_end: &Term,
         fields: &Vec<KeyValue>,
     ) -> u32 {
-        if let Some(ref f) = self.activity {
-            f.write().unwrap().update(row, *activity as u8);
-        }
-        /*
-        let mut fs = vec![];
-        fs.push(async {
-            if let Some(ref f) = self.activity {
-                f.write().unwrap().update(row, *activity as u8)?;
-            }
-        }); */
-        if let Some(ref f) = self.term_begin {
-            f.write().unwrap().update(
-                row,
-                if let Term::Overwrite(term) = term_begin {
-                    *term
-                } else {
+        if let Some(ref f) = self.last_updated {
+            let f = Arc::clone(f);
+            thread::spawn(move || {
+                f.write().unwrap().update(
+                    row,
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
-                        .as_secs()
-                },
-            );
+                        .as_secs(),
+                );
+            });
         }
-        if let Some(ref f) = self.term_end {
-            f.write().unwrap().update(
-                row,
-                if let Term::Overwrite(term) = term_end {
-                    *term
-                } else {
-                    0
-                },
-            );
-        }
+
         for kv in fields.iter() {
             let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
             } else {
                 self.create_field(&kv.key)
             };
-            field.write().unwrap().update(row, &kv.value);
+            let field = Arc::clone(field);
+            let kv = kv.clone();
+            thread::spawn(move || {
+                field.write().unwrap().update(row, &kv.value);
+            });
         }
-        if let Some(ref f) = self.last_updated {
-            f.write().unwrap().update(
-                row,
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-            )
-        } else {
-            row
+
+        if let Some(ref f) = self.activity {
+            let f = Arc::clone(f);
+            let activity = *activity as u8;
+            thread::spawn(move || {
+                f.write().unwrap().update(row, activity);
+            });
         }
+        if let Some(ref f) = self.term_begin {
+            let f = Arc::clone(f);
+            let term_begin = term_begin.clone();
+            thread::spawn(move || {
+                f.write().unwrap().update(
+                    row,
+                    if let Term::Overwrite(term) = term_begin {
+                        term
+                    } else {
+                        SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                    },
+                );
+            });
+        }
+        if let Some(ref f) = self.term_end {
+            let f = Arc::clone(f);
+            let term_end = term_end.clone();
+            thread::spawn(move || {
+                f.write().unwrap().update(
+                    row,
+                    if let Term::Overwrite(term) = term_end {
+                        term
+                    } else {
+                        0
+                    },
+                );
+            });
+        }
+
+        row
     }
 
     fn delete(&mut self, row: u32) {
         if self.exists(row) {
-            self.serial.write().unwrap().delete(row);
-            if let Some(ref f) = self.uuid {
-                f.write().unwrap().delete(row);
-            }
-            if let Some(ref f) = self.activity {
-                f.write().unwrap().delete(row);
-            }
-            if let Some(ref f) = self.term_begin {
-                f.write().unwrap().delete(row);
-            }
-            if let Some(ref f) = self.term_end {
-                f.write().unwrap().delete(row);
-            }
-            if let Some(ref f) = self.last_updated {
-                f.write().unwrap().delete(row);
-            }
-
             self.load_fields();
             for (_, v) in self.fields_cache.iter() {
-                v.write().unwrap().delete(row);
+                let v = Arc::clone(v);
+                thread::spawn(move || {
+                    v.write().unwrap().delete(row);
+                });
             }
+
+            if let Some(ref f) = self.uuid {
+                let f = Arc::clone(f);
+                thread::spawn(move || {
+                    f.write().unwrap().delete(row);
+                });
+            }
+            if let Some(ref f) = self.activity {
+                let f = Arc::clone(f);
+                thread::spawn(move || {
+                    f.write().unwrap().delete(row);
+                });
+            }
+            if let Some(ref f) = self.term_begin {
+                let f = Arc::clone(f);
+                thread::spawn(move || {
+                    f.write().unwrap().delete(row);
+                });
+            }
+            if let Some(ref f) = self.term_end {
+                let f = Arc::clone(f);
+                thread::spawn(move || {
+                    f.write().unwrap().delete(row);
+                });
+            }
+            if let Some(ref f) = self.last_updated {
+                let f = Arc::clone(f);
+                thread::spawn(move || {
+                    f.write().unwrap().delete(row);
+                });
+            }
+
+            self.serial.write().unwrap().delete(row);
         }
     }
 
