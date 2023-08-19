@@ -349,6 +349,11 @@ impl Data {
 
     fn delete(&mut self, row: u32) {
         if self.exists(row) {
+            let f = Arc::clone(&self.serial);
+            thread::spawn(move || {
+                f.write().unwrap().delete(row);
+            });
+
             self.load_fields();
             for (_, v) in self.fields_cache.iter() {
                 let v = Arc::clone(v);
@@ -387,8 +392,6 @@ impl Data {
                     f.write().unwrap().delete(row);
                 });
             }
-
-            self.serial.write().unwrap().delete(row);
         }
     }
 
