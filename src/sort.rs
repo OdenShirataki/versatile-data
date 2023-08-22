@@ -35,20 +35,17 @@ pub enum Order {
 
 impl Data {
     pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<u32> {
-        let mut sub_orders = vec![];
-        for i in 1..orders.len() {
-            sub_orders.push(&orders[i]);
-        }
+        let sub_orders = &orders[1..];
         match &orders[0] {
             Order::Asc(key) => self.sort_with_key(rows, key, sub_orders),
             Order::Desc(key) => self.sort_with_key_desc(rows, key, sub_orders),
         }
     }
-    fn subsort(&self, tmp: Vec<u32>, sub_orders: &[&Order]) -> Vec<u32> {
+    fn subsort(&self, tmp: Vec<u32>, sub_orders: &[Order]) -> Vec<u32> {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
             for i in 0..sub_orders.len() {
-                match sub_orders[i] {
+                match &sub_orders[i] {
                     Order::Asc(order_key) => match order_key {
                         OrderKey::Serial => {
                             return self
@@ -197,20 +194,24 @@ impl Data {
         &self,
         rows: &RowSet,
         iter: &mut AvltrieeIter<T>,
-        sub_orders: Vec<&Order>,
+        sub_orders: &[Order],
     ) -> Vec<u32>
     where
         T: PartialEq,
     {
-        let mut ret = Vec::new();
         if sub_orders.len() == 0 {
-            for row in iter {
-                let row = row.row();
+            iter.filter_map(|x| {
+                let row = x.row();
                 if rows.contains(&row) {
-                    ret.push(row);
+                    Some(row)
+                } else {
+                    None
                 }
-            }
+            })
+            .collect()
         } else {
+            let mut ret = Vec::new();
+
             let mut before: Option<&T> = None;
             let mut tmp: Vec<u32> = Vec::new();
             for row in iter {
@@ -219,12 +220,11 @@ impl Data {
                     let value = row.value();
                     if let Some(before) = before {
                         if before.ne(value) {
-                            if tmp.len() <= 1 {
-                                ret.extend(tmp);
+                            ret.extend(if tmp.len() <= 1 {
+                                tmp
                             } else {
-                                let tmp = self.subsort(tmp, &mut sub_orders.clone());
-                                ret.extend(tmp);
-                            }
+                                self.subsort(tmp, sub_orders)
+                            });
                             tmp = vec![];
                         }
                     } else {
@@ -235,19 +235,18 @@ impl Data {
                     before = Some(value);
                 }
             }
-            if tmp.len() <= 1 {
-                ret.extend(tmp);
+            ret.extend(if tmp.len() <= 1 {
+                tmp
             } else {
-                let tmp = self.subsort(tmp, &mut sub_orders.clone());
-                ret.extend(tmp);
-            }
+                self.subsort(tmp, sub_orders)
+            });
+            ret
         }
-        ret
     }
-    fn sort_with_key(&self, rows: &RowSet, key: &OrderKey, sub_orders: Vec<&Order>) -> Vec<u32> {
+    fn sort_with_key(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
         match key {
             OrderKey::Serial => {
-                self.sort_with_iter(rows, &mut self.serial.read().unwrap().iter(), vec![])
+                self.sort_with_iter(rows, &mut self.serial.read().unwrap().iter(), &vec![])
             }
             OrderKey::Row => rows.iter().map(|&x| x).collect(),
             OrderKey::TermBegin => {
@@ -281,15 +280,10 @@ impl Data {
             OrderKey::Custom(custom_order) => custom_order.asc(),
         }
     }
-    fn sort_with_key_desc(
-        &self,
-        rows: &RowSet,
-        key: &OrderKey,
-        sub_orders: Vec<&Order>,
-    ) -> Vec<u32> {
+    fn sort_with_key_desc(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
         match key {
             OrderKey::Serial => {
-                self.sort_with_iter(rows, &mut self.serial.read().unwrap().desc_iter(), vec![])
+                self.sort_with_iter(rows, &mut self.serial.read().unwrap().desc_iter(), &vec![])
             }
             OrderKey::Row => rows.iter().rev().map(|&x| x).collect(),
             OrderKey::TermBegin => {
