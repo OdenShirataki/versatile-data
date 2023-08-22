@@ -18,10 +18,10 @@ pub enum Number {
 
 #[derive(Clone, Debug)]
 pub enum Field {
-    Match(Arc<Vec<u8>>),
-    Range(Arc<Vec<u8>>, Arc<Vec<u8>>),
-    Min(Arc<Vec<u8>>),
-    Max(Arc<Vec<u8>>),
+    Match(Vec<u8>),
+    Range(Vec<u8>, Vec<u8>),
+    Min(Vec<u8>),
+    Max(Vec<u8>),
     Forward(Arc<String>),
     Partial(Arc<String>),
     Backward(Arc<String>),
