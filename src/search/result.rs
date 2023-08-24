@@ -9,7 +9,11 @@ use super::{Field, Number, Term};
 
 impl<'a> Search<'a> {
     pub fn result(&mut self) -> RowSet {
-        block_on(async { Self::search_exec(&self.data, &self.conditions).await })
+        if self.conditions.len() > 0 {
+            block_on(async { Self::result_async(&self.data, &self.conditions).await })
+        } else {
+            self.data.all()
+        }
     }
     pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<u32> {
         let rows = self.result();
@@ -17,7 +21,7 @@ impl<'a> Search<'a> {
     }
 
     #[async_recursion]
-    pub async fn search_exec_cond(data: &Data, condition: &Condition) -> RowSet {
+    pub async fn result_condition(data: &Data, condition: &Condition) -> RowSet {
         match condition {
             Condition::Activity(condition) => {
                 if let Some(ref index) = data.activity {
@@ -32,13 +36,13 @@ impl<'a> Search<'a> {
                     unreachable!();
                 }
             }
-            Condition::Term(condition) => Self::search_exec_term(data, condition),
+            Condition::Term(condition) => Self::result_term(data, condition),
             Condition::Field(field_name, condition) => {
                 Self::search_exec_field(data, field_name, condition).await
             }
-            Condition::Row(condition) => Self::search_exec_row(data, condition),
-            Condition::LastUpdated(condition) => Self::search_exec_last_updated(data, condition),
-            Condition::Uuid(uuid) => Self::search_exec_uuid(data, uuid),
+            Condition::Row(condition) => Self::result_row(data, condition),
+            Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
+            Condition::Uuid(uuid) => Self::result_uuid(data, uuid),
             Condition::Narrow(conditions) => {
                 let mut new_search = Search::new(data);
                 for c in conditions {
@@ -48,11 +52,10 @@ impl<'a> Search<'a> {
             }
             Condition::Wide(conditions) => {
                 let mut rows = RowSet::default();
-
-                let mut fs = vec![];
-                for c in conditions {
-                    fs.push(Self::search_exec_cond(data, c));
-                }
+                let mut fs: Vec<_> = conditions
+                    .iter()
+                    .map(|c| Self::result_condition(data, c))
+                    .collect();
                 while !fs.is_empty() {
                     let (ret, _index, remaining) = future::select_all(fs).await;
                     rows.extend(ret);
@@ -64,10 +67,10 @@ impl<'a> Search<'a> {
         }
     }
 
-    async fn search_exec(data: &Data, conditions: &Vec<Condition>) -> RowSet {
+    async fn result_async(data: &Data, conditions: &Vec<Condition>) -> RowSet {
         let mut fs: Vec<_> = conditions
             .iter()
-            .map(|c| Self::search_exec_cond(data, c))
+            .map(|c| Self::result_condition(data, c))
             .collect();
         let (ret, _index, remaining) = future::select_all(fs).await;
         let mut rows = ret;
@@ -81,7 +84,7 @@ impl<'a> Search<'a> {
         rows
     }
 
-    fn search_exec_term(data: &Data, condition: &Term) -> RowSet {
+    fn result_term(data: &Data, condition: &Term) -> RowSet {
         match condition {
             Term::In(base) => {
                 if let Some(ref term_begin) = data.term_begin {
@@ -135,7 +138,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    fn search_exec_row(data: &Data, condition: &Number) -> RowSet {
+    fn result_row(data: &Data, condition: &Number) -> RowSet {
         match condition {
             Number::Min(row) => {
                 let row = *row;
@@ -351,7 +354,7 @@ impl<'a> Search<'a> {
         (row, ret)
     }
 
-    fn search_exec_last_updated(data: &Data, condition: &Number) -> RowSet {
+    fn result_last_updated(data: &Data, condition: &Number) -> RowSet {
         if let Some(ref f) = data.last_updated {
             let index = Arc::clone(f);
             match condition {
@@ -404,7 +407,7 @@ impl<'a> Search<'a> {
             unreachable!();
         }
     }
-    fn search_exec_uuid(data: &Data, uuids: &Vec<u128>) -> RowSet {
+    fn result_uuid(data: &Data, uuids: &Vec<u128>) -> RowSet {
         if let Some(ref index) = data.uuid {
             let mut r = RowSet::default();
             for uuid in uuids {
