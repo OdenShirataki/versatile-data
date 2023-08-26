@@ -68,6 +68,7 @@ impl Data {
                 }
             }
         }
+
         Self {
             fields_dir,
             serial: Arc::new(RwLock::new(SerialNumber::new({
@@ -75,117 +76,84 @@ impl Data {
                 path.push("serial");
                 path
             }))),
-            uuid: if option.uuid {
-                Some(Arc::new(RwLock::new(IdxFile::new({
-                    let mut path = dir.to_path_buf();
-                    path.push("uuid.i");
-                    path
-                }))))
-            } else {
-                None
-            },
-            activity: if option.activity {
-                Some(Arc::new(RwLock::new(IdxFile::new({
+            uuid: option.uuid.then_some(Arc::new(RwLock::new(IdxFile::new({
+                let mut path = dir.to_path_buf();
+                path.push("uuid.i");
+                path
+            })))),
+            activity: option
+                .activity
+                .then_some(Arc::new(RwLock::new(IdxFile::new({
                     let mut path = dir.to_path_buf();
                     path.push("activity.i");
                     path
-                }))))
-            } else {
-                None
-            },
-            term_begin: if option.term {
-                Some(Arc::new(RwLock::new(IdxFile::new({
-                    let mut path = dir.to_path_buf();
-                    path.push("term_begin.i");
-                    path
-                }))))
-            } else {
-                None
-            },
-            term_end: if option.term {
-                Some(Arc::new(RwLock::new(IdxFile::new({
-                    let mut path = dir.to_path_buf();
-                    path.push("term_end.i");
-                    path
-                }))))
-            } else {
-                None
-            },
-            last_updated: if option.last_updated {
-                Some(Arc::new(RwLock::new(IdxFile::new({
+                })))),
+            term_begin: option.term.then_some(Arc::new(RwLock::new(IdxFile::new({
+                let mut path = dir.to_path_buf();
+                path.push("term_begin.i");
+                path
+            })))),
+            term_end: option.term.then_some(Arc::new(RwLock::new(IdxFile::new({
+                let mut path = dir.to_path_buf();
+                path.push("term_end.i");
+                path
+            })))),
+            last_updated: option
+                .last_updated
+                .then_some(Arc::new(RwLock::new(IdxFile::new({
                     let mut path = dir.to_path_buf();
                     path.push("last_updated.i");
                     path
-                }))))
-            } else {
-                None
-            },
+                })))),
             fields_cache,
         }
     }
 
     pub fn exists(&self, row: u32) -> bool {
-        self.serial.read().unwrap().value(row) != None
+        self.serial.read().unwrap().value(row).is_some()
     }
 
     pub fn serial(&self, row: u32) -> u32 {
-        if let Some(v) = self.serial.read().unwrap().value(row) {
-            *v
-        } else {
-            0
-        }
+        self.serial.read().unwrap().value(row).copied().unwrap_or(0)
     }
     pub fn uuid(&self, row: u32) -> Option<u128> {
-        if let Some(ref uuid) = self.uuid {
-            if let Some(v) = uuid.read().unwrap().value(row) {
-                return Some(*v);
-            }
-        }
-        None
+        self.uuid
+            .as_ref()
+            .and_then(|uuid| uuid.read().unwrap().value(row).copied())
     }
     pub fn uuid_string(&self, row: u32) -> Option<String> {
-        if let Some(ref uuid) = self.uuid {
-            if let Some(v) = uuid.read().unwrap().value(row) {
-                return Some(uuid::Uuid::from_u128(*v).to_string());
-            }
-        }
-        None
+        self.uuid.as_ref().and_then(|uuid| {
+            uuid.read()
+                .unwrap()
+                .value(row)
+                .map(|v| uuid::Uuid::from_u128(*v).to_string())
+        })
     }
     pub fn activity(&self, row: u32) -> Option<Activity> {
-        if let Some(ref activity) = self.activity {
-            if let Some(v) = activity.read().unwrap().value(row) {
-                return Some(if *v != 0 {
+        self.activity.as_ref().and_then(|a| {
+            a.read().unwrap().value(row).map(|v| {
+                if *v != 0 {
                     Activity::Active
                 } else {
                     Activity::Inactive
-                });
-            }
-        }
-        None
+                }
+            })
+        })
     }
     pub fn term_begin(&self, row: u32) -> Option<u64> {
-        if let Some(ref f) = self.term_begin {
-            if let Some(v) = f.read().unwrap().value(row) {
-                return Some(*v);
-            }
-        }
-        None
+        self.term_begin
+            .as_ref()
+            .and_then(|f| f.read().unwrap().value(row).copied())
     }
     pub fn term_end(&self, row: u32) -> Option<u64> {
-        if let Some(ref f) = self.term_end {
-            if let Some(v) = f.read().unwrap().value(row) {
-                return Some(*v);
-            }
-        }
-        None
+        self.term_end
+            .as_ref()
+            .and_then(|f| f.read().unwrap().value(row).copied())
     }
     pub fn last_updated(&self, row: u32) -> Option<u64> {
-        if let Some(ref f) = self.last_updated {
-            if let Some(v) = f.read().unwrap().value(row) {
-                return Some(*v);
-            }
-        }
-        None
+        self.last_updated
+            .as_ref()
+            .and_then(|f| f.read().unwrap().value(row).copied())
     }
 
     pub fn update(&mut self, operation: &Operation) -> u32 {
@@ -396,11 +364,6 @@ impl Data {
     }
 
     pub fn all(&self) -> RowSet {
-        self.serial
-            .read()
-            .unwrap()
-            .iter()
-            .map(|r| r.row())
-            .collect()
+        self.serial.read().unwrap().iter().collect()
     }
 }

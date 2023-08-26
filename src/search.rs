@@ -19,7 +19,7 @@ impl<'a> Search<'a> {
         }
     }
     pub fn search_default(mut self) -> Self {
-        if let Some(_) = self.data.term_begin {
+        if self.data.term_begin.is_some() {
             self.conditions.push(Condition::Term(Term::In(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -27,7 +27,7 @@ impl<'a> Search<'a> {
                     .as_secs(),
             )));
         }
-        if let Some(_) = self.data.activity {
+        if self.data.activity.is_some() {
             self.conditions.push(Condition::Activity(Activity::Active));
         }
         self
@@ -36,14 +36,14 @@ impl<'a> Search<'a> {
         self.search(Condition::Field(field_name.into(), condition))
     }
     pub fn search_term(self, condition: Term) -> Self {
-        if let Some(_) = self.data.term_begin {
+        if self.data.term_begin.is_some() {
             self.search(Condition::Term(condition))
         } else {
             self
         }
     }
     pub fn search_activity(self, condition: Activity) -> Self {
-        if let Some(_) = self.data.term_begin {
+        if self.data.term_begin.is_some() {
             self.search(Condition::Activity(condition))
         } else {
             self

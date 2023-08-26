@@ -15,12 +15,7 @@ impl std::ops::Deref for SerialNumber {
 }
 impl SerialNumber {
     pub fn new(path: PathBuf) -> Self {
-        let file_name = if let Some(file_name) = path.file_name() {
-            file_name.to_string_lossy()
-        } else {
-            "".into()
-        };
-
+        let file_name = path.file_name().map_or("".into(), |f| f.to_string_lossy());
         SerialNumber {
             index: IdxFile::new({
                 let mut path = path.clone();
@@ -39,11 +34,7 @@ impl SerialNumber {
         self.fragment.insert_blank(row)
     }
     pub fn next_row(&mut self) -> u32 {
-        let row = self.index.new_row(if let Some(row) = self.fragment.pop() {
-            row
-        } else {
-            0
-        });
+        let row = self.index.new_row(self.fragment.pop().unwrap_or(0));
         self.index.update(row, self.fragment.serial_increment())
     }
 }

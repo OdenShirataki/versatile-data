@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug};
 
-use idx_binary::AvltrieeIter;
+use idx_binary::Avltriee;
 
 use crate::{Data, RowSet};
 
@@ -190,34 +190,28 @@ impl Data {
         });
         tmp
     }
-    fn sort_with_iter<T>(
+
+    fn sort_with_triee_inner<T>(
         &self,
         rows: &RowSet,
-        iter: &mut AvltrieeIter<T>,
+        triee: &Avltriee<T>,
+        iter: impl Iterator<Item = u32>,
         sub_orders: &[Order],
     ) -> Vec<u32>
     where
         T: PartialEq,
     {
         if sub_orders.len() == 0 {
-            iter.filter_map(|x| {
-                let row = x.row();
-                if rows.contains(&row) {
-                    Some(row)
-                } else {
-                    None
-                }
-            })
-            .collect()
+            iter.filter_map(|row| rows.contains(&row).then_some(row))
+                .collect()
         } else {
             let mut ret = Vec::new();
 
             let mut before: Option<&T> = None;
             let mut tmp: Vec<u32> = Vec::new();
-            for row in iter {
-                let r = row.row();
+            for r in iter {
                 if rows.contains(&r) {
-                    let value = row.value();
+                    let value = unsafe { triee.value_unchecked(r) };
                     if let Some(before) = before {
                         if before.ne(value) {
                             ret.extend(if tmp.len() <= 1 {
@@ -243,77 +237,87 @@ impl Data {
             ret
         }
     }
+    fn sort_with_triee<T>(
+        &self,
+        rows: &RowSet,
+        triee: &Avltriee<T>,
+        sub_orders: &[Order],
+    ) -> Vec<u32>
+    where
+        T: PartialEq,
+    {
+        self.sort_with_triee_inner(rows, triee, triee.iter(), sub_orders)
+    }
+    fn sort_with_triee_desc<T>(
+        &self,
+        rows: &RowSet,
+        triee: &Avltriee<T>,
+        sub_orders: &[Order],
+    ) -> Vec<u32>
+    where
+        T: PartialEq,
+    {
+        self.sort_with_triee_inner(rows, triee, triee.desc_iter(), sub_orders)
+    }
     fn sort_with_key(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
         match key {
-            OrderKey::Serial => {
-                self.sort_with_iter(rows, &mut self.serial.read().unwrap().iter(), &vec![])
-            }
-            OrderKey::Row => rows.iter().map(|&x| x).collect(),
-            OrderKey::TermBegin => {
-                if let Some(ref f) = self.term_begin {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect()
-                }
-            }
-            OrderKey::TermEnd => {
-                if let Some(ref f) = self.term_end {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect()
-                }
-            }
-            OrderKey::LastUpdated => {
-                if let Some(ref f) = self.term_end {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect()
-                }
-            }
-            OrderKey::Field(field_name) => {
-                if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(rows, &mut field.read().unwrap().iter(), sub_orders)
-                } else {
-                    rows.iter().map(|&x| x).collect()
-                }
-            }
+            OrderKey::Serial => self.sort_with_triee(rows, &self.serial.read().unwrap(), &vec![]),
+            OrderKey::Row => rows.iter().copied().collect(),
+            OrderKey::TermBegin => self
+                .term_begin
+                .as_ref()
+                .map_or(rows.iter().copied().collect(), |f| {
+                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
+                }),
+            OrderKey::TermEnd => self
+                .term_end
+                .as_ref()
+                .map_or(rows.iter().copied().collect(), |f| {
+                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
+                }),
+            OrderKey::LastUpdated => self
+                .term_end
+                .as_ref()
+                .map_or(rows.iter().copied().collect(), |f| {
+                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
+                }),
+            OrderKey::Field(field_name) => self
+                .field(&field_name)
+                .map_or(rows.iter().copied().collect(), |f| {
+                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
+                }),
             OrderKey::Custom(custom_order) => custom_order.asc(),
         }
     }
     fn sort_with_key_desc(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
         match key {
             OrderKey::Serial => {
-                self.sort_with_iter(rows, &mut self.serial.read().unwrap().desc_iter(), &vec![])
+                self.sort_with_triee_desc(rows, &self.serial.read().unwrap(), &vec![])
             }
-            OrderKey::Row => rows.iter().rev().map(|&x| x).collect(),
-            OrderKey::TermBegin => {
-                if let Some(ref f) = self.term_begin {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect()
-                }
-            }
-            OrderKey::TermEnd => {
-                if let Some(ref f) = self.term_end {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect()
-                }
-            }
-            OrderKey::LastUpdated => {
-                if let Some(ref f) = self.last_updated {
-                    self.sort_with_iter(rows, &mut f.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect()
-                }
-            }
-            OrderKey::Field(field_name) => {
-                if let Some(field) = self.field(&field_name) {
-                    self.sort_with_iter(rows, &mut field.read().unwrap().desc_iter(), sub_orders)
-                } else {
-                    rows.iter().rev().map(|&x| x).collect()
-                }
-            }
+            OrderKey::Row => rows.iter().rev().copied().collect(),
+            OrderKey::TermBegin => self
+                .term_begin
+                .as_ref()
+                .map_or(rows.iter().rev().copied().collect(), |f| {
+                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
+                }),
+            OrderKey::TermEnd => self
+                .term_end
+                .as_ref()
+                .map_or(rows.iter().rev().copied().collect(), |f| {
+                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
+                }),
+            OrderKey::LastUpdated => self
+                .last_updated
+                .as_ref()
+                .map_or(rows.iter().rev().copied().collect(), |f| {
+                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
+                }),
+            OrderKey::Field(field_name) => self
+                .field(&field_name)
+                .map_or(rows.iter().rev().copied().collect(), |f| {
+                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
+                }),
             OrderKey::Custom(custom_order) => custom_order.desc(),
         }
     }

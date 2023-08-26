@@ -56,13 +56,8 @@ impl Field {
             index: IdxBinary::new(path),
         }
     }
-
     pub fn num(&self, row: u32) -> Option<f64> {
-        if let Some(value) = self.value(row) {
-            Some(value.num)
-        } else {
-            None
-        }
+        self.value(row).map(|v| v.num)
     }
 }
 
@@ -71,26 +66,14 @@ impl Data {
         self.fields_cache.iter().map(|(key, _)| key).collect()
     }
     pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
-        if let Some(f) = self.field(name) {
-            if let Some(v) = f.read().unwrap().bytes(row) {
-                v
-            } else {
-                b""
-            }
-        } else {
-            b""
-        }
+        self.field(name)
+            .and_then(|v| v.read().unwrap().bytes(row))
+            .unwrap_or(b"")
     }
     pub fn field_num(&self, row: u32, name: &str) -> f64 {
-        if let Some(f) = self.field(name) {
-            if let Some(f) = f.read().unwrap().num(row) {
-                f
-            } else {
-                0.0
-            }
-        } else {
-            0.0
-        }
+        self.field(name)
+            .and_then(|v| v.read().unwrap().num(row))
+            .unwrap_or(0.0)
     }
 
     pub(crate) fn create_field(&mut self, field_name: &str) -> &mut Arc<RwLock<Field>> {

@@ -11,6 +11,7 @@ impl Serialize for KeyValue {
         S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(1))?;
+
         if let Ok(s) = std::str::from_utf8(&self.value) {
             state.serialize_entry(&self.key, s)?;
         } else {

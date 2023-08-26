@@ -30,7 +30,6 @@ impl<'a> Search<'a> {
                         .read()
                         .unwrap()
                         .iter_by(|v| v.cmp(&activity))
-                        .map(|v| v.row())
                         .collect()
                 } else {
                     unreachable!();
@@ -94,14 +93,9 @@ impl<'a> Search<'a> {
                             .read()
                             .unwrap()
                             .iter_to(|v| v.cmp(base))
-                            .filter_map(|node| {
-                                let row = node.row();
+                            .filter_map(|row| {
                                 let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
-                                if end == 0 || end > *base {
-                                    Some(row)
-                                } else {
-                                    None
-                                }
+                                (end == 0 || end > *base).then_some(row)
                             })
                             .collect();
                     } else {
@@ -113,12 +107,7 @@ impl<'a> Search<'a> {
             }
             Term::Future(base) => {
                 if let Some(ref index) = data.term_begin {
-                    return index
-                        .read()
-                        .unwrap()
-                        .iter_from(|v| v.cmp(&base))
-                        .map(|v| v.row())
-                        .collect();
+                    return index.read().unwrap().iter_from(|v| v.cmp(&base)).collect();
                 } else {
                     unreachable!();
                 }
@@ -129,7 +118,6 @@ impl<'a> Search<'a> {
                         .read()
                         .unwrap()
                         .iter_range(|v| v.cmp(&1), |v| v.cmp(&base))
-                        .map(|v| v.row())
                         .collect();
                 } else {
                     unreachable!();
@@ -146,14 +134,7 @@ impl<'a> Search<'a> {
                     .read()
                     .unwrap()
                     .iter()
-                    .filter_map(|i| {
-                        let i = i.row();
-                        if i as isize >= row {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    })
+                    .filter_map(|i| (i as isize >= row).then_some(i))
                     .collect()
             }
             Number::Max(row) => {
@@ -162,35 +143,20 @@ impl<'a> Search<'a> {
                     .read()
                     .unwrap()
                     .iter()
-                    .filter_map(|i| {
-                        let i = i.row();
-                        if i as isize <= row {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    })
+                    .filter_map(|i| (i as isize <= row).then_some(i))
                     .collect()
             }
             Number::Range(range) => range
                 .clone()
                 .filter_map(|i| {
-                    if i > 0 && data.serial.read().unwrap().exists(i as u32) {
-                        Some(i as u32)
-                    } else {
-                        None
-                    }
+                    (i > 0 && data.serial.read().unwrap().exists(i as u32)).then_some(i as u32)
                 })
                 .collect(),
             Number::In(rows) => rows
                 .iter()
                 .filter_map(|i| {
                     let i = *i;
-                    if i > 0 && data.serial.read().unwrap().exists(i as u32) {
-                        Some(i as u32)
-                    } else {
-                        None
-                    }
+                    (i > 0 && data.serial.read().unwrap().exists(i as u32)).then_some(i as u32)
                 })
                 .collect(),
         }
@@ -202,30 +168,20 @@ impl<'a> Search<'a> {
             match condition {
                 Field::Match(v) => {
                     let field = field.read().unwrap();
-                    field
-                        .iter_by(|data| field.cmp(data, &v))
-                        .map(|x| x.row())
-                        .collect()
+                    field.iter_by(|data| field.cmp(data, &v)).collect()
                 }
                 Field::Min(min) => {
                     let field = field.read().unwrap();
-                    field
-                        .iter_from(|data| field.cmp(data, &min))
-                        .map(|x| x.row())
-                        .collect()
+                    field.iter_from(|data| field.cmp(data, &min)).collect()
                 }
                 Field::Max(max) => {
                     let field = field.read().unwrap();
-                    field
-                        .iter_to(|data| field.cmp(data, &max))
-                        .map(|x| x.row())
-                        .collect()
+                    field.iter_to(|data| field.cmp(data, &max)).collect()
                 }
                 Field::Range(min, max) => {
                     let field = field.read().unwrap();
                     field
                         .iter_range(|data| field.cmp(data, &min), |data| field.cmp(data, &max))
-                        .map(|x| x.row())
                         .collect()
                 }
                 Field::Forward(cont) => Self::field_result(field, cont, Self::forward).await,
@@ -259,7 +215,7 @@ impl<'a> Search<'a> {
             .read()
             .unwrap()
             .iter()
-            .map(|row| Box::pin(func(row.row(), Arc::clone(&field), Arc::clone(cont))))
+            .map(|row| Box::pin(func(row, Arc::clone(&field), Arc::clone(cont))))
             .collect();
         while !fs.is_empty() {
             let (val, _index, remaining) = future::select_all(fs).await;
@@ -272,86 +228,86 @@ impl<'a> Search<'a> {
         rows
     }
     async fn forward(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
-        let mut ret = false;
-
-        if let Some(bytes) = field.read().unwrap().bytes(row) {
-            if bytes.starts_with(cont.as_bytes()) {
-                ret = true;
-            }
-        }
-        (row, ret)
+        (
+            row,
+            field
+                .read()
+                .unwrap()
+                .bytes(row)
+                .map_or(false, |bytes| bytes.starts_with(cont.as_bytes())),
+        )
     }
     async fn partial(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
-        let mut ret = false;
-
-        if let Some(bytes) = field.read().unwrap().bytes(row) {
-            let len = cont.len();
-            if len <= bytes.len() {
-                let cont_bytes = cont.as_bytes();
-                if let Some(_) = bytes.windows(len).position(|window| window == cont_bytes) {
-                    ret = true;
+        (
+            row,
+            field.read().unwrap().bytes(row).map_or(false, |bytes| {
+                let len = cont.len();
+                len <= bytes.len() && {
+                    let cont_bytes = cont.as_bytes();
+                    bytes
+                        .windows(len)
+                        .position(|window| window == cont_bytes)
+                        .is_some()
                 }
-            }
-        }
-        (row, ret)
+            }),
+        )
     }
     async fn backward(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
     ) -> (u32, bool) {
-        let mut ret = false;
-
-        if let Some(bytes) = field.read().unwrap().bytes(row) {
-            if bytes.ends_with(cont.as_bytes()) {
-                ret = true;
-            }
-        }
-        (row, ret)
+        (
+            row,
+            field
+                .read()
+                .unwrap()
+                .bytes(row)
+                .map_or(false, |bytes| bytes.ends_with(cont.as_bytes())),
+        )
     }
     async fn value_forward(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
     ) -> (u32, bool) {
-        let mut ret = false;
-        if let Some(bytes) = field.read().unwrap().bytes(row) {
-            if cont.as_bytes().starts_with(bytes) {
-                ret = true;
-            }
-        }
-        (row, ret)
+        (
+            row,
+            field
+                .read()
+                .unwrap()
+                .bytes(row)
+                .map_or(false, |bytes| cont.as_bytes().starts_with(bytes)),
+        )
     }
     async fn value_partial(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
     ) -> (u32, bool) {
-        let mut ret = false;
-        if let Some(bytes) = field.read().unwrap().bytes(row) {
-            let len = bytes.len();
-            if let Some(_) = cont
-                .as_bytes()
-                .windows(len)
-                .position(|window| window == bytes)
-            {
-                ret = true;
-            }
-        }
-        (row, ret)
+        (
+            row,
+            field.read().unwrap().bytes(row).map_or(false, |bytes| {
+                cont.as_bytes()
+                    .windows(bytes.len())
+                    .position(|window| window == bytes)
+                    .is_some()
+            }),
+        )
     }
     async fn value_backward(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
     ) -> (u32, bool) {
-        let mut ret = false;
-        if let Some(bytes) = field.read().unwrap().bytes(row) {
-            if cont.as_bytes().ends_with(bytes) {
-                ret = true;
-            }
-        }
-        (row, ret)
+        (
+            row,
+            field
+                .read()
+                .unwrap()
+                .bytes(row)
+                .map_or(false, |bytes| cont.as_bytes().ends_with(bytes)),
+        )
     }
 
     fn result_last_updated(data: &Data, condition: &Number) -> RowSet {
@@ -360,21 +316,11 @@ impl<'a> Search<'a> {
             match condition {
                 Number::Min(min) => {
                     let min = *min as u64;
-                    index
-                        .read()
-                        .unwrap()
-                        .iter_from(|v| v.cmp(&min))
-                        .map(|v| v.row())
-                        .collect()
+                    index.read().unwrap().iter_from(|v| v.cmp(&min)).collect()
                 }
                 Number::Max(max) => {
                     let max = *max as u64;
-                    index
-                        .read()
-                        .unwrap()
-                        .iter_to(|v| v.cmp(&max))
-                        .map(|v| v.row())
-                        .collect()
+                    index.read().unwrap().iter_to(|v| v.cmp(&max)).collect()
                 }
                 Number::Range(range) => {
                     let range = range.clone();
@@ -385,7 +331,6 @@ impl<'a> Search<'a> {
                             |v| v.cmp(&(*range.start() as u64)),
                             |v| v.cmp(&(*range.end() as u64)),
                         )
-                        .map(|v| v.row())
                         .collect()
                 }
                 Number::In(rows) => {
@@ -396,7 +341,6 @@ impl<'a> Search<'a> {
                                 .read()
                                 .unwrap()
                                 .iter_by(|v| v.cmp(&(*i as u64)))
-                                .map(|x| x.row())
                                 .collect::<RowSet>(),
                         );
                     }
@@ -416,7 +360,6 @@ impl<'a> Search<'a> {
                         .read()
                         .unwrap()
                         .iter_by(|v| v.cmp(&uuid))
-                        .map(|x| x.row())
                         .collect::<RowSet>(),
                 );
             }
