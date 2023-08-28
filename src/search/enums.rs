@@ -1,11 +1,26 @@
 use crate::Activity;
-use std::{ops::RangeInclusive, sync::Arc};
+use std::{
+    ops::RangeInclusive,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Clone, Debug)]
 pub enum Term {
     In(u64),
     Past(u64),
     Future(u64),
+}
+
+impl Default for Term {
+    fn default() -> Self {
+        Self::In(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
+    }
 }
 
 #[derive(Clone, Debug)]

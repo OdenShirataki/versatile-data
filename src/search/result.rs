@@ -37,7 +37,7 @@ impl<'a> Search<'a> {
             }
             Condition::Term(condition) => Self::result_term(data, condition),
             Condition::Field(field_name, condition) => {
-                Self::search_exec_field(data, field_name, condition).await
+                Self::result_field(data, field_name, condition).await
             }
             Condition::Row(condition) => Self::result_row(data, condition),
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
@@ -162,7 +162,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    async fn search_exec_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
+    async fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
         if let Some(field) = data.field(field_name) {
             let field = Arc::clone(&field);
             match condition {
@@ -184,24 +184,24 @@ impl<'a> Search<'a> {
                         .iter_range(|data| field.cmp(data, &min), |data| field.cmp(data, &max))
                         .collect()
                 }
-                Field::Forward(cont) => Self::field_result(field, cont, Self::forward).await,
-                Field::Partial(cont) => Self::field_result(field, cont, Self::partial).await,
-                Field::Backward(cont) => Self::field_result(field, cont, Self::backward).await,
+                Field::Forward(cont) => Self::result_field_sub(field, cont, Self::forward).await,
+                Field::Partial(cont) => Self::result_field_sub(field, cont, Self::partial).await,
+                Field::Backward(cont) => Self::result_field_sub(field, cont, Self::backward).await,
                 Field::ValueForward(cont) => {
-                    Self::field_result(field, cont, Self::value_forward).await
+                    Self::result_field_sub(field, cont, Self::value_forward).await
                 }
                 Field::ValuePartial(cont) => {
-                    Self::field_result(field, cont, Self::value_partial).await
+                    Self::result_field_sub(field, cont, Self::value_partial).await
                 }
                 Field::ValueBackward(cont) => {
-                    Self::field_result(field, cont, Self::value_backward).await
+                    Self::result_field_sub(field, cont, Self::value_backward).await
                 }
             }
         } else {
             RowSet::default()
         }
     }
-    async fn field_result<Fut>(
+    async fn result_field_sub<Fut>(
         field: Arc<RwLock<crate::Field>>,
         cont: &Arc<String>,
         func: fn(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> Fut,

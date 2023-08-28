@@ -1,8 +1,6 @@
 mod enums;
 mod result;
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use super::{Activity, Data};
 
 pub use enums::*;
@@ -20,12 +18,7 @@ impl<'a> Search<'a> {
     }
     pub fn search_default(mut self) -> Self {
         if self.data.term_begin.is_some() {
-            self.conditions.push(Condition::Term(Term::In(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-            )));
+            self.conditions.push(Condition::Term(Term::default()));
         }
         if self.data.activity.is_some() {
             self.conditions.push(Condition::Activity(Activity::Active));

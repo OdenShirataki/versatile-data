@@ -23,13 +23,11 @@ impl RowFragment {
     }
     pub fn pop(&mut self) -> Option<u32> {
         let count = self.blank_count();
-        if count > 0 {
+        (count > 0).then(|| {
             let last = unsafe { *(self.filemmap.as_ptr() as *mut u32).offset(count as isize) };
             self.filemmap.set_len(count * U32_SIZE as u64).unwrap();
-            Some(last)
-        } else {
-            None
-        }
+            last
+        })
     }
     pub fn serial_increment(&mut self) -> u32 {
         let blank_list = unsafe { &mut *(self.filemmap.as_ptr() as *mut u32) };

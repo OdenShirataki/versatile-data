@@ -239,6 +239,12 @@ impl Data {
         }
     }
 
+    fn now() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
     fn update_common(
         &mut self,
         row: u32,
@@ -250,13 +256,7 @@ impl Data {
         if let Some(ref f) = self.last_updated {
             let f = Arc::clone(f);
             thread::spawn(move || {
-                f.write().unwrap().update(
-                    row,
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                );
+                f.write().unwrap().update(row, Self::now());
             });
         }
 
@@ -289,10 +289,7 @@ impl Data {
                     if let Term::Overwrite(term) = term_begin {
                         term
                     } else {
-                        SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs()
+                        Self::now()
                     },
                 );
             });
