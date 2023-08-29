@@ -16,8 +16,7 @@ impl<'a> Search<'a> {
         }
     }
     pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<u32> {
-        let rows = self.result();
-        self.data.sort(&rows, &orders)
+        self.data.sort(&self.result(), &orders)
     }
 
     #[async_recursion]
@@ -50,17 +49,18 @@ impl<'a> Search<'a> {
                 new_search.result()
             }
             Condition::Wide(conditions) => {
-                let mut rows = RowSet::default();
                 let mut fs: Vec<_> = conditions
                     .iter()
                     .map(|c| Self::result_condition(data, c))
                     .collect();
+                let (ret, _index, remaining) = future::select_all(fs).await;
+                let mut rows = ret;
+                fs = remaining;
                 while !fs.is_empty() {
                     let (ret, _index, remaining) = future::select_all(fs).await;
                     rows.extend(ret);
                     fs = remaining;
                 }
-
                 rows
             }
         }
@@ -79,7 +79,6 @@ impl<'a> Search<'a> {
             rows = rows.intersection(&ret).cloned().collect();
             fs = remaining;
         }
-
         rows
     }
 
@@ -335,15 +334,9 @@ impl<'a> Search<'a> {
                 }
                 Number::In(rows) => {
                     let mut r = RowSet::default();
-                    for i in rows {
-                        r.extend(
-                            index
-                                .read()
-                                .unwrap()
-                                .iter_by(|v| v.cmp(&(*i as u64)))
-                                .collect::<RowSet>(),
-                        );
-                    }
+                    rows.iter().for_each(|i| {
+                        r.extend(index.read().unwrap().iter_by(|v| v.cmp(&(*i as u64))))
+                    });
                     r
                 }
             }
@@ -354,15 +347,9 @@ impl<'a> Search<'a> {
     fn result_uuid(data: &Data, uuids: &Vec<u128>) -> RowSet {
         if let Some(ref index) = data.uuid {
             let mut r = RowSet::default();
-            for uuid in uuids {
-                r.extend(
-                    index
-                        .read()
-                        .unwrap()
-                        .iter_by(|v| v.cmp(&uuid))
-                        .collect::<RowSet>(),
-                );
-            }
+            uuids
+                .iter()
+                .for_each(|uuid| r.extend(index.read().unwrap().iter_by(|v| v.cmp(&uuid))));
             r
         } else {
             unreachable!();
