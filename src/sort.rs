@@ -263,29 +263,22 @@ impl Data {
         match key {
             OrderKey::Serial => self.sort_with_triee(rows, &self.serial.read().unwrap(), &vec![]),
             OrderKey::Row => rows.iter().copied().collect(),
-            OrderKey::TermBegin => self
-                .term_begin
-                .as_ref()
-                .map_or(rows.iter().copied().collect(), |f| {
-                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
-                }),
-            OrderKey::TermEnd => self
-                .term_end
-                .as_ref()
-                .map_or(rows.iter().copied().collect(), |f| {
-                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
-                }),
-            OrderKey::LastUpdated => self
-                .term_end
-                .as_ref()
-                .map_or(rows.iter().copied().collect(), |f| {
-                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
-                }),
-            OrderKey::Field(field_name) => self
-                .field(&field_name)
-                .map_or(rows.iter().copied().collect(), |f| {
-                    self.sort_with_triee(rows, &f.read().unwrap(), sub_orders)
-                }),
+            OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
+                || rows.iter().copied().collect(),
+                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+            ),
+            OrderKey::TermEnd => self.term_end.as_ref().map_or_else(
+                || rows.iter().copied().collect(),
+                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+            ),
+            OrderKey::LastUpdated => self.term_end.as_ref().map_or_else(
+                || rows.iter().copied().collect(),
+                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+            ),
+            OrderKey::Field(field_name) => self.field(&field_name).map_or_else(
+                || rows.iter().copied().collect(),
+                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+            ),
             OrderKey::Custom(custom_order) => custom_order.asc(),
         }
     }
@@ -295,29 +288,22 @@ impl Data {
                 self.sort_with_triee_desc(rows, &self.serial.read().unwrap(), &vec![])
             }
             OrderKey::Row => rows.iter().rev().copied().collect(),
-            OrderKey::TermBegin => self
-                .term_begin
-                .as_ref()
-                .map_or(rows.iter().rev().copied().collect(), |f| {
-                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
-                }),
-            OrderKey::TermEnd => self
-                .term_end
-                .as_ref()
-                .map_or(rows.iter().rev().copied().collect(), |f| {
-                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
-                }),
-            OrderKey::LastUpdated => self
-                .last_updated
-                .as_ref()
-                .map_or(rows.iter().rev().copied().collect(), |f| {
-                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
-                }),
-            OrderKey::Field(field_name) => self
-                .field(&field_name)
-                .map_or(rows.iter().rev().copied().collect(), |f| {
-                    self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders)
-                }),
+            OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
+                || rows.iter().rev().copied().collect(),
+                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+            ),
+            OrderKey::TermEnd => self.term_end.as_ref().map_or_else(
+                || rows.iter().rev().copied().collect(),
+                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+            ),
+            OrderKey::LastUpdated => self.last_updated.as_ref().map_or_else(
+                || rows.iter().rev().copied().collect(),
+                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+            ),
+            OrderKey::Field(field_name) => self.field(&field_name).map_or_else(
+                || rows.iter().rev().copied().collect(),
+                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+            ),
             OrderKey::Custom(custom_order) => custom_order.desc(),
         }
     }
