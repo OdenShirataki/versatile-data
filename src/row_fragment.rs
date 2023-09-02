@@ -18,8 +18,8 @@ impl RowFragment {
     fn blank_count(&self) -> u64 {
         self.filemmap.len() / U32_SIZE as u64 - 1
     }
-    pub fn insert_blank(&mut self, row: u32) -> u64 {
-        self.filemmap.append(&row.to_ne_bytes()).unwrap()
+    pub fn insert_blank(&mut self, row: u32) {
+        self.filemmap.append(&row.to_ne_bytes()).unwrap();
     }
     pub fn pop(&mut self) -> Option<u32> {
         let count = self.blank_count();

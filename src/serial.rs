@@ -29,9 +29,9 @@ impl SerialNumber {
             }),
         }
     }
-    pub fn delete(&mut self, row: u32) -> u64 {
+    pub fn delete(&mut self, row: u32) {
         self.index.delete(row);
-        self.fragment.insert_blank(row)
+        self.fragment.insert_blank(row);
     }
     pub fn next_row(&mut self) -> u32 {
         let row = self.index.new_row(self.fragment.pop().unwrap_or(0));
