@@ -20,7 +20,7 @@ impl<'a> Search<'a> {
     }
 
     #[async_recursion]
-    pub async fn result_condition(data: &Data, condition: &Condition) -> RowSet {
+    pub async fn result_condition(data: &Data, condition: &Condition<'a>) -> RowSet {
         match condition {
             Condition::Activity(condition) => {
                 if let Some(ref index) = data.activity {
@@ -41,13 +41,7 @@ impl<'a> Search<'a> {
             Condition::Row(condition) => Self::result_row(data, condition),
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
             Condition::Uuid(uuid) => Self::result_uuid(data, uuid),
-            Condition::Narrow(conditions) => {
-                let mut new_search = Search::new(data);
-                for c in conditions {
-                    new_search = new_search.search(c.clone());
-                }
-                new_search.result()
-            }
+            Condition::Narrow(conditions) => Self::result_async(data, conditions).await,
             Condition::Wide(conditions) => {
                 let mut fs: Vec<_> = conditions
                     .iter()
@@ -66,7 +60,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    async fn result_async(data: &Data, conditions: &Vec<Condition>) -> RowSet {
+    async fn result_async(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
         let mut fs: Vec<_> = conditions
             .iter()
             .map(|c| Self::result_condition(data, c))
@@ -344,7 +338,7 @@ impl<'a> Search<'a> {
             unreachable!();
         }
     }
-    fn result_uuid(data: &Data, uuids: &Vec<u128>) -> RowSet {
+    fn result_uuid(data: &Data, uuids: &[u128]) -> RowSet {
         if let Some(ref index) = data.uuid {
             let mut r = RowSet::default();
             uuids

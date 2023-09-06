@@ -33,7 +33,7 @@ fn test5() {
     println!("\nmatch");
     for r in data
         .search_default()
-        .search_field("num", search::Field::Match(b"3".to_vec()))
+        .search_field("num", &search::Field::Match(b"3".to_vec()))
         .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
     {
         println!(
@@ -46,7 +46,7 @@ fn test5() {
     println!("\nmin");
     for r in data
         .search_default()
-        .search_field("num", search::Field::Min(b"3".to_vec()))
+        .search_field("num", &search::Field::Min(b"3".to_vec()))
         .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
     {
         println!(
@@ -58,7 +58,7 @@ fn test5() {
     println!("\nmax");
     for r in data
         .search_default()
-        .search_field("num", search::Field::Max(b"3".to_vec()))
+        .search_field("num", &search::Field::Max(b"3".to_vec()))
         .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
     {
         println!(
@@ -71,7 +71,7 @@ fn test5() {
     println!("\nrange");
     for r in data
         .search_default()
-        .search_field("num", search::Field::Range(b"3".to_vec(), b"5".to_vec()))
+        .search_field("num", &search::Field::Range(b"3".to_vec(), b"5".to_vec()))
         .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
     {
         println!(
@@ -84,7 +84,7 @@ fn test5() {
     println!("\nrange bad");
     for r in data
         .search_default()
-        .search_field("num", search::Field::Range(b"5".to_vec(), b"3".to_vec()))
+        .search_field("num", &search::Field::Range(b"5".to_vec(), b"3".to_vec()))
         .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
     {
         println!(

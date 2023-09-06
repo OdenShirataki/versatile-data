@@ -23,7 +23,7 @@ impl Default for Term {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Number {
     Min(isize),
     Max(isize),
@@ -31,7 +31,7 @@ pub enum Number {
     In(Vec<isize>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Field {
     Match(Vec<u8>),
     Range(Vec<u8>, Vec<u8>),
@@ -45,14 +45,14 @@ pub enum Field {
     ValuePartial(Arc<String>),
 }
 
-#[derive(Clone, Debug)]
-pub enum Condition {
+#[derive(Debug)]
+pub enum Condition<'a> {
     Activity(Activity),
     Term(Term),
-    Row(Number),
-    Uuid(Vec<u128>),
-    LastUpdated(Number),
-    Field(String, Field),
-    Narrow(Vec<Condition>),
-    Wide(Vec<Condition>),
+    Row(&'a Number),
+    Uuid(&'a [u128]),
+    LastUpdated(&'a Number),
+    Field(&'a str, &'a Field),
+    Narrow(&'a Vec<Condition<'a>>),
+    Wide(&'a Vec<Condition<'a>>),
 }
