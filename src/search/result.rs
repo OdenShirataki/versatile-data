@@ -155,7 +155,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    async fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
+    pub async fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
         if let Some(field) = data.field(field_name) {
             let field = Arc::clone(&field);
             match condition {
