@@ -158,19 +158,10 @@ impl Data {
 
     pub fn update(&mut self, operation: &Operation) -> u32 {
         match operation {
-            Operation::New(r) => {
-                self.create_row(&r.activity, &r.term_begin, &r.term_end, &r.fields)
-            }
+            Operation::New(record) => self.create_row(record),
             Operation::Update { row, record } => {
-                let row = *row;
-                self.update_row(
-                    row,
-                    &record.activity,
-                    &record.term_begin,
-                    &record.term_end,
-                    &record.fields,
-                );
-                row
+                self.update_row(*row, record);
+                *row
             }
             Operation::Delete { row } => {
                 self.delete(*row);
@@ -188,32 +179,19 @@ impl Data {
         field.write().unwrap().update(row, cont);
     }
 
-    pub fn create_row(
-        &mut self,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> u32 {
+    pub fn create_row(&mut self, record: &Record) -> u32 {
         let row = self.serial.write().unwrap().next_row();
 
         if let Some(ref uuid) = self.uuid {
             uuid.write().unwrap().update(row, create_uuid()); //recycled serial_number,uuid recreate.
         }
 
-        self.update_common(row, activity, term_begin, term_end, fields)
+        self.update_common(row, record)
     }
 
-    pub fn update_row(
-        &mut self,
-        row: u32,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) {
+    pub fn update_row(&mut self, row: u32, record: &Record) {
         if self.exists(row) {
-            self.update_common(row, activity, term_begin, term_end, fields);
+            self.update_common(row, record);
         }
     }
 
@@ -245,14 +223,7 @@ impl Data {
             .unwrap()
             .as_secs()
     }
-    fn update_common(
-        &mut self,
-        row: u32,
-        activity: &Activity,
-        term_begin: &Term,
-        term_end: &Term,
-        fields: &Vec<KeyValue>,
-    ) -> u32 {
+    fn update_common(&mut self, row: u32, record: &Record) -> u32 {
         if let Some(ref f) = self.last_updated {
             let f = Arc::clone(f);
             thread::spawn(move || {
@@ -260,7 +231,7 @@ impl Data {
             });
         }
 
-        for kv in fields.iter() {
+        for kv in record.fields.iter() {
             let field = if self.fields_cache.contains_key(&kv.key) {
                 self.fields_cache.get_mut(&kv.key).unwrap()
             } else {
@@ -275,14 +246,14 @@ impl Data {
 
         if let Some(ref f) = self.activity {
             let f = Arc::clone(f);
-            let activity = *activity as u8;
+            let activity = record.activity as u8;
             thread::spawn(move || {
                 f.write().unwrap().update(row, activity);
             });
         }
         if let Some(ref f) = self.term_begin {
             let f = Arc::clone(f);
-            let term_begin = term_begin.clone();
+            let term_begin = record.term_begin.clone();
             thread::spawn(move || {
                 f.write().unwrap().update(
                     row,
@@ -296,7 +267,7 @@ impl Data {
         }
         if let Some(ref f) = self.term_end {
             let f = Arc::clone(f);
-            let term_end = term_end.clone();
+            let term_end = record.term_end.clone();
             thread::spawn(move || {
                 f.write().unwrap().update(
                     row,
