@@ -29,10 +29,14 @@ impl SerialNumber {
             }),
         }
     }
+
+    #[inline(always)]
     pub fn delete(&mut self, row: u32) {
         self.index.delete(row);
         self.fragment.insert_blank(row);
     }
+
+    #[inline(always)]
     pub fn next_row(&mut self) -> u32 {
         let row = self.index.new_row(self.fragment.pop().unwrap_or(0));
         self.index.update(row, self.fragment.serial_increment())

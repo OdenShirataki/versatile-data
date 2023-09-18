@@ -34,6 +34,7 @@ pub enum Order {
 }
 
 impl Data {
+    #[inline(always)]
     pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<u32> {
         let sub_orders = &orders[1..];
         match &orders[0] {
@@ -41,6 +42,8 @@ impl Data {
             Order::Desc(key) => self.sort_with_key_desc(rows, key, sub_orders),
         }
     }
+
+    #[inline(always)]
     fn subsort(&self, tmp: Vec<u32>, sub_orders: &[Order]) -> Vec<u32> {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
@@ -191,6 +194,7 @@ impl Data {
         tmp
     }
 
+    #[inline(always)]
     fn sort_with_triee_inner<T>(
         &self,
         rows: &RowSet,
@@ -237,6 +241,8 @@ impl Data {
             ret
         }
     }
+
+    #[inline(always)]
     fn sort_with_triee<T>(
         &self,
         rows: &RowSet,
@@ -248,6 +254,8 @@ impl Data {
     {
         self.sort_with_triee_inner(rows, triee, triee.iter(), sub_orders)
     }
+
+    #[inline(always)]
     fn sort_with_triee_desc<T>(
         &self,
         rows: &RowSet,
@@ -259,6 +267,8 @@ impl Data {
     {
         self.sort_with_triee_inner(rows, triee, triee.desc_iter(), sub_orders)
     }
+
+    #[inline(always)]
     fn sort_with_key(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
         match key {
             OrderKey::Serial => self.sort_with_triee(rows, &self.serial.read().unwrap(), &vec![]),
@@ -282,6 +292,8 @@ impl Data {
             OrderKey::Custom(custom_order) => custom_order.asc(),
         }
     }
+
+    #[inline(always)]
     fn sort_with_key_desc(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
         match key {
             OrderKey::Serial => {

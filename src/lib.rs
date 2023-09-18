@@ -109,18 +109,24 @@ impl Data {
         }
     }
 
+    #[inline(always)]
     pub fn exists(&self, row: u32) -> bool {
         self.serial.read().unwrap().value(row).is_some()
     }
 
+    #[inline(always)]
     pub fn serial(&self, row: u32) -> u32 {
         self.serial.read().unwrap().value(row).copied().unwrap_or(0)
     }
+
+    #[inline(always)]
     pub fn uuid(&self, row: u32) -> Option<u128> {
         self.uuid
             .as_ref()
             .and_then(|uuid| uuid.read().unwrap().value(row).copied())
     }
+
+    #[inline(always)]
     pub fn uuid_string(&self, row: u32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
             uuid.read()
@@ -129,6 +135,8 @@ impl Data {
                 .map(|v| uuid::Uuid::from_u128(*v).to_string())
         })
     }
+
+    #[inline(always)]
     pub fn activity(&self, row: u32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
             a.read().unwrap().value(row).map(|v| {
@@ -140,22 +148,29 @@ impl Data {
             })
         })
     }
+
+    #[inline(always)]
     pub fn term_begin(&self, row: u32) -> Option<u64> {
         self.term_begin
             .as_ref()
             .and_then(|f| f.read().unwrap().value(row).copied())
     }
+
+    #[inline(always)]
     pub fn term_end(&self, row: u32) -> Option<u64> {
         self.term_end
             .as_ref()
             .and_then(|f| f.read().unwrap().value(row).copied())
     }
+
+    #[inline(always)]
     pub fn last_updated(&self, row: u32) -> Option<u64> {
         self.last_updated
             .as_ref()
             .and_then(|f| f.read().unwrap().value(row).copied())
     }
 
+    #[inline(always)]
     pub fn update(&mut self, operation: &Operation) -> u32 {
         match operation {
             Operation::New(record) => self.create_row(record),
@@ -170,6 +185,7 @@ impl Data {
         }
     }
 
+    #[inline(always)]
     pub fn update_field(&mut self, row: u32, field_name: &str, cont: &[u8]) {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
@@ -179,6 +195,7 @@ impl Data {
         field.write().unwrap().update(row, cont);
     }
 
+    #[inline(always)]
     pub fn create_row(&mut self, record: &Record) -> u32 {
         let row = self.serial.write().unwrap().next_row();
 
@@ -189,12 +206,14 @@ impl Data {
         self.update_common(row, record)
     }
 
+    #[inline(always)]
     pub fn update_row(&mut self, row: u32, record: &Record) {
         if self.exists(row) {
             self.update_common(row, record);
         }
     }
 
+    #[inline(always)]
     fn field(&self, name: &str) -> Option<&Arc<RwLock<Field>>> {
         self.fields_cache.get(name)
     }
@@ -217,12 +236,15 @@ impl Data {
         }
     }
 
+    #[inline(always)]
     fn now() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs()
     }
+
+    #[inline(always)]
     fn update_common(&mut self, row: u32, record: &Record) -> u32 {
         if let Some(ref f) = self.last_updated {
             let f = Arc::clone(f);
@@ -283,6 +305,7 @@ impl Data {
         row
     }
 
+    #[inline(always)]
     fn delete(&mut self, row: u32) {
         if self.exists(row) {
             let f = Arc::clone(&self.serial);
@@ -331,6 +354,7 @@ impl Data {
         }
     }
 
+    #[inline(always)]
     pub fn all(&self) -> RowSet {
         self.serial.read().unwrap().iter().collect()
     }

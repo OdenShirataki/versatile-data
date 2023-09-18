@@ -8,6 +8,7 @@ use crate::{Condition, Data, Order, RowSet, Search};
 use super::{Field, Number, Term};
 
 impl<'a> Search<'a> {
+    #[inline(always)]
     pub fn result(&mut self) -> RowSet {
         if self.conditions.len() > 0 {
             block_on(async { Self::result_async(&self.data, &self.conditions).await })
@@ -15,6 +16,8 @@ impl<'a> Search<'a> {
             self.data.all()
         }
     }
+
+    #[inline(always)]
     pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<u32> {
         self.data.sort(&self.result(), &orders)
     }
@@ -60,6 +63,7 @@ impl<'a> Search<'a> {
         }
     }
 
+    #[inline(always)]
     async fn result_async(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
         let mut fs: Vec<_> = conditions
             .iter()
@@ -76,6 +80,7 @@ impl<'a> Search<'a> {
         rows
     }
 
+    #[inline(always)]
     fn result_term(data: &Data, condition: &Term) -> RowSet {
         match condition {
             Term::In(base) => {
@@ -119,6 +124,7 @@ impl<'a> Search<'a> {
         }
     }
 
+    #[inline(always)]
     fn result_row(data: &Data, condition: &Number) -> RowSet {
         match condition {
             Number::Min(row) => {
@@ -155,6 +161,7 @@ impl<'a> Search<'a> {
         }
     }
 
+    #[inline(always)]
     pub async fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
         if let Some(field) = data.field(field_name) {
             let field = Arc::clone(&field);
@@ -194,6 +201,8 @@ impl<'a> Search<'a> {
             RowSet::default()
         }
     }
+
+    #[inline(always)]
     async fn result_field_sub<Fut>(
         field: Arc<RwLock<crate::Field>>,
         cont: &Arc<String>,
@@ -220,6 +229,8 @@ impl<'a> Search<'a> {
 
         rows
     }
+
+    #[inline(always)]
     async fn forward(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
         (
             row,
@@ -230,6 +241,8 @@ impl<'a> Search<'a> {
                 .map_or(false, |bytes| bytes.starts_with(cont.as_bytes())),
         )
     }
+
+    #[inline(always)]
     async fn partial(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
         (
             row,
@@ -245,6 +258,8 @@ impl<'a> Search<'a> {
             }),
         )
     }
+
+    #[inline(always)]
     async fn backward(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
@@ -259,6 +274,8 @@ impl<'a> Search<'a> {
                 .map_or(false, |bytes| bytes.ends_with(cont.as_bytes())),
         )
     }
+
+    #[inline(always)]
     async fn value_forward(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
@@ -273,6 +290,8 @@ impl<'a> Search<'a> {
                 .map_or(false, |bytes| cont.as_bytes().starts_with(bytes)),
         )
     }
+
+    #[inline(always)]
     async fn value_partial(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
@@ -288,6 +307,8 @@ impl<'a> Search<'a> {
             }),
         )
     }
+
+    #[inline(always)]
     async fn value_backward(
         row: u32,
         field: Arc<RwLock<crate::Field>>,
@@ -303,6 +324,7 @@ impl<'a> Search<'a> {
         )
     }
 
+    #[inline(always)]
     fn result_last_updated(data: &Data, condition: &Number) -> RowSet {
         if let Some(ref f) = data.last_updated {
             let index = Arc::clone(f);
@@ -338,6 +360,8 @@ impl<'a> Search<'a> {
             unreachable!();
         }
     }
+
+    #[inline(always)]
     fn result_uuid(data: &Data, uuids: &[u128]) -> RowSet {
         if let Some(ref index) = data.uuid {
             let mut r = RowSet::default();

@@ -15,15 +15,19 @@ pub struct FieldEntity {
     num: f64,
 }
 impl FieldEntity {
+    #[inline(always)]
     pub fn data_address(&self) -> &DataAddress {
         &self.data_address
     }
 }
 
 impl DataAddressHolder<FieldEntity> for FieldEntity {
+    #[inline(always)]
     fn data_address(&self) -> &DataAddress {
         &self.data_address
     }
+
+    #[inline(always)]
     fn new(data_address: DataAddress, input: &[u8]) -> FieldEntity {
         FieldEntity {
             data_address,
@@ -56,26 +60,31 @@ impl Field {
             index: IdxBinary::new(path),
         }
     }
+    #[inline(always)]
     pub fn num(&self, row: u32) -> Option<f64> {
         self.value(row).map(|v| v.num)
     }
 }
 
 impl Data {
+    #[inline(always)]
     pub fn field_names(&self) -> Vec<&String> {
         self.fields_cache.iter().map(|(key, _)| key).collect()
     }
+    #[inline(always)]
     pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
         self.field(name)
             .and_then(|v| v.read().unwrap().bytes(row))
             .unwrap_or(b"")
     }
+    #[inline(always)]
     pub fn field_num(&self, row: u32, name: &str) -> f64 {
         self.field(name)
             .and_then(|v| v.read().unwrap().num(row))
             .unwrap_or(0.0)
     }
 
+    #[inline(always)]
     pub(crate) fn create_field(&mut self, field_name: &str) -> &mut Arc<RwLock<Field>> {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);
