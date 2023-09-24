@@ -16,15 +16,17 @@ pub use search::{Condition, Search};
 pub use sort::{CustomSort, Order, OrderKey};
 pub use uuid::Uuid;
 
-use serial::SerialNumber;
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     thread,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use hashbrown::HashMap;
+use serial::SerialNumber;
 
 pub type RowSet = BTreeSet<u32>;
 
