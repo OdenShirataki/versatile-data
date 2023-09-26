@@ -29,10 +29,7 @@ impl Data {
     }
 
     #[inline(always)]
-    pub(crate) fn create_field(
-        &mut self,
-        field_name: &str,
-    ) -> &mut Arc<RwLock<Field>> {
+    pub(crate) fn create_field(&mut self, field_name: &str) -> &mut Arc<RwLock<Field>> {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);
         fs::create_dir_all(&fields_dir).unwrap();

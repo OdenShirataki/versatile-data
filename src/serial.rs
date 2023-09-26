@@ -32,20 +32,22 @@ impl SerialNumber {
 
     #[inline(always)]
     pub fn delete(&mut self, row: u32) {
-        self.index.delete(row);
-        self.fragment.insert_blank(row);
+        if let Some(row) = NonZeroU32::new(row) {
+            self.index.delete(row.get());
+            self.fragment.insert_blank(row);
+        }
     }
 
     #[inline(always)]
-    pub fn next_row(&mut self) -> u32 {
+    pub fn next_row(&mut self) -> NonZeroU32 {
         let row = if let Some(row) = self.fragment.pop() {
-            self.index
-                .allocate(unsafe { NonZeroU32::new_unchecked(row) });
+            self.index.allocate(row);
             row
         } else {
             self.index.create_row()
         };
-        self.index.update(row, self.fragment.serial_increment());
+        self.index
+            .update(row.get(), self.fragment.serial_increment());
         row
     }
 }

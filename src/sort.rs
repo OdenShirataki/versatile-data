@@ -1,13 +1,13 @@
-use std::{cmp::Ordering, fmt::Debug};
+use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32};
 
 use idx_binary::Avltriee;
 
 use crate::{Data, RowSet};
 
 pub trait CustomSort {
-    fn compare(&self, a: u32, b: u32) -> Ordering;
-    fn asc(&self) -> Vec<u32>;
-    fn desc(&self) -> Vec<u32>;
+    fn compare(&self, a: NonZeroU32, b: NonZeroU32) -> Ordering;
+    fn asc(&self) -> Vec<NonZeroU32>;
+    fn desc(&self) -> Vec<NonZeroU32>;
 }
 impl Debug for dyn CustomSort {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,7 +35,7 @@ pub enum Order {
 
 impl Data {
     #[inline(always)]
-    pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<u32> {
+    pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<NonZeroU32> {
         let sub_orders = &orders[1..];
         match &orders[0] {
             Order::Asc(key) => self.sort_with_key(rows, key, sub_orders),
@@ -44,7 +44,7 @@ impl Data {
     }
 
     #[inline(always)]
-    fn subsort(&self, tmp: Vec<u32>, sub_orders: &[Order]) -> Vec<u32> {
+    fn subsort(&self, tmp: Vec<NonZeroU32>, sub_orders: &[Order]) -> Vec<NonZeroU32> {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
             for i in 0..sub_orders.len() {
@@ -55,9 +55,9 @@ impl Data {
                                 .serial
                                 .read()
                                 .unwrap()
-                                .value(*a)
+                                .value(a.get())
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().value(*b).unwrap());
+                                .cmp(self.serial.read().unwrap().value(b.get()).unwrap());
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
@@ -65,9 +65,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(*a)
+                                    .value(a.get())
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                    .cmp(f.read().unwrap().value(b.get()).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -78,9 +78,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(*a)
+                                    .value(a.get())
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                    .cmp(f.read().unwrap().value(b.get()).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -91,9 +91,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(*a)
+                                    .value(a.get())
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                    .cmp(f.read().unwrap().value(b.get()).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -102,8 +102,8 @@ impl Data {
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(*a).unwrap(),
-                                    field.read().unwrap().bytes(*b).unwrap(),
+                                    field.read().unwrap().bytes(a.get()).unwrap(),
+                                    field.read().unwrap().bytes(b.get()).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -123,9 +123,9 @@ impl Data {
                                 .serial
                                 .read()
                                 .unwrap()
-                                .value(*b)
+                                .value(b.get())
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().value(*a).unwrap());
+                                .cmp(self.serial.read().unwrap().value(a.get()).unwrap());
                         }
                         OrderKey::Row => {
                             return b.cmp(a);
@@ -135,9 +135,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(*b)
+                                    .value(b.get())
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                    .cmp(f.read().unwrap().value(a.get()).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -148,9 +148,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(*b)
+                                    .value(b.get())
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                    .cmp(f.read().unwrap().value(a.get()).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -161,9 +161,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(*b)
+                                    .value(b.get())
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                    .cmp(f.read().unwrap().value(a.get()).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -172,8 +172,8 @@ impl Data {
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(*b).unwrap(),
-                                    field.read().unwrap().bytes(*a).unwrap(),
+                                    field.read().unwrap().bytes(b.get()).unwrap(),
+                                    field.read().unwrap().bytes(a.get()).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -199,9 +199,9 @@ impl Data {
         &self,
         rows: &RowSet,
         triee: &Avltriee<T>,
-        iter: impl Iterator<Item = u32>,
+        iter: impl Iterator<Item = NonZeroU32>,
         sub_orders: &[Order],
-    ) -> Vec<u32>
+    ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
     {
@@ -212,7 +212,7 @@ impl Data {
             let mut ret = Vec::new();
 
             let mut before: Option<&T> = None;
-            let mut tmp: Vec<u32> = Vec::new();
+            let mut tmp: Vec<NonZeroU32> = Vec::new();
             for r in iter {
                 if rows.contains(&r) {
                     let value = unsafe { triee.value_unchecked(r) };
@@ -248,7 +248,7 @@ impl Data {
         rows: &RowSet,
         triee: &Avltriee<T>,
         sub_orders: &[Order],
-    ) -> Vec<u32>
+    ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
     {
@@ -261,7 +261,7 @@ impl Data {
         rows: &RowSet,
         triee: &Avltriee<T>,
         sub_orders: &[Order],
-    ) -> Vec<u32>
+    ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
     {
@@ -269,7 +269,12 @@ impl Data {
     }
 
     #[inline(always)]
-    fn sort_with_key(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
+    fn sort_with_key(
+        &self,
+        rows: &RowSet,
+        key: &OrderKey,
+        sub_orders: &[Order],
+    ) -> Vec<NonZeroU32> {
         match key {
             OrderKey::Serial => self.sort_with_triee(rows, &self.serial.read().unwrap(), &vec![]),
             OrderKey::Row => rows.iter().copied().collect(),
@@ -294,7 +299,12 @@ impl Data {
     }
 
     #[inline(always)]
-    fn sort_with_key_desc(&self, rows: &RowSet, key: &OrderKey, sub_orders: &[Order]) -> Vec<u32> {
+    fn sort_with_key_desc(
+        &self,
+        rows: &RowSet,
+        key: &OrderKey,
+        sub_orders: &[Order],
+    ) -> Vec<NonZeroU32> {
         match key {
             OrderKey::Serial => {
                 self.sort_with_triee_desc(rows, &self.serial.read().unwrap(), &vec![])

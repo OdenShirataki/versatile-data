@@ -19,6 +19,7 @@ pub use uuid::Uuid;
 use std::{
     collections::BTreeSet,
     fs,
+    num::NonZeroU32,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
     thread,
@@ -28,7 +29,7 @@ use std::{
 use hashbrown::HashMap;
 use serial::SerialNumber;
 
-pub type RowSet = BTreeSet<u32>;
+pub type RowSet = BTreeSet<NonZeroU32>;
 
 pub fn create_uuid() -> u128 {
     Uuid::new_v4().as_u128()
@@ -175,7 +176,7 @@ impl Data {
     #[inline(always)]
     pub fn update(&mut self, operation: &Operation) -> u32 {
         match operation {
-            Operation::New(record) => self.create_row(record),
+            Operation::New(record) => self.create_row(record).get(),
             Operation::Update { row, record } => {
                 self.update_row(*row, record);
                 *row
@@ -198,19 +199,22 @@ impl Data {
     }
 
     #[inline(always)]
-    pub fn create_row(&mut self, record: &Record) -> u32 {
+    pub fn create_row(&mut self, record: &Record) -> NonZeroU32 {
         let row = self.serial.write().unwrap().next_row();
 
         if let Some(ref uuid) = self.uuid {
-            uuid.write().unwrap().update(row, create_uuid()); //recycled serial_number,uuid recreate.
+            uuid.write().unwrap().update(row.get(), create_uuid()); //recycled serial_number,uuid recreate.
         }
 
-        self.update_common(row, record)
+        self.update_common(row, record);
+
+        row
     }
 
     #[inline(always)]
     pub fn update_row(&mut self, row: u32, record: &Record) {
-        if self.exists(row) {
+        let row = NonZeroU32::new(row).unwrap();
+        if self.exists(row.get()) {
             self.update_common(row, record);
         }
     }
@@ -247,11 +251,11 @@ impl Data {
     }
 
     #[inline(always)]
-    fn update_common(&mut self, row: u32, record: &Record) -> u32 {
+    fn update_common(&mut self, row: NonZeroU32, record: &Record) {
         if let Some(ref f) = self.last_updated {
             let f = Arc::clone(f);
             thread::spawn(move || {
-                f.write().unwrap().update(row, Self::now());
+                f.write().unwrap().update(row.get(), Self::now());
             });
         }
 
@@ -264,7 +268,7 @@ impl Data {
             let field = Arc::clone(field);
             let kv = kv.clone();
             thread::spawn(move || {
-                field.write().unwrap().update(row, &kv.value);
+                field.write().unwrap().update(row.get(), &kv.value);
             });
         }
 
@@ -272,7 +276,7 @@ impl Data {
             let f = Arc::clone(f);
             let activity = record.activity as u8;
             thread::spawn(move || {
-                f.write().unwrap().update(row, activity);
+                f.write().unwrap().update(row.get(), activity);
             });
         }
         if let Some(ref f) = self.term_begin {
@@ -280,7 +284,7 @@ impl Data {
             let term_begin = record.term_begin.clone();
             thread::spawn(move || {
                 f.write().unwrap().update(
-                    row,
+                    row.get(),
                     if let Term::Overwrite(term) = term_begin {
                         term
                     } else {
@@ -294,7 +298,7 @@ impl Data {
             let term_end = record.term_end.clone();
             thread::spawn(move || {
                 f.write().unwrap().update(
-                    row,
+                    row.get(),
                     if let Term::Overwrite(term) = term_end {
                         term
                     } else {
@@ -303,12 +307,11 @@ impl Data {
                 );
             });
         }
-
-        row
     }
 
     #[inline(always)]
     fn delete(&mut self, row: u32) {
+        assert!(row > 0);
         if self.exists(row) {
             let f = Arc::clone(&self.serial);
             thread::spawn(move || {

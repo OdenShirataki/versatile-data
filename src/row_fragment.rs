@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{num::NonZeroU32, path::PathBuf};
 
 use super::FileMmap;
 
@@ -22,17 +22,17 @@ impl RowFragment {
     }
 
     #[inline(always)]
-    pub fn insert_blank(&mut self, row: u32) {
-        self.filemmap.append(&row.to_ne_bytes()).unwrap();
+    pub fn insert_blank(&mut self, row: NonZeroU32) {
+        self.filemmap.append(&row.get().to_ne_bytes()).unwrap();
     }
 
     #[inline(always)]
-    pub fn pop(&mut self) -> Option<u32> {
+    pub fn pop(&mut self) -> Option<NonZeroU32> {
         let count = self.blank_count();
         (count > 0).then(|| {
             let last = unsafe { *(self.filemmap.as_ptr() as *mut u32).offset(count as isize) };
             self.filemmap.set_len(count * U32_SIZE as u64).unwrap();
-            last
+            unsafe { NonZeroU32::new_unchecked(last) }
         })
     }
 

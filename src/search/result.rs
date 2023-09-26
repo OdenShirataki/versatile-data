@@ -1,4 +1,7 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    num::NonZeroU32,
+    sync::{Arc, RwLock},
+};
 
 use async_recursion::async_recursion;
 use futures::{executor::block_on, future, Future};
@@ -18,7 +21,7 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
-    pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<u32> {
+    pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<NonZeroU32> {
         self.data.sort(&self.result(), &orders)
     }
 
@@ -92,7 +95,7 @@ impl<'a> Search<'a> {
                             .unwrap()
                             .iter_to(|v| v.cmp(base))
                             .filter_map(|row| {
-                                let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
+                                let end = *term_end.read().unwrap().value(row.get()).unwrap_or(&0);
                                 (end == 0 || end > *base).then_some(row)
                             })
                             .collect();
@@ -133,7 +136,7 @@ impl<'a> Search<'a> {
                     .read()
                     .unwrap()
                     .iter()
-                    .filter_map(|i| (i as isize >= row).then_some(i))
+                    .filter_map(|i| (i.get() as isize >= row).then_some(i))
                     .collect()
             }
             Number::Max(row) => {
@@ -142,7 +145,7 @@ impl<'a> Search<'a> {
                     .read()
                     .unwrap()
                     .iter()
-                    .filter_map(|i| (i as isize <= row).then_some(i))
+                    .filter_map(|i| (i.get() as isize <= row).then_some(i))
                     .collect()
             }
             Number::Range(range) => range
@@ -150,6 +153,7 @@ impl<'a> Search<'a> {
                 .filter_map(|i| {
                     (i > 0 && data.serial.read().unwrap().exists(i as u32)).then_some(i as u32)
                 })
+                .map(|v| unsafe { NonZeroU32::new_unchecked(v) })
                 .collect(),
             Number::In(rows) => rows
                 .iter()
@@ -157,6 +161,7 @@ impl<'a> Search<'a> {
                     let i = *i;
                     (i > 0 && data.serial.read().unwrap().exists(i as u32)).then_some(i as u32)
                 })
+                .map(|v| unsafe { NonZeroU32::new_unchecked(v) })
                 .collect(),
         }
     }
@@ -206,10 +211,10 @@ impl<'a> Search<'a> {
     async fn result_field_sub<Fut>(
         field: Arc<RwLock<crate::Field>>,
         cont: &Arc<String>,
-        func: fn(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> Fut,
+        func: fn(row: NonZeroU32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> Fut,
     ) -> RowSet
     where
-        Fut: Future<Output = (u32, bool)>,
+        Fut: Future<Output = (NonZeroU32, bool)>,
     {
         let mut rows: RowSet = RowSet::default();
 
@@ -231,22 +236,30 @@ impl<'a> Search<'a> {
     }
 
     #[inline(always)]
-    async fn forward(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
+    async fn forward(
+        row: NonZeroU32,
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+    ) -> (NonZeroU32, bool) {
         (
             row,
             field
                 .read()
                 .unwrap()
-                .bytes(row)
+                .bytes(row.get())
                 .map_or(false, |bytes| bytes.starts_with(cont.as_bytes())),
         )
     }
 
     #[inline(always)]
-    async fn partial(row: u32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> (u32, bool) {
+    async fn partial(
+        row: NonZeroU32,
+        field: Arc<RwLock<crate::Field>>,
+        cont: Arc<String>,
+    ) -> (NonZeroU32, bool) {
         (
             row,
-            field.read().unwrap().bytes(row).map_or(false, |bytes| {
+            field.read().unwrap().bytes(row.get()).map_or(false, |bytes| {
                 let len = cont.len();
                 len <= bytes.len() && {
                     let cont_bytes = cont.as_bytes();
@@ -261,45 +274,45 @@ impl<'a> Search<'a> {
 
     #[inline(always)]
     async fn backward(
-        row: u32,
+        row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
-    ) -> (u32, bool) {
+    ) -> (NonZeroU32, bool) {
         (
             row,
             field
                 .read()
                 .unwrap()
-                .bytes(row)
+                .bytes(row.get())
                 .map_or(false, |bytes| bytes.ends_with(cont.as_bytes())),
         )
     }
 
     #[inline(always)]
     async fn value_forward(
-        row: u32,
+        row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
-    ) -> (u32, bool) {
+    ) -> (NonZeroU32, bool) {
         (
             row,
             field
                 .read()
                 .unwrap()
-                .bytes(row)
+                .bytes(row.get())
                 .map_or(false, |bytes| cont.as_bytes().starts_with(bytes)),
         )
     }
 
     #[inline(always)]
     async fn value_partial(
-        row: u32,
+        row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
-    ) -> (u32, bool) {
+    ) -> (NonZeroU32, bool) {
         (
             row,
-            field.read().unwrap().bytes(row).map_or(false, |bytes| {
+            field.read().unwrap().bytes(row.get()).map_or(false, |bytes| {
                 cont.as_bytes()
                     .windows(bytes.len())
                     .position(|window| window == bytes)
@@ -310,16 +323,16 @@ impl<'a> Search<'a> {
 
     #[inline(always)]
     async fn value_backward(
-        row: u32,
+        row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
         cont: Arc<String>,
-    ) -> (u32, bool) {
+    ) -> (NonZeroU32, bool) {
         (
             row,
             field
                 .read()
                 .unwrap()
-                .bytes(row)
+                .bytes(row.get())
                 .map_or(false, |bytes| cont.as_bytes().ends_with(bytes)),
         )
     }
