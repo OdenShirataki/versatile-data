@@ -1,5 +1,5 @@
 use idx_binary::IdxFile;
-use std::path::PathBuf;
+use std::{num::NonZeroU32, path::PathBuf};
 
 use crate::RowFragment;
 
@@ -38,7 +38,14 @@ impl SerialNumber {
 
     #[inline(always)]
     pub fn next_row(&mut self) -> u32 {
-        let row = self.index.new_row(self.fragment.pop().unwrap_or(0));
-        self.index.update(row, self.fragment.serial_increment())
+        let row = if let Some(row) = self.fragment.pop() {
+            self.index
+                .allocate(unsafe { NonZeroU32::new_unchecked(row) });
+            row
+        } else {
+            self.index.create_row()
+        };
+        self.index.update(row, self.fragment.serial_increment());
+        row
     }
 }
