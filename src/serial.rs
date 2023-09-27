@@ -4,11 +4,11 @@ use std::{num::NonZeroU32, path::PathBuf};
 use crate::RowFragment;
 
 pub(crate) struct SerialNumber {
-    serial: IdxFile<NonZeroU32>,
+    serial: IdxFile<u32>,
     fragment: RowFragment,
 }
 impl std::ops::Deref for SerialNumber {
-    type Target = IdxFile<NonZeroU32>;
+    type Target = IdxFile<u32>;
     fn deref(&self) -> &Self::Target {
         &self.serial
     }
@@ -47,7 +47,7 @@ impl SerialNumber {
             self.serial.create_row()
         };
         self.serial
-            .update(row.get(), self.fragment.serial_increment());
+            .update(row.get(), self.fragment.serial_increment().get());
         row
     }
 }

@@ -119,13 +119,7 @@ impl Data {
 
     #[inline(always)]
     pub fn serial(&self, row: u32) -> u32 {
-        self.serial
-            .read()
-            .unwrap()
-            .value(row)
-            .copied()
-            .unwrap()
-            .get()
+        self.serial.read().unwrap().value(row).copied().unwrap()
     }
 
     #[inline(always)]
