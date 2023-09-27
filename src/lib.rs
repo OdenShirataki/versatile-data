@@ -119,7 +119,13 @@ impl Data {
 
     #[inline(always)]
     pub fn serial(&self, row: u32) -> u32 {
-        self.serial.read().unwrap().value(row).copied().unwrap_or(0)
+        self.serial
+            .read()
+            .unwrap()
+            .value(row)
+            .copied()
+            .unwrap()
+            .get()
     }
 
     #[inline(always)]
@@ -182,7 +188,7 @@ impl Data {
                 *row
             }
             Operation::Delete { row } => {
-                self.delete(*row);
+                self.delete(NonZeroU32::new(*row).unwrap());
                 0
             }
         }
@@ -310,8 +316,8 @@ impl Data {
     }
 
     #[inline(always)]
-    fn delete(&mut self, row: u32) {
-        assert!(row > 0);
+    fn delete(&mut self, row: NonZeroU32) {
+        let row = row.get();
         if self.exists(row) {
             let f = Arc::clone(&self.serial);
             thread::spawn(move || {

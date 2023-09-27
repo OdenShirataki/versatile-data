@@ -37,9 +37,9 @@ impl RowFragment {
     }
 
     #[inline(always)]
-    pub fn serial_increment(&mut self) -> u32 {
+    pub fn serial_increment(&mut self) -> NonZeroU32 {
         let blank_list = unsafe { &mut *(self.filemmap.as_ptr() as *mut u32) };
         *blank_list += 1;
-        *blank_list
+        unsafe { NonZeroU32::new_unchecked(*blank_list) }
     }
 }

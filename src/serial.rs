@@ -4,20 +4,20 @@ use std::{num::NonZeroU32, path::PathBuf};
 use crate::RowFragment;
 
 pub(crate) struct SerialNumber {
-    index: IdxFile<u32>,
+    serial: IdxFile<NonZeroU32>,
     fragment: RowFragment,
 }
 impl std::ops::Deref for SerialNumber {
-    type Target = IdxFile<u32>;
+    type Target = IdxFile<NonZeroU32>;
     fn deref(&self) -> &Self::Target {
-        &self.index
+        &self.serial
     }
 }
 impl SerialNumber {
     pub fn new(path: PathBuf) -> Self {
         let file_name = path.file_name().map_or("".into(), |f| f.to_string_lossy());
         SerialNumber {
-            index: IdxFile::new({
+            serial: IdxFile::new({
                 let mut path = path.clone();
                 path.set_file_name(&(file_name.to_string() + ".i"));
                 path
@@ -33,7 +33,7 @@ impl SerialNumber {
     #[inline(always)]
     pub fn delete(&mut self, row: u32) {
         if let Some(row) = NonZeroU32::new(row) {
-            self.index.delete(row.get());
+            self.serial.delete(row.get());
             self.fragment.insert_blank(row);
         }
     }
@@ -41,12 +41,12 @@ impl SerialNumber {
     #[inline(always)]
     pub fn next_row(&mut self) -> NonZeroU32 {
         let row = if let Some(row) = self.fragment.pop() {
-            self.index.allocate(row);
+            self.serial.allocate(row);
             row
         } else {
-            self.index.create_row()
+            self.serial.create_row()
         };
-        self.index
+        self.serial
             .update(row.get(), self.fragment.serial_increment());
         row
     }
