@@ -95,7 +95,7 @@ impl<'a> Search<'a> {
                             .unwrap()
                             .iter_to(|v| v.cmp(base))
                             .filter_map(|row| {
-                                let end = *term_end.read().unwrap().value(row.get()).unwrap_or(&0);
+                                let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
                                 (end == 0 || end > *base).then_some(row)
                             })
                             .collect();
@@ -151,7 +151,13 @@ impl<'a> Search<'a> {
             Number::Range(range) => range
                 .clone()
                 .filter_map(|i| {
-                    (i > 0 && data.serial.read().unwrap().exists(i as u32)).then_some(i as u32)
+                    (i > 0
+                        && data
+                            .serial
+                            .read()
+                            .unwrap()
+                            .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
+                    .then_some(i as u32)
                 })
                 .map(|v| unsafe { NonZeroU32::new_unchecked(v) })
                 .collect(),
@@ -159,7 +165,13 @@ impl<'a> Search<'a> {
                 .iter()
                 .filter_map(|i| {
                     let i = *i;
-                    (i > 0 && data.serial.read().unwrap().exists(i as u32)).then_some(i as u32)
+                    (i > 0
+                        && data
+                            .serial
+                            .read()
+                            .unwrap()
+                            .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
+                    .then_some(i as u32)
                 })
                 .map(|v| unsafe { NonZeroU32::new_unchecked(v) })
                 .collect(),
@@ -246,7 +258,7 @@ impl<'a> Search<'a> {
             field
                 .read()
                 .unwrap()
-                .bytes(row.get())
+                .bytes(row)
                 .map_or(false, |bytes| bytes.starts_with(cont.as_bytes())),
         )
     }
@@ -259,7 +271,7 @@ impl<'a> Search<'a> {
     ) -> (NonZeroU32, bool) {
         (
             row,
-            field.read().unwrap().bytes(row.get()).map_or(false, |bytes| {
+            field.read().unwrap().bytes(row).map_or(false, |bytes| {
                 let len = cont.len();
                 len <= bytes.len() && {
                     let cont_bytes = cont.as_bytes();
@@ -283,7 +295,7 @@ impl<'a> Search<'a> {
             field
                 .read()
                 .unwrap()
-                .bytes(row.get())
+                .bytes(row)
                 .map_or(false, |bytes| bytes.ends_with(cont.as_bytes())),
         )
     }
@@ -299,7 +311,7 @@ impl<'a> Search<'a> {
             field
                 .read()
                 .unwrap()
-                .bytes(row.get())
+                .bytes(row)
                 .map_or(false, |bytes| cont.as_bytes().starts_with(bytes)),
         )
     }
@@ -312,7 +324,7 @@ impl<'a> Search<'a> {
     ) -> (NonZeroU32, bool) {
         (
             row,
-            field.read().unwrap().bytes(row.get()).map_or(false, |bytes| {
+            field.read().unwrap().bytes(row).map_or(false, |bytes| {
                 cont.as_bytes()
                     .windows(bytes.len())
                     .position(|window| window == bytes)
@@ -332,7 +344,7 @@ impl<'a> Search<'a> {
             field
                 .read()
                 .unwrap()
-                .bytes(row.get())
+                .bytes(row)
                 .map_or(false, |bytes| cont.as_bytes().ends_with(bytes)),
         )
     }

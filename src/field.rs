@@ -1,5 +1,6 @@
 use std::{
     fs,
+    num::NonZeroU32,
     sync::{Arc, RwLock},
 };
 
@@ -15,13 +16,13 @@ impl Data {
         self.fields_cache.iter().map(|(key, _)| key).collect()
     }
     #[inline(always)]
-    pub fn field_bytes(&self, row: u32, name: &str) -> &[u8] {
+    pub fn field_bytes(&self, row: NonZeroU32, name: &str) -> &[u8] {
         self.field(name)
             .and_then(|v| v.read().unwrap().bytes(row))
             .unwrap_or(b"")
     }
     #[inline(always)]
-    pub fn field_num(&self, row: u32, name: &str) -> f64 {
+    pub fn field_num(&self, row: NonZeroU32, name: &str) -> f64 {
         self.field(name)
             .and_then(|v| v.read().unwrap().bytes(row))
             .and_then(|v| unsafe { std::str::from_utf8_unchecked(v) }.parse().ok())

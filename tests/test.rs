@@ -23,13 +23,13 @@ fn test() {
     }
     let mut sam = 0.0;
     for i in range.clone() {
-        sam += data.field_num(i, "num");
+        sam += data.field_num(i.try_into().unwrap(), "num");
         println!(
             "{},{},{},{}",
-            data.serial(i),
-            std::str::from_utf8(data.field_bytes(i, "num")).unwrap(),
-            std::str::from_utf8(data.field_bytes(i, "num_by3")).unwrap(),
-            std::str::from_utf8(data.field_bytes(i, "num_mod3")).unwrap()
+            data.serial(i.try_into().unwrap()),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num")).unwrap(),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_by3")).unwrap(),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_mod3")).unwrap()
         );
     }
     assert_eq!(sam, 55.0);
@@ -86,12 +86,12 @@ fn test() {
         .result();
     println!("{:?}", r);
 
-    data.update_field(2, "hoge", b"HAHA");
-    data.update_field(4, "hoge", b"agaba");
-    data.update_field(5, "hoge", b"agababi");
-    data.update_field(1, "hoge", b"ageabe");
-    data.update_field(7, "hoge", b"ageee");
-    data.update_field(6, "hoge", b"bebebe");
+    data.update_field(2.try_into().unwrap(), "hoge", b"HAHA");
+    data.update_field(4.try_into().unwrap(), "hoge", b"agaba");
+    data.update_field(5.try_into().unwrap(), "hoge", b"agababi");
+    data.update_field(1.try_into().unwrap(), "hoge", b"ageabe");
+    data.update_field(7.try_into().unwrap(), "hoge", b"ageee");
+    data.update_field(6.try_into().unwrap(), "hoge", b"bebebe");
     let r = data
         .search_field("hoge", &search::Field::Match(b"HAHA".to_vec()))
         .result();

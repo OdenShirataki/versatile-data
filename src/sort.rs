@@ -55,9 +55,9 @@ impl Data {
                                 .serial
                                 .read()
                                 .unwrap()
-                                .value(a.get())
+                                .value(*a)
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().value(b.get()).unwrap());
+                                .cmp(self.serial.read().unwrap().value(*b).unwrap());
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
@@ -65,9 +65,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(a.get())
+                                    .value(*a)
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(b.get()).unwrap());
+                                    .cmp(f.read().unwrap().value(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -78,9 +78,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(a.get())
+                                    .value(*a)
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(b.get()).unwrap());
+                                    .cmp(f.read().unwrap().value(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -91,9 +91,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(a.get())
+                                    .value(*a)
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(b.get()).unwrap());
+                                    .cmp(f.read().unwrap().value(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -102,8 +102,8 @@ impl Data {
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(a.get()).unwrap(),
-                                    field.read().unwrap().bytes(b.get()).unwrap(),
+                                    field.read().unwrap().bytes(*a).unwrap(),
+                                    field.read().unwrap().bytes(*b).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -123,9 +123,9 @@ impl Data {
                                 .serial
                                 .read()
                                 .unwrap()
-                                .value(b.get())
+                                .value(*b)
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().value(a.get()).unwrap());
+                                .cmp(self.serial.read().unwrap().value(*a).unwrap());
                         }
                         OrderKey::Row => {
                             return b.cmp(a);
@@ -135,9 +135,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(b.get())
+                                    .value(*b)
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(a.get()).unwrap());
+                                    .cmp(f.read().unwrap().value(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -148,9 +148,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(b.get())
+                                    .value(*b)
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(a.get()).unwrap());
+                                    .cmp(f.read().unwrap().value(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -161,9 +161,9 @@ impl Data {
                                 let ord = f
                                     .read()
                                     .unwrap()
-                                    .value(b.get())
+                                    .value(*b)
                                     .unwrap()
-                                    .cmp(f.read().unwrap().value(a.get()).unwrap());
+                                    .cmp(f.read().unwrap().value(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -172,8 +172,8 @@ impl Data {
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(b.get()).unwrap(),
-                                    field.read().unwrap().bytes(a.get()).unwrap(),
+                                    field.read().unwrap().bytes(*b).unwrap(),
+                                    field.read().unwrap().bytes(*a).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;

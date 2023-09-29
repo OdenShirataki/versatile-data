@@ -31,11 +31,9 @@ impl SerialNumber {
     }
 
     #[inline(always)]
-    pub fn delete(&mut self, row: u32) {
-        if let Some(row) = NonZeroU32::new(row) {
-            self.serial.delete(row.get());
-            self.fragment.insert_blank(row);
-        }
+    pub fn delete(&mut self, row: NonZeroU32) {
+        self.serial.delete(row);
+        self.fragment.insert_blank(row);
     }
 
     #[inline(always)]
@@ -47,7 +45,7 @@ impl SerialNumber {
             self.serial.create_row()
         };
         self.serial
-            .update(row.get(), self.fragment.serial_increment().get());
+            .update(row, self.fragment.serial_increment().get());
         row
     }
 }

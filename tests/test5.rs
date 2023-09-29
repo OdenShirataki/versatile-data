@@ -39,7 +39,7 @@ fn test5() {
         println!(
             "{} : {}",
             r,
-            std::str::from_utf8(data.field_bytes(r.get(), "num")).unwrap()
+            std::str::from_utf8(data.field_bytes(r, "num")).unwrap()
         );
     }
 
@@ -52,7 +52,7 @@ fn test5() {
         println!(
             "{} : {}",
             r,
-            std::str::from_utf8(data.field_bytes(r.get(), "num")).unwrap()
+            std::str::from_utf8(data.field_bytes(r, "num")).unwrap()
         );
     }
     println!("\nmax");
@@ -64,7 +64,7 @@ fn test5() {
         println!(
             "{} : {}",
             r,
-            std::str::from_utf8(data.field_bytes(r.get(), "num")).unwrap()
+            std::str::from_utf8(data.field_bytes(r, "num")).unwrap()
         );
     }
 
@@ -77,7 +77,7 @@ fn test5() {
         println!(
             "{} : {}",
             r,
-            std::str::from_utf8(data.field_bytes(r.get(), "num")).unwrap()
+            std::str::from_utf8(data.field_bytes(r, "num")).unwrap()
         );
     }
 
@@ -90,7 +90,7 @@ fn test5() {
         println!(
             "{} : {}",
             r,
-            std::str::from_utf8(data.field_bytes(r.get(), "num")).unwrap()
+            std::str::from_utf8(data.field_bytes(r, "num")).unwrap()
         );
     }
 
