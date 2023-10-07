@@ -24,7 +24,7 @@ impl Default for Term {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Number {
     Min(isize),
     Max(isize),
@@ -32,7 +32,7 @@ pub enum Number {
     In(Vec<isize>),
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Field {
     Match(Vec<u8>),
     Range(Vec<u8>, Vec<u8>),

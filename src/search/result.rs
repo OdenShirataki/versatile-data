@@ -1,28 +1,27 @@
 use std::{
+    collections::BTreeSet,
     num::NonZeroU32,
     sync::{Arc, RwLock},
 };
 
 use async_recursion::async_recursion;
-use futures::{executor::block_on, future, Future};
+use futures::{future, Future};
 
 use crate::{Condition, Data, Order, RowSet, Search};
 
 use super::{Field, Number, Term};
 
 impl<'a> Search<'a> {
-    #[inline(always)]
-    pub fn result(&mut self) -> RowSet {
+    pub async fn result(&mut self) -> RowSet {
         if self.conditions.len() > 0 {
-            block_on(async { Self::result_async(&self.data, &self.conditions).await })
+            Self::result_inner(&self.data, &self.conditions).await
         } else {
             self.data.all()
         }
     }
 
-    #[inline(always)]
-    pub fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<NonZeroU32> {
-        self.data.sort(&self.result(), &orders)
+    pub async fn result_with_sort(&mut self, orders: Vec<Order>) -> Vec<NonZeroU32> {
+        self.data.sort(&self.result().await, &orders)
     }
 
     #[async_recursion]
@@ -37,7 +36,8 @@ impl<'a> Search<'a> {
                         .iter_by(|v| v.cmp(&activity))
                         .collect()
                 } else {
-                    unreachable!();
+                    //unreachable!();
+                    BTreeSet::new()
                 }
             }
             Condition::Term(condition) => Self::result_term(data, condition),
@@ -47,7 +47,7 @@ impl<'a> Search<'a> {
             Condition::Row(condition) => Self::result_row(data, condition),
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
             Condition::Uuid(uuid) => Self::result_uuid(data, uuid),
-            Condition::Narrow(conditions) => Self::result_async(data, conditions).await,
+            Condition::Narrow(conditions) => Self::result_inner(data, conditions).await,
             Condition::Wide(conditions) => {
                 let mut fs: Vec<_> = conditions
                     .iter()
@@ -66,8 +66,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    #[inline(always)]
-    async fn result_async(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
+    async fn result_inner(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
         let mut fs: Vec<_> = conditions
             .iter()
             .map(|c| Self::result_condition(data, c))
@@ -133,8 +132,6 @@ impl<'a> Search<'a> {
             Number::Min(row) => {
                 let row = *row;
                 data.serial
-                    .read()
-                    .unwrap()
                     .iter()
                     .filter_map(|i| (i.get() as isize >= row).then_some(i))
                     .collect()
@@ -142,8 +139,6 @@ impl<'a> Search<'a> {
             Number::Max(row) => {
                 let row = *row;
                 data.serial
-                    .read()
-                    .unwrap()
                     .iter()
                     .filter_map(|i| (i.get() as isize <= row).then_some(i))
                     .collect()
@@ -154,8 +149,6 @@ impl<'a> Search<'a> {
                     (i > 0
                         && data
                             .serial
-                            .read()
-                            .unwrap()
                             .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
                     .then_some(i as u32)
                 })
@@ -168,8 +161,6 @@ impl<'a> Search<'a> {
                     (i > 0
                         && data
                             .serial
-                            .read()
-                            .unwrap()
                             .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
                     .then_some(i as u32)
                 })
@@ -178,7 +169,6 @@ impl<'a> Search<'a> {
         }
     }
 
-    #[inline(always)]
     pub async fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
         if let Some(field) = data.field(field_name) {
             let field = Arc::clone(&field);
@@ -219,7 +209,6 @@ impl<'a> Search<'a> {
         }
     }
 
-    #[inline(always)]
     async fn result_field_sub<Fut>(
         field: Arc<RwLock<crate::Field>>,
         cont: &Arc<String>,
@@ -247,7 +236,6 @@ impl<'a> Search<'a> {
         rows
     }
 
-    #[inline(always)]
     async fn forward(
         row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
@@ -263,7 +251,6 @@ impl<'a> Search<'a> {
         )
     }
 
-    #[inline(always)]
     async fn partial(
         row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
@@ -284,7 +271,6 @@ impl<'a> Search<'a> {
         )
     }
 
-    #[inline(always)]
     async fn backward(
         row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
@@ -300,7 +286,6 @@ impl<'a> Search<'a> {
         )
     }
 
-    #[inline(always)]
     async fn value_forward(
         row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
@@ -316,7 +301,6 @@ impl<'a> Search<'a> {
         )
     }
 
-    #[inline(always)]
     async fn value_partial(
         row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
@@ -333,7 +317,6 @@ impl<'a> Search<'a> {
         )
     }
 
-    #[inline(always)]
     async fn value_backward(
         row: NonZeroU32,
         field: Arc<RwLock<crate::Field>>,
@@ -392,7 +375,7 @@ impl<'a> Search<'a> {
             let mut r = RowSet::default();
             uuids
                 .iter()
-                .for_each(|uuid| r.extend(index.read().unwrap().iter_by(|v| v.cmp(&uuid))));
+                .for_each(|uuid| r.extend(index.iter_by(|v| v.cmp(&uuid))));
             r
         } else {
             unreachable!();

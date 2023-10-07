@@ -9,10 +9,14 @@ fn test3() {
     }
 
     let mut data = Data::new(dir, DataOption::default());
-    data.update(&Operation::New(Record {
-        fields: vec![KeyValue::new("test", "TEST".to_owned())],
-        ..Default::default()
-    }));
+    futures::executor::block_on(async {
+        data.update(&Operation::New(Record {
+            fields: vec![KeyValue::new("test", "TEST".to_owned())],
+            ..Default::default()
+        }))
+        .await;
+    });
+
     if let Ok(str) = std::str::from_utf8(data.field_bytes(1.try_into().unwrap(), "test")) {
         println!("FIELD:{}", str);
     }

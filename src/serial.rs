@@ -36,8 +36,7 @@ impl SerialNumber {
         self.fragment.insert_blank(row);
     }
 
-    #[inline(always)]
-    pub fn next_row(&mut self) -> NonZeroU32 {
+    pub async fn next_row(&mut self) -> NonZeroU32 {
         let row = if let Some(row) = self.fragment.pop() {
             self.serial.allocate(row);
             row
@@ -45,7 +44,8 @@ impl SerialNumber {
             self.serial.create_row()
         };
         self.serial
-            .update(row, self.fragment.serial_increment().get());
+            .update(row, self.fragment.serial_increment().get())
+            .await;
         row
     }
 }

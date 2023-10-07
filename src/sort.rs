@@ -34,7 +34,6 @@ pub enum Order {
 }
 
 impl Data {
-    #[inline(always)]
     pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<NonZeroU32> {
         let sub_orders = &orders[1..];
         match &orders[0] {
@@ -53,11 +52,9 @@ impl Data {
                         OrderKey::Serial => {
                             return self
                                 .serial
-                                .read()
-                                .unwrap()
                                 .value(*a)
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().value(*b).unwrap());
+                                .cmp(self.serial.value(*b).unwrap());
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
@@ -121,11 +118,9 @@ impl Data {
                         OrderKey::Serial => {
                             return self
                                 .serial
-                                .read()
-                                .unwrap()
                                 .value(*b)
                                 .unwrap()
-                                .cmp(self.serial.read().unwrap().value(*a).unwrap());
+                                .cmp(self.serial.value(*a).unwrap());
                         }
                         OrderKey::Row => {
                             return b.cmp(a);
@@ -276,7 +271,7 @@ impl Data {
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32> {
         match key {
-            OrderKey::Serial => self.sort_with_triee(rows, &self.serial.read().unwrap(), &vec![]),
+            OrderKey::Serial => self.sort_with_triee(rows, &self.serial, &vec![]),
             OrderKey::Row => rows.iter().copied().collect(),
             OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.iter().copied().collect(),
@@ -306,9 +301,7 @@ impl Data {
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32> {
         match key {
-            OrderKey::Serial => {
-                self.sort_with_triee_desc(rows, &self.serial.read().unwrap(), &vec![])
-            }
+            OrderKey::Serial => self.sort_with_triee_desc(rows, &self.serial, &vec![]),
             OrderKey::Row => rows.iter().rev().copied().collect(),
             OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.iter().rev().copied().collect(),

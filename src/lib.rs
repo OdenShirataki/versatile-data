@@ -7,6 +7,7 @@ mod row_fragment;
 mod serial;
 mod sort;
 
+use async_recursion::async_recursion;
 pub use field::Field;
 pub use idx_binary::{self, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
@@ -40,14 +41,15 @@ pub fn uuid_string(uuid: u128) -> String {
 
 pub struct Data {
     fields_dir: PathBuf,
-    serial: Arc<RwLock<SerialNumber>>,
-    uuid: Option<Arc<RwLock<IdxFile<u128>>>>,
+    serial: SerialNumber,
+    uuid: Option<IdxFile<u128>>,
     activity: Option<Arc<RwLock<IdxFile<u8>>>>,
     term_begin: Option<Arc<RwLock<IdxFile<u64>>>>,
     term_end: Option<Arc<RwLock<IdxFile<u64>>>>,
     last_updated: Option<Arc<RwLock<IdxFile<u64>>>>,
     fields_cache: HashMap<String, Arc<RwLock<Field>>>,
 }
+
 impl Data {
     pub fn new<P: AsRef<Path>>(dir: P, option: DataOption) -> Self {
         let dir = dir.as_ref();
@@ -74,16 +76,16 @@ impl Data {
 
         Self {
             fields_dir,
-            serial: Arc::new(RwLock::new(SerialNumber::new({
+            serial: SerialNumber::new({
                 let mut path = dir.to_path_buf();
                 path.push("serial");
                 path
-            }))),
-            uuid: option.uuid.then_some(Arc::new(RwLock::new(IdxFile::new({
+            }),
+            uuid: option.uuid.then_some(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("uuid.i");
                 path
-            })))),
+            })),
             activity: option
                 .activity
                 .then_some(Arc::new(RwLock::new(IdxFile::new({
@@ -114,27 +116,23 @@ impl Data {
 
     #[inline(always)]
     pub fn exists(&self, row: NonZeroU32) -> bool {
-        self.serial.read().unwrap().value(row).is_some()
+        self.serial.value(row).is_some()
     }
 
     #[inline(always)]
     pub fn serial(&self, row: NonZeroU32) -> u32 {
-        self.serial.read().unwrap().value(row).copied().unwrap()
+        self.serial.value(row).copied().unwrap()
     }
 
     #[inline(always)]
     pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
-        self.uuid
-            .as_ref()
-            .and_then(|uuid| uuid.read().unwrap().value(row).copied())
+        self.uuid.as_ref().and_then(|uuid| uuid.value(row).copied())
     }
 
     #[inline(always)]
     pub fn uuid_string(&self, row: NonZeroU32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
-            uuid.read()
-                .unwrap()
-                .value(row)
+            uuid.value(row)
                 .map(|v| uuid::Uuid::from_u128(*v).to_string())
         })
     }
@@ -173,12 +171,13 @@ impl Data {
             .and_then(|f| f.read().unwrap().value(row).copied())
     }
 
-    #[inline(always)]
-    pub fn update(&mut self, operation: &Operation) -> u32 {
+    #[async_recursion]
+    pub async fn update(&mut self, operation: &Operation) -> u32 {
         match operation {
-            Operation::New(record) => self.create_row(record).get(),
+            Operation::New(record) => self.create_row(record).await.get(),
             Operation::Update { row, record } => {
-                self.update_row(NonZeroU32::new(*row).unwrap(), record);
+                self.update_row(NonZeroU32::new(*row).unwrap(), record)
+                    .await;
                 *row
             }
             Operation::Delete { row } => {
@@ -188,33 +187,30 @@ impl Data {
         }
     }
 
-    #[inline(always)]
-    pub fn update_field(&mut self, row: NonZeroU32, field_name: &str, cont: &[u8]) {
+    pub async fn update_field(&mut self, row: NonZeroU32, field_name: &str, cont: &[u8]) {
         let field = if self.fields_cache.contains_key(field_name) {
             self.fields_cache.get_mut(field_name).unwrap()
         } else {
             self.create_field(field_name)
         };
-        field.write().unwrap().update(row, cont);
+        field.write().unwrap().update(row, cont).await;
     }
 
-    #[inline(always)]
-    pub fn create_row(&mut self, record: &Record) -> NonZeroU32 {
-        let row = self.serial.write().unwrap().next_row();
+    pub async fn create_row(&mut self, record: &Record) -> NonZeroU32 {
+        let row = self.serial.next_row().await;
 
-        if let Some(ref uuid) = self.uuid {
-            uuid.write().unwrap().update(row, create_uuid()); //recycled serial_number,uuid recreate.
+        if let Some(ref mut uuid) = self.uuid {
+            uuid.update(row, create_uuid()).await; //recycled serial_number,uuid recreate.
         }
 
-        self.update_common(row, record);
+        self.update_common(row, record).await;
 
         row
     }
 
-    #[inline(always)]
-    pub fn update_row(&mut self, row: NonZeroU32, record: &Record) {
+    pub async fn update_row(&mut self, row: NonZeroU32, record: &Record) {
         if self.exists(row) {
-            self.update_common(row, record);
+            self.update_common(row, record).await;
         }
     }
 
@@ -249,12 +245,13 @@ impl Data {
             .as_secs()
     }
 
-    #[inline(always)]
-    fn update_common(&mut self, row: NonZeroU32, record: &Record) {
+    async fn update_common(&mut self, row: NonZeroU32, record: &Record) {
         if let Some(ref f) = self.last_updated {
             let f = Arc::clone(f);
             thread::spawn(move || {
-                f.write().unwrap().update(row, Self::now());
+                futures::executor::block_on(async {
+                    f.write().unwrap().update(row, Self::now()).await
+                });
             });
         }
 
@@ -267,7 +264,9 @@ impl Data {
             let field = Arc::clone(field);
             let kv = kv.clone();
             thread::spawn(move || {
-                field.write().unwrap().update(row, &kv.value);
+                futures::executor::block_on(async {
+                    field.write().unwrap().update(row, &kv.value).await;
+                });
             });
         }
 
@@ -275,35 +274,47 @@ impl Data {
             let f = Arc::clone(f);
             let activity = record.activity as u8;
             thread::spawn(move || {
-                f.write().unwrap().update(row, activity);
+                futures::executor::block_on(async {
+                    f.write().unwrap().update(row, activity).await;
+                })
             });
         }
         if let Some(ref f) = self.term_begin {
             let f = Arc::clone(f);
             let term_begin = record.term_begin.clone();
             thread::spawn(move || {
-                f.write().unwrap().update(
-                    row,
-                    if let Term::Overwrite(term) = term_begin {
-                        term
-                    } else {
-                        Self::now()
-                    },
-                );
+                futures::executor::block_on(async {
+                    f.write()
+                        .unwrap()
+                        .update(
+                            row,
+                            if let Term::Overwrite(term) = term_begin {
+                                term
+                            } else {
+                                Self::now()
+                            },
+                        )
+                        .await;
+                })
             });
         }
         if let Some(ref f) = self.term_end {
             let f = Arc::clone(f);
             let term_end = record.term_end.clone();
             thread::spawn(move || {
-                f.write().unwrap().update(
-                    row,
-                    if let Term::Overwrite(term) = term_end {
-                        term
-                    } else {
-                        0
-                    },
-                );
+                futures::executor::block_on(async {
+                    f.write()
+                        .unwrap()
+                        .update(
+                            row,
+                            if let Term::Overwrite(term) = term_end {
+                                term
+                            } else {
+                                0
+                            },
+                        )
+                        .await;
+                });
             });
         }
     }
@@ -311,10 +322,7 @@ impl Data {
     #[inline(always)]
     fn delete(&mut self, row: NonZeroU32) {
         if self.exists(row) {
-            let f = Arc::clone(&self.serial);
-            thread::spawn(move || {
-                f.write().unwrap().delete(row);
-            });
+            self.serial.delete(row);
 
             self.load_fields();
             for (_, v) in self.fields_cache.iter() {
@@ -324,11 +332,8 @@ impl Data {
                 });
             }
 
-            if let Some(ref f) = self.uuid {
-                let f = Arc::clone(f);
-                thread::spawn(move || {
-                    f.write().unwrap().delete(row);
-                });
+            if let Some(ref mut f) = self.uuid {
+                f.delete(row);
             }
             if let Some(ref f) = self.activity {
                 let f = Arc::clone(f);
@@ -359,6 +364,6 @@ impl Data {
 
     #[inline(always)]
     pub fn all(&self) -> RowSet {
-        self.serial.read().unwrap().iter().collect()
+        self.serial.iter().collect()
     }
 }
