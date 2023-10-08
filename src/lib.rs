@@ -7,8 +7,8 @@ mod row_fragment;
 mod serial;
 mod sort;
 
-use async_recursion::async_recursion;
 pub use field::Field;
+use futures::FutureExt;
 pub use idx_binary::{self, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
 pub use option::DataOption;
@@ -22,8 +22,6 @@ use std::{
     fs,
     num::NonZeroU32,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-    thread,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -43,11 +41,11 @@ pub struct Data {
     fields_dir: PathBuf,
     serial: SerialNumber,
     uuid: Option<IdxFile<u128>>,
-    activity: Option<Arc<RwLock<IdxFile<u8>>>>,
-    term_begin: Option<Arc<RwLock<IdxFile<u64>>>>,
-    term_end: Option<Arc<RwLock<IdxFile<u64>>>>,
-    last_updated: Option<Arc<RwLock<IdxFile<u64>>>>,
-    fields_cache: HashMap<String, Arc<RwLock<Field>>>,
+    activity: Option<IdxFile<u8>>,
+    term_begin: Option<IdxFile<u64>>,
+    term_end: Option<IdxFile<u64>>,
+    last_updated: Option<IdxFile<u64>>,
+    fields_cache: HashMap<String, Field>,
 }
 
 impl Data {
@@ -66,9 +64,7 @@ impl Data {
                 if d.file_type().unwrap().is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
                         let field = Field::new(d.path());
-                        fields_cache
-                            .entry(String::from(fname))
-                            .or_insert(Arc::new(RwLock::new(field)));
+                        fields_cache.entry(String::from(fname)).or_insert(field);
                     }
                 }
             }
@@ -86,30 +82,26 @@ impl Data {
                 path.push("uuid.i");
                 path
             })),
-            activity: option
-                .activity
-                .then_some(Arc::new(RwLock::new(IdxFile::new({
-                    let mut path = dir.to_path_buf();
-                    path.push("activity.i");
-                    path
-                })))),
-            term_begin: option.term.then_some(Arc::new(RwLock::new(IdxFile::new({
+            activity: option.activity.then_some(IdxFile::new({
+                let mut path = dir.to_path_buf();
+                path.push("activity.i");
+                path
+            })),
+            term_begin: option.term.then_some(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("term_begin.i");
                 path
-            })))),
-            term_end: option.term.then_some(Arc::new(RwLock::new(IdxFile::new({
+            })),
+            term_end: option.term.then_some(IdxFile::new({
                 let mut path = dir.to_path_buf();
                 path.push("term_end.i");
                 path
-            })))),
-            last_updated: option
-                .last_updated
-                .then_some(Arc::new(RwLock::new(IdxFile::new({
-                    let mut path = dir.to_path_buf();
-                    path.push("last_updated.i");
-                    path
-                })))),
+            })),
+            last_updated: option.last_updated.then_some(IdxFile::new({
+                let mut path = dir.to_path_buf();
+                path.push("last_updated.i");
+                path
+            })),
             fields_cache,
         }
     }
@@ -140,7 +132,7 @@ impl Data {
     #[inline(always)]
     pub fn activity(&self, row: NonZeroU32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
-            a.read().unwrap().value(row).map(|v| {
+            a.value(row).map(|v| {
                 if *v != 0 {
                     Activity::Active
                 } else {
@@ -152,26 +144,23 @@ impl Data {
 
     #[inline(always)]
     pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_begin
-            .as_ref()
-            .and_then(|f| f.read().unwrap().value(row).copied())
+        self.term_begin.as_ref().and_then(|f| f.value(row).copied())
     }
 
     #[inline(always)]
     pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_end
-            .as_ref()
-            .and_then(|f| f.read().unwrap().value(row).copied())
+        self.term_end.as_ref().and_then(|f| f.value(row).copied())
     }
 
     #[inline(always)]
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
-        self.last_updated
-            .as_ref()
-            .and_then(|f| f.read().unwrap().value(row).copied())
+        if let Some(last_update) = &self.last_updated {
+            last_update.value(row).copied()
+        } else {
+            None
+        }
     }
 
-    #[async_recursion]
     pub async fn update(&mut self, operation: &Operation) -> u32 {
         match operation {
             Operation::New(record) => self.create_row(record).await.get(),
@@ -193,7 +182,7 @@ impl Data {
         } else {
             self.create_field(field_name)
         };
-        field.write().unwrap().update(row, cont).await;
+        field.update(row, cont).await;
     }
 
     pub async fn create_row(&mut self, record: &Record) -> NonZeroU32 {
@@ -215,7 +204,7 @@ impl Data {
     }
 
     #[inline(always)]
-    fn field(&self, name: &str) -> Option<&Arc<RwLock<Field>>> {
+    fn field(&self, name: &str) -> Option<&Field> {
         self.fields_cache.get(name)
     }
     fn load_fields(&mut self) {
@@ -229,7 +218,7 @@ impl Data {
                             let field = Field::new(path);
                             self.fields_cache
                                 .entry(String::from(str_fname))
-                                .or_insert(Arc::new(RwLock::new(field)));
+                                .or_insert(field);
                         }
                     }
                 }
@@ -246,77 +235,58 @@ impl Data {
     }
 
     async fn update_common(&mut self, row: NonZeroU32, record: &Record) {
-        if let Some(ref f) = self.last_updated {
-            let f = Arc::clone(f);
-            thread::spawn(move || {
-                futures::executor::block_on(async {
-                    f.write().unwrap().update(row, Self::now()).await
-                });
-            });
-        }
-
         for kv in record.fields.iter() {
-            let field = if self.fields_cache.contains_key(&kv.key) {
-                self.fields_cache.get_mut(&kv.key).unwrap()
-            } else {
-                self.create_field(&kv.key)
-            };
-            let field = Arc::clone(field);
-            let kv = kv.clone();
-            thread::spawn(move || {
-                futures::executor::block_on(async {
-                    field.write().unwrap().update(row, &kv.value).await;
-                });
-            });
+            if !self.fields_cache.contains_key(&kv.key) {
+                self.create_field(&kv.key);
+            }
         }
 
-        if let Some(ref f) = self.activity {
-            let f = Arc::clone(f);
-            let activity = record.activity as u8;
-            thread::spawn(move || {
-                futures::executor::block_on(async {
-                    f.write().unwrap().update(row, activity).await;
-                })
-            });
+        let mut futs = vec![];
+        if let Some(ref mut f) = self.last_updated {
+            futs.push(f.update(row, Self::now()).boxed());
         }
-        if let Some(ref f) = self.term_begin {
-            let f = Arc::clone(f);
-            let term_begin = record.term_begin.clone();
-            thread::spawn(move || {
-                futures::executor::block_on(async {
-                    f.write()
-                        .unwrap()
-                        .update(
-                            row,
-                            if let Term::Overwrite(term) = term_begin {
-                                term
-                            } else {
-                                Self::now()
-                            },
-                        )
-                        .await;
-                })
-            });
+
+        futs.push(
+            async {
+                for kv in record.fields.iter() {
+                    if let Some(field) = self.fields_cache.get_mut(&kv.key) {
+                        field.update(row, &kv.value).await;
+                    }
+                }
+            }
+            .boxed(),
+        );
+
+        if let Some(ref mut f) = self.activity {
+            futs.push(f.update(row, record.activity as u8).boxed());
         }
-        if let Some(ref f) = self.term_end {
-            let f = Arc::clone(f);
-            let term_end = record.term_end.clone();
-            thread::spawn(move || {
-                futures::executor::block_on(async {
-                    f.write()
-                        .unwrap()
-                        .update(
-                            row,
-                            if let Term::Overwrite(term) = term_end {
-                                term
-                            } else {
-                                0
-                            },
-                        )
-                        .await;
-                });
-            });
+        if let Some(ref mut f) = self.term_begin {
+            futs.push(
+                f.update(
+                    row,
+                    if let Term::Overwrite(term) = record.term_begin {
+                        term
+                    } else {
+                        Self::now()
+                    },
+                )
+                .boxed(),
+            );
         }
+        if let Some(ref mut f) = self.term_end {
+            futs.push(
+                f.update(
+                    row,
+                    if let Term::Overwrite(term) = record.term_end {
+                        term
+                    } else {
+                        0
+                    },
+                )
+                .boxed(),
+            );
+        }
+        futures::future::join_all(futs).await;
     }
 
     #[inline(always)]
@@ -325,39 +295,24 @@ impl Data {
             self.serial.delete(row);
 
             self.load_fields();
-            for (_, v) in self.fields_cache.iter() {
-                let v = Arc::clone(v);
-                thread::spawn(move || {
-                    v.write().unwrap().delete(row);
-                });
+            for (_, v) in self.fields_cache.iter_mut() {
+                v.delete(row);
             }
 
             if let Some(ref mut f) = self.uuid {
                 f.delete(row);
             }
-            if let Some(ref f) = self.activity {
-                let f = Arc::clone(f);
-                thread::spawn(move || {
-                    f.write().unwrap().delete(row);
-                });
+            if let Some(ref mut f) = self.activity {
+                f.delete(row);
             }
-            if let Some(ref f) = self.term_begin {
-                let f = Arc::clone(f);
-                thread::spawn(move || {
-                    f.write().unwrap().delete(row);
-                });
+            if let Some(ref mut f) = self.term_begin {
+                f.delete(row);
             }
-            if let Some(ref f) = self.term_end {
-                let f = Arc::clone(f);
-                thread::spawn(move || {
-                    f.write().unwrap().delete(row);
-                });
+            if let Some(ref mut f) = self.term_end {
+                f.delete(row);
             }
-            if let Some(ref f) = self.last_updated {
-                let f = Arc::clone(f);
-                thread::spawn(move || {
-                    f.write().unwrap().delete(row);
-                });
+            if let Some(ref mut f) = self.last_updated {
+                f.delete(row);
             }
         }
     }

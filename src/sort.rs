@@ -59,12 +59,7 @@ impl Data {
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*a)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                let ord = f.value(*a).unwrap().cmp(f.value(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -72,12 +67,7 @@ impl Data {
                         }
                         OrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*a)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                let ord = f.value(*a).unwrap().cmp(f.value(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -85,12 +75,7 @@ impl Data {
                         }
                         OrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*a)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*b).unwrap());
+                                let ord = f.value(*a).unwrap().cmp(f.value(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -99,8 +84,8 @@ impl Data {
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(*a).unwrap(),
-                                    field.read().unwrap().bytes(*b).unwrap(),
+                                    field.bytes(*a).unwrap(),
+                                    field.bytes(*b).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -127,12 +112,7 @@ impl Data {
                         }
                         OrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*b)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                let ord = f.value(*b).unwrap().cmp(f.value(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -140,12 +120,7 @@ impl Data {
                         }
                         OrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*b)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                let ord = f.value(*b).unwrap().cmp(f.value(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -153,12 +128,7 @@ impl Data {
                         }
                         OrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
-                                let ord = f
-                                    .read()
-                                    .unwrap()
-                                    .value(*b)
-                                    .unwrap()
-                                    .cmp(f.read().unwrap().value(*a).unwrap());
+                                let ord = f.value(*b).unwrap().cmp(f.value(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -167,8 +137,8 @@ impl Data {
                         OrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
-                                    field.read().unwrap().bytes(*b).unwrap(),
-                                    field.read().unwrap().bytes(*a).unwrap(),
+                                    field.bytes(*b).unwrap(),
+                                    field.bytes(*a).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -275,19 +245,19 @@ impl Data {
             OrderKey::Row => rows.iter().copied().collect(),
             OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.iter().copied().collect(),
-                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee(rows, f, sub_orders),
             ),
             OrderKey::TermEnd => self.term_end.as_ref().map_or_else(
                 || rows.iter().copied().collect(),
-                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee(rows, f, sub_orders),
             ),
             OrderKey::LastUpdated => self.term_end.as_ref().map_or_else(
                 || rows.iter().copied().collect(),
-                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee(rows, f, sub_orders),
             ),
             OrderKey::Field(field_name) => self.field(&field_name).map_or_else(
                 || rows.iter().copied().collect(),
-                |f| self.sort_with_triee(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee(rows, f, sub_orders),
             ),
             OrderKey::Custom(custom_order) => custom_order.asc(),
         }
@@ -305,19 +275,19 @@ impl Data {
             OrderKey::Row => rows.iter().rev().copied().collect(),
             OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.iter().rev().copied().collect(),
-                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
             OrderKey::TermEnd => self.term_end.as_ref().map_or_else(
                 || rows.iter().rev().copied().collect(),
-                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
             OrderKey::LastUpdated => self.last_updated.as_ref().map_or_else(
                 || rows.iter().rev().copied().collect(),
-                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
             OrderKey::Field(field_name) => self.field(&field_name).map_or_else(
                 || rows.iter().rev().copied().collect(),
-                |f| self.sort_with_triee_desc(rows, &f.read().unwrap(), sub_orders),
+                |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
             OrderKey::Custom(custom_order) => custom_order.desc(),
         }

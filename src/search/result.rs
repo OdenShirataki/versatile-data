@@ -1,11 +1,7 @@
-use std::{
-    collections::BTreeSet,
-    num::NonZeroU32,
-    sync::{Arc, RwLock},
-};
+use std::{collections::BTreeSet, num::NonZeroU32, sync::Arc};
 
 use async_recursion::async_recursion;
-use futures::{future, Future};
+use futures::future;
 
 use crate::{Condition, Data, Order, RowSet, Search};
 
@@ -30,11 +26,7 @@ impl<'a> Search<'a> {
             Condition::Activity(condition) => {
                 if let Some(ref index) = data.activity {
                     let activity = *condition as u8;
-                    index
-                        .read()
-                        .unwrap()
-                        .iter_by(|v| v.cmp(&activity))
-                        .collect()
+                    index.iter_by(|v| v.cmp(&activity)).collect()
                 } else {
                     //unreachable!();
                     BTreeSet::new()
@@ -42,7 +34,7 @@ impl<'a> Search<'a> {
             }
             Condition::Term(condition) => Self::result_term(data, condition),
             Condition::Field(field_name, condition) => {
-                Self::result_field(data, field_name, condition).await
+                Self::result_field(data, field_name, condition)
             }
             Condition::Row(condition) => Self::result_row(data, condition),
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
@@ -87,14 +79,11 @@ impl<'a> Search<'a> {
         match condition {
             Term::In(base) => {
                 if let Some(ref term_begin) = data.term_begin {
-                    let term_begin = Arc::clone(term_begin);
                     if let Some(ref term_end) = data.term_end {
                         return term_begin
-                            .read()
-                            .unwrap()
                             .iter_to(|v| v.cmp(base))
                             .filter_map(|row| {
-                                let end = *term_end.read().unwrap().value(row).unwrap_or(&0);
+                                let end = *term_end.value(row).unwrap_or(&0);
                                 (end == 0 || end > *base).then_some(row)
                             })
                             .collect();
@@ -107,18 +96,14 @@ impl<'a> Search<'a> {
             }
             Term::Future(base) => {
                 if let Some(ref index) = data.term_begin {
-                    return index.read().unwrap().iter_from(|v| v.cmp(&base)).collect();
+                    return index.iter_from(|v| v.cmp(&base)).collect();
                 } else {
                     unreachable!();
                 }
             }
             Term::Past(base) => {
                 if let Some(ref index) = data.term_end {
-                    return index
-                        .read()
-                        .unwrap()
-                        .iter_range(|v| v.cmp(&1), |v| v.cmp(&base))
-                        .collect();
+                    return index.iter_range(|v| v.cmp(&1), |v| v.cmp(&base)).collect();
                 } else {
                     unreachable!();
                 }
@@ -169,39 +154,26 @@ impl<'a> Search<'a> {
         }
     }
 
-    pub async fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
+    pub fn result_field(data: &Data, field_name: &str, condition: &Field) -> RowSet {
         if let Some(field) = data.field(field_name) {
-            let field = Arc::clone(&field);
             match condition {
-                Field::Match(v) => {
-                    let field = field.read().unwrap();
-                    field.iter_by(|data| field.cmp(data, &v)).collect()
-                }
-                Field::Min(min) => {
-                    let field = field.read().unwrap();
-                    field.iter_from(|data| field.cmp(data, &min)).collect()
-                }
-                Field::Max(max) => {
-                    let field = field.read().unwrap();
-                    field.iter_to(|data| field.cmp(data, &max)).collect()
-                }
-                Field::Range(min, max) => {
-                    let field = field.read().unwrap();
-                    field
-                        .iter_range(|data| field.cmp(data, &min), |data| field.cmp(data, &max))
-                        .collect()
-                }
-                Field::Forward(cont) => Self::result_field_sub(field, cont, Self::forward).await,
-                Field::Partial(cont) => Self::result_field_sub(field, cont, Self::partial).await,
-                Field::Backward(cont) => Self::result_field_sub(field, cont, Self::backward).await,
+                Field::Match(v) => field.iter_by(|data| field.cmp(data, &v)).collect(),
+                Field::Min(min) => field.iter_from(|data| field.cmp(data, &min)).collect(),
+                Field::Max(max) => field.iter_to(|data| field.cmp(data, &max)).collect(),
+                Field::Range(min, max) => field
+                    .iter_range(|data| field.cmp(data, &min), |data| field.cmp(data, &max))
+                    .collect(),
+                Field::Forward(cont) => Self::result_field_sub(field, cont, Self::forward),
+                Field::Partial(cont) => Self::result_field_sub(field, cont, Self::partial),
+                Field::Backward(cont) => Self::result_field_sub(field, cont, Self::backward),
                 Field::ValueForward(cont) => {
-                    Self::result_field_sub(field, cont, Self::value_forward).await
+                    Self::result_field_sub(field, cont, Self::value_forward)
                 }
                 Field::ValuePartial(cont) => {
-                    Self::result_field_sub(field, cont, Self::value_partial).await
+                    Self::result_field_sub(field, cont, Self::value_partial)
                 }
                 Field::ValueBackward(cont) => {
-                    Self::result_field_sub(field, cont, Self::value_backward).await
+                    Self::result_field_sub(field, cont, Self::value_backward)
                 }
             }
         } else {
@@ -209,56 +181,39 @@ impl<'a> Search<'a> {
         }
     }
 
-    async fn result_field_sub<Fut>(
-        field: Arc<RwLock<crate::Field>>,
+    fn result_field_sub(
+        field: &crate::Field,
         cont: &Arc<String>,
-        func: fn(row: NonZeroU32, field: Arc<RwLock<crate::Field>>, cont: Arc<String>) -> Fut,
-    ) -> RowSet
-    where
-        Fut: Future<Output = (NonZeroU32, bool)>,
-    {
+        func: fn(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool),
+    ) -> RowSet {
         let mut rows: RowSet = RowSet::default();
 
-        let mut fs: Vec<_> = field
-            .read()
-            .unwrap()
+        let fs: Vec<_> = field
             .iter()
-            .map(|row| Box::pin(func(row, Arc::clone(&field), Arc::clone(cont))))
+            .map(|row| func(row, field, Arc::clone(cont)))
             .collect();
-        while !fs.is_empty() {
-            let (val, _index, remaining) = future::select_all(fs).await;
-            if val.1 {
-                rows.insert(val.0);
+        for (row, b) in fs {
+            if b {
+                rows.insert(row);
             }
-            fs = remaining;
         }
 
         rows
     }
 
-    async fn forward(
-        row: NonZeroU32,
-        field: Arc<RwLock<crate::Field>>,
-        cont: Arc<String>,
-    ) -> (NonZeroU32, bool) {
+    fn forward(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
         (
             row,
             field
-                .read()
-                .unwrap()
                 .bytes(row)
                 .map_or(false, |bytes| bytes.starts_with(cont.as_bytes())),
         )
     }
 
-    async fn partial(
-        row: NonZeroU32,
-        field: Arc<RwLock<crate::Field>>,
-        cont: Arc<String>,
-    ) -> (NonZeroU32, bool) {
+    fn partial(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
         (
             row,
-            field.read().unwrap().bytes(row).map_or(false, |bytes| {
+            field.bytes(row).map_or(false, |bytes| {
                 let len = cont.len();
                 len <= bytes.len() && {
                     let cont_bytes = cont.as_bytes();
@@ -271,44 +226,36 @@ impl<'a> Search<'a> {
         )
     }
 
-    async fn backward(
-        row: NonZeroU32,
-        field: Arc<RwLock<crate::Field>>,
-        cont: Arc<String>,
-    ) -> (NonZeroU32, bool) {
+    fn backward(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
         (
             row,
             field
-                .read()
-                .unwrap()
                 .bytes(row)
                 .map_or(false, |bytes| bytes.ends_with(cont.as_bytes())),
         )
     }
 
-    async fn value_forward(
+    fn value_forward(
         row: NonZeroU32,
-        field: Arc<RwLock<crate::Field>>,
+        field: &crate::Field,
         cont: Arc<String>,
     ) -> (NonZeroU32, bool) {
         (
             row,
             field
-                .read()
-                .unwrap()
                 .bytes(row)
                 .map_or(false, |bytes| cont.as_bytes().starts_with(bytes)),
         )
     }
 
-    async fn value_partial(
+    fn value_partial(
         row: NonZeroU32,
-        field: Arc<RwLock<crate::Field>>,
+        field: &crate::Field,
         cont: Arc<String>,
     ) -> (NonZeroU32, bool) {
         (
             row,
-            field.read().unwrap().bytes(row).map_or(false, |bytes| {
+            field.bytes(row).map_or(false, |bytes| {
                 cont.as_bytes()
                     .windows(bytes.len())
                     .position(|window| window == bytes)
@@ -317,16 +264,14 @@ impl<'a> Search<'a> {
         )
     }
 
-    async fn value_backward(
+    fn value_backward(
         row: NonZeroU32,
-        field: Arc<RwLock<crate::Field>>,
+        field: &crate::Field,
         cont: Arc<String>,
     ) -> (NonZeroU32, bool) {
         (
             row,
             field
-                .read()
-                .unwrap()
                 .bytes(row)
                 .map_or(false, |bytes| cont.as_bytes().ends_with(bytes)),
         )
@@ -335,32 +280,28 @@ impl<'a> Search<'a> {
     #[inline(always)]
     fn result_last_updated(data: &Data, condition: &Number) -> RowSet {
         if let Some(ref f) = data.last_updated {
-            let index = Arc::clone(f);
             match condition {
                 Number::Min(min) => {
                     let min = *min as u64;
-                    index.read().unwrap().iter_from(|v| v.cmp(&min)).collect()
+                    f.iter_from(|v| v.cmp(&min)).collect()
                 }
                 Number::Max(max) => {
                     let max = *max as u64;
-                    index.read().unwrap().iter_to(|v| v.cmp(&max)).collect()
+                    f.iter_to(|v| v.cmp(&max)).collect()
                 }
                 Number::Range(range) => {
                     let range = range.clone();
-                    index
-                        .read()
-                        .unwrap()
-                        .iter_range(
-                            |v| v.cmp(&(*range.start() as u64)),
-                            |v| v.cmp(&(*range.end() as u64)),
-                        )
-                        .collect()
+                    f.iter_range(
+                        |v| v.cmp(&(*range.start() as u64)),
+                        |v| v.cmp(&(*range.end() as u64)),
+                    )
+                    .collect()
                 }
                 Number::In(rows) => {
                     let mut r = RowSet::default();
-                    rows.iter().for_each(|i| {
-                        r.extend(index.read().unwrap().iter_by(|v| v.cmp(&(*i as u64))))
-                    });
+                    for i in rows.iter() {
+                        r.extend(f.iter_by(|v| v.cmp(&(*i as u64))))
+                    }
                     r
                 }
             }
