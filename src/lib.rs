@@ -39,6 +39,7 @@ pub fn uuid_string(uuid: u128) -> String {
 
 pub struct Data {
     fields_dir: PathBuf,
+    option: DataOption,
     serial: SerialNumber,
     uuid: Option<IdxFile<u128>>,
     activity: Option<IdxFile<u8>>,
@@ -63,45 +64,71 @@ impl Data {
                 let d = d.unwrap();
                 if d.file_type().unwrap().is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
-                        let field = Field::new(d.path());
+                        let field = Field::new(d.path(), option.allocation_lot);
                         fields_cache.entry(String::from(fname)).or_insert(field);
                     }
                 }
             }
         }
 
-        Self {
-            fields_dir,
-            serial: SerialNumber::new({
+        let serial = SerialNumber::new(
+            {
                 let mut path = dir.to_path_buf();
                 path.push("serial");
                 path
-            }),
-            uuid: option.uuid.then_some(IdxFile::new({
+            },
+            option.allocation_lot,
+        );
+        let uuid = option.uuid.then_some(IdxFile::new(
+            {
                 let mut path = dir.to_path_buf();
                 path.push("uuid.i");
                 path
-            })),
-            activity: option.activity.then_some(IdxFile::new({
+            },
+            option.allocation_lot,
+        ));
+        let activity = option.activity.then_some(IdxFile::new(
+            {
                 let mut path = dir.to_path_buf();
                 path.push("activity.i");
                 path
-            })),
-            term_begin: option.term.then_some(IdxFile::new({
+            },
+            option.allocation_lot,
+        ));
+        let term_begin = option.term.then_some(IdxFile::new(
+            {
                 let mut path = dir.to_path_buf();
                 path.push("term_begin.i");
                 path
-            })),
-            term_end: option.term.then_some(IdxFile::new({
+            },
+            option.allocation_lot,
+        ));
+        let term_end = option.term.then_some(IdxFile::new(
+            {
                 let mut path = dir.to_path_buf();
                 path.push("term_end.i");
                 path
-            })),
-            last_updated: option.last_updated.then_some(IdxFile::new({
+            },
+            option.allocation_lot,
+        ));
+        let last_updated = option.last_updated.then_some(IdxFile::new(
+            {
                 let mut path = dir.to_path_buf();
                 path.push("last_updated.i");
                 path
-            })),
+            },
+            option.allocation_lot,
+        ));
+
+        Self {
+            fields_dir,
+            option,
+            serial,
+            uuid,
+            activity,
+            term_begin,
+            term_end,
+            last_updated,
             fields_cache,
         }
     }
@@ -215,7 +242,7 @@ impl Data {
                 if path.is_dir() {
                     if let Some(str_fname) = p.file_name().to_str() {
                         if !self.fields_cache.contains_key(str_fname) {
-                            let field = Field::new(path);
+                            let field = Field::new(path, self.option.allocation_lot);
                             self.fields_cache
                                 .entry(String::from(str_fname))
                                 .or_insert(field);

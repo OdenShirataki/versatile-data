@@ -7,7 +7,13 @@ fn test() {
     if std::path::Path::new(dir).exists() {
         std::fs::remove_dir_all(dir).unwrap();
     }
-    let mut data = Data::new(dir, DataOption::default());
+    let mut data = Data::new(
+        dir,
+        DataOption {
+            allocation_lot: 1000,
+            ..Default::default()
+        },
+    );
 
     futures::executor::block_on(async {
         let range = 1..=10000;

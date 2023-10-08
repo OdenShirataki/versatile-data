@@ -6,6 +6,7 @@ pub struct DataOption {
     pub activity: bool,
     pub term: bool,
     pub last_updated: bool,
+    pub allocation_lot: u32,
 }
 impl Default for DataOption {
     fn default() -> Self {
@@ -14,6 +15,7 @@ impl Default for DataOption {
             activity: true,
             term: true,
             last_updated: true,
+            allocation_lot: 1,
         }
     }
 }

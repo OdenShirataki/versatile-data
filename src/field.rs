@@ -29,7 +29,7 @@ impl Data {
         fields_dir.push(field_name);
         fs::create_dir_all(&fields_dir).unwrap();
         if fields_dir.exists() {
-            let field = Field::new(fields_dir);
+            let field = Field::new(fields_dir, self.option.allocation_lot);
             self.fields_cache
                 .entry(String::from(field_name))
                 .or_insert(field);

@@ -14,14 +14,17 @@ impl std::ops::Deref for SerialNumber {
     }
 }
 impl SerialNumber {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: PathBuf, reserve_unit: u32) -> Self {
         let file_name = path.file_name().map_or("".into(), |f| f.to_string_lossy());
         SerialNumber {
-            serial: IdxFile::new({
-                let mut path = path.clone();
-                path.set_file_name(&(file_name.to_string() + ".i"));
-                path
-            }),
+            serial: IdxFile::new(
+                {
+                    let mut path = path.clone();
+                    path.set_file_name(&(file_name.to_string() + ".i"));
+                    path
+                },
+                reserve_unit,
+            ),
             fragment: RowFragment::new({
                 let mut path = path.clone();
                 path.set_file_name(&(file_name.into_owned() + ".f"));
