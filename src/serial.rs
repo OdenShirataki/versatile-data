@@ -46,9 +46,11 @@ impl SerialNumber {
         } else {
             self.serial.create_row()
         };
-        self.serial
-            .update(row, self.fragment.serial_increment().get())
-            .await;
+        unsafe {
+            self.serial
+                .update(row, self.fragment.serial_increment().get())
+        }
+        .await;
         row
     }
 }

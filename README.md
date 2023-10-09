@@ -103,12 +103,55 @@ let r = data
     .result();
 println!("{:?}", r);
 
-data.update_field(2.try_into().unwrap(), "hoge", b"HAHA");
-data.update_field(4.try_into().unwrap(), "hoge", b"agaba");
-data.update_field(5.try_into().unwrap(), "hoge", b"agababi");
-data.update_field(1.try_into().unwrap(), "hoge", b"ageabe");
-data.update_field(7.try_into().unwrap(), "hoge", b"ageee");
-data.update_field(6.try_into().unwrap(), "hoge", b"bebebe");
+data.update(&Operation::Update {
+    row: 2,
+    record: Record {
+        fields: vec![KeyValue::new("hoge", b"HAHA".to_vec())],
+        ..Default::default()
+    },
+})
+.await;
+
+data.update(&Operation::Update {
+    row: 4,
+    record: Record {
+        fields: vec![KeyValue::new("hoge", b"agaba".to_vec())],
+        ..Default::default()
+    },
+})
+.await;
+data.update(&Operation::Update {
+    row: 5,
+    record: Record {
+        fields: vec![KeyValue::new("hoge", b"agababi".to_vec())],
+        ..Default::default()
+    },
+})
+.await;
+data.update(&Operation::Update {
+    row: 1,
+    record: Record {
+        fields: vec![KeyValue::new("hoge", b"ageabe".to_vec())],
+        ..Default::default()
+    },
+})
+.await;
+data.update(&Operation::Update {
+    row: 7,
+    record: Record {
+        fields: vec![KeyValue::new("hoge", b"ageee".to_vec())],
+        ..Default::default()
+    },
+})
+.await;
+data.update(&Operation::Update {
+    row: 6,
+    record: Record {
+        fields: vec![KeyValue::new("hoge", b"bebebe".to_vec())],
+        ..Default::default()
+    },
+})
+.await;
 let r = data
     .search_field("hoge", &search::Field::Match(b"HAHA".to_vec()))
     .result();

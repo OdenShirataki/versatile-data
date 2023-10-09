@@ -10,18 +10,21 @@ fn test() {
     let mut data = Data::new(
         dir,
         DataOption {
-            allocation_lot: 1000,
+            allocation_lot: 10000,
             ..Default::default()
         },
     );
 
     futures::executor::block_on(async {
-        let range = 1..=10000;
+        let range = 1u32..=100000;
         for i in range {
-            data.update(&Operation::New(Record {
-                fields: vec![KeyValue::new("num", i.to_string())],
-                ..Default::default()
-            }))
+            data.update(&Operation::Update {
+                row: i,
+                record: Record {
+                    fields: vec![KeyValue::new("num", i.to_string())],
+                    ..Default::default()
+                },
+            })
             .await;
         }
     });
