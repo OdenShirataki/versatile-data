@@ -40,38 +40,32 @@ impl<'a> Search<'a> {
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
             Condition::Uuid(uuid) => Self::result_uuid(data, uuid),
             Condition::Narrow(conditions) => Self::result_inner(data, conditions).await,
-            Condition::Wide(conditions) => {
-                let mut fs: Vec<_> = conditions
+            Condition::Wide(conditions) => future::join_all(
+                conditions
                     .iter()
                     .map(|c| Self::result_condition(data, c))
-                    .collect();
-                let (ret, _index, remaining) = future::select_all(fs).await;
-                let mut rows = ret;
-                fs = remaining;
-                while !fs.is_empty() {
-                    let (ret, _index, remaining) = future::select_all(fs).await;
-                    rows.extend(ret);
-                    fs = remaining;
-                }
-                rows
-            }
+                    .collect::<Vec<_>>(),
+            )
+            .await
+            .iter()
+            .flat_map(|v| v)
+            .cloned()
+            .collect::<RowSet>(),
         }
     }
 
     async fn result_inner(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
-        let mut fs: Vec<_> = conditions
-            .iter()
-            .map(|c| Self::result_condition(data, c))
-            .collect();
-        let (ret, _index, remaining) = future::select_all(fs).await;
-        let mut rows = ret;
-        fs = remaining;
-        while !fs.is_empty() {
-            let (ret, _index, remaining) = future::select_all(fs).await;
-            rows = rows.intersection(&ret).cloned().collect();
-            fs = remaining;
-        }
-        rows
+        future::join_all(
+            conditions
+                .iter()
+                .map(|c| Self::result_condition(data, c))
+                .collect::<Vec<_>>(),
+        )
+        .await
+        .iter()
+        .flat_map(|v| v)
+        .cloned()
+        .collect::<RowSet>()
     }
 
     #[inline(always)]
