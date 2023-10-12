@@ -248,9 +248,7 @@ impl Data {
             field_map.insert(&kv.key, &kv.value);
         }
 
-        let mut futs = vec![];
-
-        futs.push(
+        futures::future::join_all([
             async {
                 let mut futs = vec![];
                 for (key, field) in self.fields_cache.iter_mut() {
@@ -260,38 +258,27 @@ impl Data {
                 }
                 futures::future::join_all(futs).await;
             }
-            .boxed(),
-        );
-
-        futs.push(
-            async {
+            .boxed()
+            ,async {
                 if with_uuid {
                     if let Some(ref mut uuid) = self.uuid {
                         uuid.update_with_allocate(row, create_uuid()).await;
                     }
                 }
             }
-            .boxed(),
-        );
-
-        futs.push(
-            async {
+            .boxed()
+            ,async {
                 if let Some(ref mut f) = self.last_updated {
                     f.update_with_allocate(row, Self::now()).await;
                 }
             }
-            .boxed(),
-        );
-
-        futs.push(
-            async {
+            .boxed()
+            ,async {
                 if let Some(ref mut f) = self.activity {
                     f.update_with_allocate(row, record.activity as u8).await;
                 }
             }
             .boxed(),
-        );
-        futs.push(
             async {
                 if let Some(ref mut f) = self.term_begin {
                     f.update_with_allocate(
@@ -305,10 +292,8 @@ impl Data {
                     .await;
                 }
             }
-            .boxed(),
-        );
-        futs.push(
-            async {
+            .boxed()
+            ,async {
                 if let Some(ref mut f) = self.term_end {
                     f.update_with_allocate(
                         row,
@@ -321,20 +306,15 @@ impl Data {
                     .await;
                 }
             }
-            .boxed(),
-        );
-
-        futures::future::join_all(futs).await;
+            .boxed()
+        ]).await;
     }
 
     async fn delete(&mut self, row: NonZeroU32) {
         self.load_fields();
 
-        let mut futs = vec![];
-
-        futs.push(async { self.serial.delete(row) }.boxed());
-
-        futs.push(
+        let mut futs = vec![
+            async { self.serial.delete(row) }.boxed(),
             async {
                 let mut futs = vec![];
                 for (_, v) in self.fields_cache.iter_mut() {
@@ -348,7 +328,7 @@ impl Data {
                 futures::future::join_all(futs).await;
             }
             .boxed(),
-        );
+        ];
 
         if let Some(ref mut f) = self.uuid {
             futs.push(

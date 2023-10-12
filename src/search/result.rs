@@ -48,8 +48,7 @@ impl<'a> Search<'a> {
             )
             .await
             .iter()
-            .flat_map(|v| v)
-            .cloned()
+            .flat_map(|v| v.clone())
             .collect::<RowSet>(),
         }
     }
@@ -63,8 +62,7 @@ impl<'a> Search<'a> {
         )
         .await
         .iter()
-        .flat_map(|v| v)
-        .cloned()
+        .flat_map(|v| v.clone())
         .collect::<RowSet>()
     }
 
@@ -129,9 +127,8 @@ impl<'a> Search<'a> {
                         && data
                             .serial
                             .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
-                    .then_some(i as u32)
+                    .then_some(unsafe { NonZeroU32::new_unchecked(i as u32) })
                 })
-                .map(|v| unsafe { NonZeroU32::new_unchecked(v) })
                 .collect(),
             Number::In(rows) => rows
                 .iter()
@@ -141,9 +138,8 @@ impl<'a> Search<'a> {
                         && data
                             .serial
                             .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
-                    .then_some(i as u32)
+                    .then_some(unsafe { NonZeroU32::new_unchecked(i as u32) })
                 })
-                .map(|v| unsafe { NonZeroU32::new_unchecked(v) })
                 .collect(),
         }
     }
@@ -180,19 +176,11 @@ impl<'a> Search<'a> {
         cont: &Arc<String>,
         func: fn(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool),
     ) -> RowSet {
-        let mut rows: RowSet = RowSet::default();
-
-        let fs: Vec<_> = field
+        field
             .iter()
             .map(|row| func(row, field, Arc::clone(cont)))
-            .collect();
-        for (row, b) in fs {
-            if b {
-                rows.insert(row);
-            }
-        }
-
-        rows
+            .filter_map(|(v, b)| b.then_some(v))
+            .collect()
     }
 
     fn forward(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
