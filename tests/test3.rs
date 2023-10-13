@@ -11,7 +11,7 @@ fn test3() {
     let mut data = Data::new(dir, DataOption::default());
     futures::executor::block_on(async {
         data.update(&Operation::New(Record {
-            fields: vec![KeyValue::new("test", "TEST".to_owned())],
+            fields: [("test".into(), "TEST".into())].into(),
             ..Default::default()
         }))
         .await;

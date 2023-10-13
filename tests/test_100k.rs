@@ -21,7 +21,7 @@ fn test() {
             data.update(&Operation::Update {
                 row: i,
                 record: Record {
-                    fields: vec![KeyValue::new("num", i.to_string())],
+                    fields: [("num".into(), i.to_string().into())].into(),
                     ..Default::default()
                 },
             })

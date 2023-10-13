@@ -14,11 +14,12 @@ fn test() {
     futures::executor::block_on(async {
         for i in range.clone() {
             data.update(&Operation::New(Record {
-                fields: vec![
-                    KeyValue::new("num", i.to_string()),
-                    KeyValue::new("num_by3", (i * 3).to_string()),
-                    KeyValue::new("num_mod3", (i % 3).to_string()),
-                ],
+                fields: [
+                    ("num".into(), i.to_string().into()),
+                    ("num_by3".into(), (i * 3).to_string().into()),
+                    ("num_mod3".into(), (i % 3).to_string().into()),
+                ]
+                .into(),
                 ..Default::default()
             }))
             .await;
@@ -104,7 +105,7 @@ fn test() {
         data.update(&Operation::Update {
             row: 2,
             record: Record {
-                fields: vec![KeyValue::new("hoge", b"HAHA".to_vec())],
+                fields: [("hoge".into(), "HAHA".into())].into(),
                 ..Default::default()
             },
         })
@@ -113,7 +114,7 @@ fn test() {
         data.update(&Operation::Update {
             row: 4,
             record: Record {
-                fields: vec![KeyValue::new("hoge", b"agaba".to_vec())],
+                fields: [("hoge".into(), "agaba".into())].into(),
                 ..Default::default()
             },
         })
@@ -121,7 +122,7 @@ fn test() {
         data.update(&Operation::Update {
             row: 5,
             record: Record {
-                fields: vec![KeyValue::new("hoge", b"agababi".to_vec())],
+                fields: [("hoge".into(), "agababi".into())].into(),
                 ..Default::default()
             },
         })
@@ -129,7 +130,7 @@ fn test() {
         data.update(&Operation::Update {
             row: 1,
             record: Record {
-                fields: vec![KeyValue::new("hoge", b"ageabe".to_vec())],
+                fields: [("hoge".into(), "ageabe".into())].into(),
                 ..Default::default()
             },
         })
@@ -137,7 +138,7 @@ fn test() {
         data.update(&Operation::Update {
             row: 7,
             record: Record {
-                fields: vec![KeyValue::new("hoge", b"ageee".to_vec())],
+                fields: [("hoge".into(), "ageee".into())].into(),
                 ..Default::default()
             },
         })
@@ -145,7 +146,7 @@ fn test() {
         data.update(&Operation::Update {
             row: 6,
             record: Record {
-                fields: vec![KeyValue::new("hoge", b"bebebe".to_vec())],
+                fields: [("hoge".into(), "bebebe".into())].into(),
                 ..Default::default()
             },
         })

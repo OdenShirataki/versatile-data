@@ -11,10 +11,11 @@ fn test4() {
     let mut data = Data::new(dir, DataOption::default());
     futures::executor::block_on(async {
         data.update(&Operation::New(Record {
-            fields: vec![
-                KeyValue::new("name", "test".to_owned()),
-                KeyValue::new("password", "test".to_owned()),
-            ],
+            fields: [
+                ("name".into(), "test".into()),
+                ("password".into(), "test".into()),
+            ]
+            .into(),
             ..Default::default()
         }))
         .await;
@@ -22,26 +23,29 @@ fn test4() {
             activity: Activity::Active,
             term_begin: Term::Default,
             term_end: Term::Default,
-            fields: vec![
-                KeyValue::new("name", "test2".to_owned()),
-                KeyValue::new("password", "test".to_owned()),
-            ],
+            fields: [
+                ("name".into(), "test2".into()),
+                ("password".into(), "test".into()),
+            ]
+            .into(),
         }))
         .await;
         data.update(&Operation::New(Record {
-            fields: vec![
-                KeyValue::new("name", "test3".to_owned()),
-                KeyValue::new("password", "test".to_owned()),
-            ],
+            fields: [
+                ("name".into(), "test3".into()),
+                ("password".into(), "test".into()),
+            ]
+            .into(),
             ..Default::default()
         }))
         .await;
         data.update(&Operation::Delete { row: 2 }).await;
         data.update(&Operation::New(Record {
-            fields: vec![
-                KeyValue::new("name", "test4".to_owned()),
-                KeyValue::new("password", "test".to_owned()),
-            ],
+            fields: [
+                ("name".into(), "test4".into()),
+                ("password".into(), "test".into()),
+            ]
+            .into(),
             ..Default::default()
         }))
         .await;
@@ -53,10 +57,11 @@ fn test4() {
 
         let mut data = Data::new(dir, DataOption::default());
         data.update(&Operation::New(Record {
-            fields: vec![
-                KeyValue::new("name", "test5".to_owned()),
-                KeyValue::new("password", "test".to_owned()),
-            ],
+            fields: [
+                ("name".into(), "test5".into()),
+                ("password".into(), "test".into()),
+            ]
+            .into(),
             ..Default::default()
         }))
         .await;
