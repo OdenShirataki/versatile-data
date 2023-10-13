@@ -251,7 +251,7 @@ impl Data {
                 futures::future::join_all(self.fields_cache.iter_mut().filter_map(
                     |(key, field)| {
                         if let Some(v) = record.fields.get(key) {
-                            Some(field.update(row, v).boxed())
+                            Some(field.update(row, v))
                         } else {
                             None
                         }
@@ -317,11 +317,8 @@ impl Data {
 
         futures::future::join(
             futures::future::join(async { self.serial.delete(row) }, async {
-                futures::future::join_all(self.fields_cache.iter_mut().map(|(_, v)| {
-                    async {
-                        v.delete(row);
-                    }
-                    .boxed()
+                futures::future::join_all(self.fields_cache.iter_mut().map(|(_, v)| async {
+                    v.delete(row);
                 }))
                 .await
             }),
