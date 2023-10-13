@@ -10,7 +10,7 @@ fn test3() {
 
     let mut data = Data::new(dir, DataOption::default());
     futures::executor::block_on(async {
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [("test".into(), "TEST".into())].into(),
             ..Default::default()
         }))

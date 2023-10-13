@@ -13,7 +13,7 @@ fn test() {
     let range = 1..=10;
     futures::executor::block_on(async {
         for i in range.clone() {
-            data.update(&Operation::New(Record {
+            data.update(Operation::New(Record {
                 fields: [
                     ("num".into(), i.to_string().into()),
                     ("num_by3".into(), (i * 3).to_string().into()),
@@ -26,7 +26,7 @@ fn test() {
         }
         let mut sam = 0.0;
 
-        for i in range.clone() {
+        for i in range {
             sam += data.field_num(i.try_into().unwrap(), "num");
             println!(
                 "{},{},{},{}",
@@ -102,7 +102,7 @@ fn test() {
             .await;
         println!("{:?}", r);
 
-        data.update(&Operation::Update {
+        data.update(Operation::Update {
             row: 2,
             record: Record {
                 fields: [("hoge".into(), "HAHA".into())].into(),
@@ -111,7 +111,7 @@ fn test() {
         })
         .await;
 
-        data.update(&Operation::Update {
+        data.update(Operation::Update {
             row: 4,
             record: Record {
                 fields: [("hoge".into(), "agaba".into())].into(),
@@ -119,7 +119,7 @@ fn test() {
             },
         })
         .await;
-        data.update(&Operation::Update {
+        data.update(Operation::Update {
             row: 5,
             record: Record {
                 fields: [("hoge".into(), "agababi".into())].into(),
@@ -127,7 +127,7 @@ fn test() {
             },
         })
         .await;
-        data.update(&Operation::Update {
+        data.update(Operation::Update {
             row: 1,
             record: Record {
                 fields: [("hoge".into(), "ageabe".into())].into(),
@@ -135,7 +135,7 @@ fn test() {
             },
         })
         .await;
-        data.update(&Operation::Update {
+        data.update(Operation::Update {
             row: 7,
             record: Record {
                 fields: [("hoge".into(), "ageee".into())].into(),
@@ -143,7 +143,7 @@ fn test() {
             },
         })
         .await;
-        data.update(&Operation::Update {
+        data.update(Operation::Update {
             row: 6,
             record: Record {
                 fields: [("hoge".into(), "bebebe".into())].into(),

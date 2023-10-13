@@ -18,7 +18,7 @@ fn test() {
     futures::executor::block_on(async {
         let range = 1u32..=100000;
         for i in range {
-            data.update(&Operation::Update {
+            data.update(Operation::Update {
                 row: i,
                 record: Record {
                     fields: [("num".into(), i.to_string().into())].into(),

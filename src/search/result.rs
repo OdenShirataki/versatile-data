@@ -270,14 +270,12 @@ impl<'a> Search<'a> {
                     let max = *max as u64;
                     f.iter_to(|v| v.cmp(&max)).collect()
                 }
-                Number::Range(range) => {
-                    let range = range.clone();
-                    f.iter_range(
+                Number::Range(range) => f
+                    .iter_range(
                         |v| v.cmp(&(*range.start() as u64)),
                         |v| v.cmp(&(*range.end() as u64)),
                     )
-                    .collect()
-                }
+                    .collect(),
                 Number::In(rows) => rows
                     .into_iter()
                     .map(|i| f.iter_by(|v| v.cmp(&(*i as u64))))

@@ -10,27 +10,27 @@ fn test5() {
 
     let mut data = Data::new(dir, DataOption::default());
     futures::executor::block_on(async {
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [("num".into(), "2".into())].into(),
             ..Default::default()
         }))
         .await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [("num".into(), "2".into())].into(),
             ..Default::default()
         }))
         .await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [("num".into(), "3".into())].into(),
             ..Default::default()
         }))
         .await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [("num".into(), "5".into())].into(),
             ..Default::default()
         }))
         .await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [("num".into(), "8".into())].into(),
             ..Default::default()
         }))

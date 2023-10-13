@@ -10,7 +10,7 @@ fn test4() {
 
     let mut data = Data::new(dir, DataOption::default());
     futures::executor::block_on(async {
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [
                 ("name".into(), "test".into()),
                 ("password".into(), "test".into()),
@@ -19,7 +19,7 @@ fn test4() {
             ..Default::default()
         }))
         .await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             activity: Activity::Active,
             term_begin: Term::Default,
             term_end: Term::Default,
@@ -30,7 +30,7 @@ fn test4() {
             .into(),
         }))
         .await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [
                 ("name".into(), "test3".into()),
                 ("password".into(), "test".into()),
@@ -39,8 +39,8 @@ fn test4() {
             ..Default::default()
         }))
         .await;
-        data.update(&Operation::Delete { row: 2 }).await;
-        data.update(&Operation::New(Record {
+        data.update(Operation::Delete { row: 2 }).await;
+        data.update(Operation::New(Record {
             fields: [
                 ("name".into(), "test4".into()),
                 ("password".into(), "test".into()),
@@ -56,7 +56,7 @@ fn test4() {
         println!("{:?}", r);
 
         let mut data = Data::new(dir, DataOption::default());
-        data.update(&Operation::New(Record {
+        data.update(Operation::New(Record {
             fields: [
                 ("name".into(), "test5".into()),
                 ("password".into(), "test".into()),

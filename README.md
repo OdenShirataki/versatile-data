@@ -28,150 +28,172 @@ if std::path::Path::new(dir).exists() {
 }
 let mut data = Data::new(dir, DataOption::default());
 let range = 1..=10;
-for i in range.clone() {
-    data.update(&Operation::New(Record {
-        fields: vec![
-            KeyValue::new("num", i.to_string()),
-            KeyValue::new("num_by3", (i * 3).to_string()),
-            KeyValue::new("num_mod3", (i % 3).to_string()),
-        ],
-        ..Default::default()
-    }));
-}
-let mut sam = 0.0;
-for i in range.clone() {
-    sam += data.field_num(i.try_into().unwrap(), "num");
-    println!(
-        "{},{},{},{}",
-        data.serial(i.try_into().unwrap()),
-        std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num")).unwrap(),
-        std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_by3")).unwrap(),
-        std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_mod3")).unwrap()
-    );
-}
-assert_eq!(sam, 55.0);
+futures::executor::block_on(async {
+    for i in range.clone() {
+        data.update(Operation::New(Record {
+            fields: [
+                ("num".into(), i.to_string().into()),
+                ("num_by3".into(), (i * 3).to_string().into()),
+                ("num_mod3".into(), (i % 3).to_string().into()),
+            ]
+            .into(),
+            ..Default::default()
+        }))
+        .await;
+    }
+    let mut sam = 0.0;
 
-let r = data
-    .search_field("num", &search::Field::Range(b"3".to_vec(), b"8".to_vec()))
-    .search_default() //Automatic execution of the following two lines
-    //.search_term(Term::In(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()))
-    //.search_activity(Activity::Active)
-    .result();
-println!("{:?}", r);
+    for i in range {
+        sam += data.field_num(i.try_into().unwrap(), "num");
+        println!(
+            "{},{},{},{}",
+            data.serial(i.try_into().unwrap()),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num")).unwrap(),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_by3")).unwrap(),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_mod3")).unwrap()
+        );
+    }
 
-let r = data
-    .search_default()
-    .search(Condition::Wide(&vec![
-        Condition::Field("num", &search::Field::Match(b"4".to_vec())),
-        Condition::Field("num", &search::Field::Match(b"6".to_vec())),
-    ]))
-    .result();
-println!("Wide test:{:?}", r);
+    assert_eq!(sam, 55.0);
 
-let r = data
-    .search_default()
-    .result_with_sort(vec![Order::Asc(OrderKey::Serial)]);
-println!("sorted-serial:{:?}", r);
+    let r = data
+        .search_field("num", &search::Field::Range(b"3".to_vec(), b"8".to_vec()))
+        .search_default() //Automatic execution of the following two lines
+        //.search_term(Term::In(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()))
+        //.search_activity(Activity::Active)
+        .result()
+        .await;
+    println!("{:?}", r);
 
-let r=data
+    let r = data
         .search_default()
-        .result_with_sort(vec![Order::Desc(OrderKey::Field("num".to_owned()))])   //natural order
+        .search(Condition::Wide(&vec![
+            Condition::Field("num", &search::Field::Match(b"4".to_vec())),
+            Condition::Field("num", &search::Field::Match(b"6".to_vec())),
+        ]))
+        .result()
+        .await;
+    println!("Wide test:{:?}", r);
+
+    let r = data
+        .search_default()
+        .result_with_sort(vec![Order::Asc(OrderKey::Serial)])
+        .await;
+    println!("sorted-serial:{:?}", r);
+
+    let r=data
+        .search_default()
+        .result_with_sort(vec![Order::Desc(OrderKey::Field("num".to_owned()))]).await   //natural order
     ;
-println!("sorted-num-desc:{:?}", r);
+    println!("sorted-num-desc:{:?}", r);
 
-let r = data
-    .search_default()
-    .result_with_sort(vec![Order::Desc(OrderKey::Field("num_mod3".to_owned()))]);
-println!("sorted-mod3-desc:{:?}", r);
+    let r = data
+        .search_default()
+        .result_with_sort(vec![Order::Desc(OrderKey::Field("num_mod3".to_owned()))])
+        .await;
+    println!("sorted-mod3-desc:{:?}", r);
 
-let r = data.search_default().result_with_sort(vec![
-    Order::Asc(OrderKey::Field("num_mod3".to_owned())),
-    Order::Asc(OrderKey::Field("num".to_owned())),
-]);
-println!("sorted mod3-asc num-asc:{:?}", r);
+    let r = data
+        .search_default()
+        .result_with_sort(vec![
+            Order::Asc(OrderKey::Field("num_mod3".to_owned())),
+            Order::Asc(OrderKey::Field("num".to_owned())),
+        ])
+        .await;
+    println!("sorted mod3-asc num-asc:{:?}", r);
 
-let r = data.search_default().result_with_sort(vec![
-    Order::Asc(OrderKey::Field("num_mod3".to_owned())),
-    Order::Desc(OrderKey::Field("num".to_owned())),
-]);
-println!("sorted mod3-asc num-desc:{:?}", r);
+    let r = data
+        .search_default()
+        .result_with_sort(vec![
+            Order::Asc(OrderKey::Field("num_mod3".to_owned())),
+            Order::Desc(OrderKey::Field("num".to_owned())),
+        ])
+        .await;
+    println!("sorted mod3-asc num-desc:{:?}", r);
 
-let r = data
-    .search_field("num", &search::Field::Range(b"3".to_vec(), b"8".to_vec()))
-    .search_row(&search::Number::Range(4..=7))
-    .search_default()
-    .result();
-println!("{:?}", r);
+    let r = data
+        .search_field("num", &search::Field::Range(b"3".to_vec(), b"8".to_vec()))
+        .search_row(&search::Number::Range(4..=7))
+        .search_default()
+        .result()
+        .await;
+    println!("{:?}", r);
 
-data.update(&Operation::Update {
-    row: 2,
-    record: Record {
-        fields: vec![KeyValue::new("hoge", b"HAHA".to_vec())],
-        ..Default::default()
-    },
-})
-.await;
+    data.update(Operation::Update {
+        row: 2,
+        record: Record {
+            fields: [("hoge".into(), "HAHA".into())].into(),
+            ..Default::default()
+        },
+    })
+    .await;
 
-data.update(&Operation::Update {
-    row: 4,
-    record: Record {
-        fields: vec![KeyValue::new("hoge", b"agaba".to_vec())],
-        ..Default::default()
-    },
-})
-.await;
-data.update(&Operation::Update {
-    row: 5,
-    record: Record {
-        fields: vec![KeyValue::new("hoge", b"agababi".to_vec())],
-        ..Default::default()
-    },
-})
-.await;
-data.update(&Operation::Update {
-    row: 1,
-    record: Record {
-        fields: vec![KeyValue::new("hoge", b"ageabe".to_vec())],
-        ..Default::default()
-    },
-})
-.await;
-data.update(&Operation::Update {
-    row: 7,
-    record: Record {
-        fields: vec![KeyValue::new("hoge", b"ageee".to_vec())],
-        ..Default::default()
-    },
-})
-.await;
-data.update(&Operation::Update {
-    row: 6,
-    record: Record {
-        fields: vec![KeyValue::new("hoge", b"bebebe".to_vec())],
-        ..Default::default()
-    },
-})
-.await;
-let r = data
-    .search_field("hoge", &search::Field::Match(b"HAHA".to_vec()))
-    .result();
-println!("match:{:?}", r);
+    data.update(Operation::Update {
+        row: 4,
+        record: Record {
+            fields: [("hoge".into(), "agaba".into())].into(),
+            ..Default::default()
+        },
+    })
+    .await;
+    data.update(Operation::Update {
+        row: 5,
+        record: Record {
+            fields: [("hoge".into(), "agababi".into())].into(),
+            ..Default::default()
+        },
+    })
+    .await;
+    data.update(Operation::Update {
+        row: 1,
+        record: Record {
+            fields: [("hoge".into(), "ageabe".into())].into(),
+            ..Default::default()
+        },
+    })
+    .await;
+    data.update(Operation::Update {
+        row: 7,
+        record: Record {
+            fields: [("hoge".into(), "ageee".into())].into(),
+            ..Default::default()
+        },
+    })
+    .await;
+    data.update(Operation::Update {
+        row: 6,
+        record: Record {
+            fields: [("hoge".into(), "bebebe".into())].into(),
+            ..Default::default()
+        },
+    })
+    .await;
 
-let r = data
-    .search_field("hoge", &search::Field::Forward(Arc::new("age".to_string())))
-    .result();
-println!("forward:{:?}", r);
+    let r = data
+        .search_field("hoge", &search::Field::Match(b"HAHA".to_vec()))
+        .result()
+        .await;
+    println!("match:{:?}", r);
 
-let r = data
-    .search_field("hoge", &search::Field::Partial(Arc::new("eb".to_string())))
-    .result();
-println!("partial:{:?}", r);
+    let r = data
+        .search_field("hoge", &search::Field::Forward(Arc::new("age".to_string())))
+        .result()
+        .await;
+    println!("forward:{:?}", r);
 
-let r = data
-    .search_field("hoge", &search::Field::Backward(Arc::new("be".to_string())))
-    .result();
-println!("backward:{:?}", r);
+    let r = data
+        .search_field("hoge", &search::Field::Partial(Arc::new("eb".to_string())))
+        .result()
+        .await;
+    println!("partial:{:?}", r);
 
-let r = data.begin_search().result();
-println!("all:{:?}", r);
+    let r = data
+        .search_field("hoge", &search::Field::Backward(Arc::new("be".to_string())))
+        .result()
+        .await;
+    println!("backward:{:?}", r);
+
+    let r = data.begin_search().result().await;
+    println!("all:{:?}", r);
+});
 ```

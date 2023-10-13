@@ -183,28 +183,28 @@ impl Data {
         }
     }
 
-    pub async fn update(&mut self, operation: &Operation) -> u32 {
+    pub async fn update(&mut self, operation: Operation) -> u32 {
         match operation {
             Operation::New(record) => self.create_row(record).await.get(),
             Operation::Update { row, record } => {
-                self.update_field(NonZeroU32::new(*row).unwrap(), record, false)
+                self.update_field(NonZeroU32::new(row).unwrap(), record, false)
                     .await;
-                *row
+                row
             }
             Operation::Delete { row } => {
-                self.delete(NonZeroU32::new(*row).unwrap()).await;
+                self.delete(NonZeroU32::new(row).unwrap()).await;
                 0
             }
         }
     }
 
-    pub async fn create_row(&mut self, record: &Record) -> NonZeroU32 {
+    pub async fn create_row(&mut self, record: Record) -> NonZeroU32 {
         let row = self.serial.next_row().await;
         self.update_field(row, record, true).await;
         row
     }
 
-    pub async fn update_row(&mut self, row: NonZeroU32, record: &Record) {
+    pub async fn update_row(&mut self, row: NonZeroU32, record: Record) {
         self.update_field(row, record, false).await;
     }
 
@@ -239,7 +239,7 @@ impl Data {
             .as_secs()
     }
 
-    async fn update_field(&mut self, row: NonZeroU32, record: &Record, with_uuid: bool) {
+    async fn update_field(&mut self, row: NonZeroU32, record: Record, with_uuid: bool) {
         for (key, _) in &record.fields {
             if !self.fields_cache.contains_key(key) {
                 self.create_field(key);
