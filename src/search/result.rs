@@ -40,30 +40,23 @@ impl<'a> Search<'a> {
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
             Condition::Uuid(uuid) => Self::result_uuid(data, uuid),
             Condition::Narrow(conditions) => Self::result_inner(data, conditions).await,
-            Condition::Wide(conditions) => future::join_all(
-                conditions
+            Condition::Wide(conditions) => {
+                future::join_all(conditions.iter().map(|c| Self::result_condition(data, c)))
+                    .await
                     .iter()
-                    .map(|c| Self::result_condition(data, c))
-                    .collect::<Vec<_>>(),
-            )
-            .await
-            .iter()
-            .flat_map(|v| v.clone())
-            .collect::<RowSet>(),
+                    .flat_map(|v| v.clone())
+                    .collect::<RowSet>()
+            }
         }
     }
 
     async fn result_inner(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
-        future::join_all(
-            conditions
-                .iter()
-                .map(|c| Self::result_condition(data, c))
-                .collect::<Vec<_>>(),
-        )
-        .await
-        .iter()
-        .flat_map(|v| v.clone())
-        .collect::<RowSet>()
+        let (mut rows, _index, fs) =
+            future::select_all(conditions.iter().map(|c| Self::result_condition(data, c))).await;
+        for r in future::join_all(fs).await.iter() {
+            rows = rows.intersection(r).cloned().collect();
+        }
+        rows
     }
 
     #[inline(always)]
