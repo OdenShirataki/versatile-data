@@ -40,19 +40,25 @@ impl<'a> Search<'a> {
             Condition::LastUpdated(condition) => Self::result_last_updated(data, condition),
             Condition::Uuid(uuid) => Self::result_uuid(data, uuid),
             Condition::Narrow(conditions) => Self::result_inner(data, conditions).await,
-            Condition::Wide(conditions) => {
-                future::join_all(conditions.iter().map(|c| Self::result_condition(data, c)))
-                    .await
-                    .iter()
-                    .flat_map(|v| v.clone())
-                    .collect::<RowSet>()
-            }
+            Condition::Wide(conditions) => future::join_all(
+                conditions
+                    .into_iter()
+                    .map(|c| Self::result_condition(data, c)),
+            )
+            .await
+            .into_iter()
+            .flatten()
+            .collect::<RowSet>(),
         }
     }
 
     async fn result_inner(data: &Data, conditions: &Vec<Condition<'a>>) -> RowSet {
-        let (mut rows, _index, fs) =
-            future::select_all(conditions.iter().map(|c| Self::result_condition(data, c))).await;
+        let (mut rows, _index, fs) = future::select_all(
+            conditions
+                .into_iter()
+                .map(|c| Self::result_condition(data, c)),
+        )
+        .await;
         for r in future::join_all(fs).await {
             rows = rows.intersection(&r).cloned().collect();
         }
@@ -124,7 +130,7 @@ impl<'a> Search<'a> {
                 })
                 .collect(),
             Number::In(rows) => rows
-                .iter()
+                .into_iter()
                 .filter_map(|i| {
                     let i = *i;
                     (i > 0
@@ -272,13 +278,11 @@ impl<'a> Search<'a> {
                     )
                     .collect()
                 }
-                Number::In(rows) => {
-                    let mut r = RowSet::default();
-                    for i in rows.iter() {
-                        r.extend(f.iter_by(|v| v.cmp(&(*i as u64))))
-                    }
-                    r
-                }
+                Number::In(rows) => rows
+                    .into_iter()
+                    .map(|i| f.iter_by(|v| v.cmp(&(*i as u64))))
+                    .flatten()
+                    .collect::<RowSet>(),
             }
         } else {
             unreachable!();
@@ -288,11 +292,11 @@ impl<'a> Search<'a> {
     #[inline(always)]
     fn result_uuid(data: &Data, uuids: &[u128]) -> RowSet {
         if let Some(ref index) = data.uuid {
-            let mut r = RowSet::default();
             uuids
-                .iter()
-                .for_each(|uuid| r.extend(index.iter_by(|v| v.cmp(&uuid))));
-            r
+                .into_iter()
+                .map(|uuid| index.iter_by(|v| v.cmp(&uuid)))
+                .flatten()
+                .collect::<RowSet>()
         } else {
             unreachable!();
         }
