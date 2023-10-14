@@ -60,7 +60,7 @@ impl<'a> Search<'a> {
         )
         .await;
         for r in future::join_all(fs).await {
-            rows = rows.intersection(&r).cloned().collect();
+            rows.retain(|v| r.contains(v));
         }
         rows
     }
