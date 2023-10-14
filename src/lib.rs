@@ -135,12 +135,12 @@ impl Data {
 
     #[inline(always)]
     pub fn serial(&self, row: NonZeroU32) -> u32 {
-        self.serial.value(row).copied().unwrap()
+        self.serial.value(row).cloned().unwrap()
     }
 
     #[inline(always)]
     pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
-        self.uuid.as_ref().and_then(|uuid| uuid.value(row).copied())
+        self.uuid.as_ref().and_then(|uuid| uuid.value(row).cloned())
     }
 
     #[inline(always)]
@@ -166,18 +166,18 @@ impl Data {
 
     #[inline(always)]
     pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_begin.as_ref().and_then(|f| f.value(row).copied())
+        self.term_begin.as_ref().and_then(|f| f.value(row).cloned())
     }
 
     #[inline(always)]
     pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_end.as_ref().and_then(|f| f.value(row).copied())
+        self.term_end.as_ref().and_then(|f| f.value(row).cloned())
     }
 
     #[inline(always)]
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
         if let Some(last_update) = &self.last_updated {
-            last_update.value(row).copied()
+            last_update.value(row).cloned()
         } else {
             None
         }

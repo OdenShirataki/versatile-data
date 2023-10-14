@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, num::NonZeroU32, sync::Arc};
+use std::{num::NonZeroU32, sync::Arc};
 
 use async_recursion::async_recursion;
 use futures::future;
@@ -29,7 +29,7 @@ impl<'a> Search<'a> {
                     index.iter_by(|v| v.cmp(&activity)).collect()
                 } else {
                     //unreachable!();
-                    BTreeSet::new()
+                    RowSet::default()
                 }
             }
             Condition::Term(condition) => Self::result_term(data, condition),
@@ -280,7 +280,7 @@ impl<'a> Search<'a> {
                     .into_iter()
                     .map(|i| f.iter_by(|v| v.cmp(&(*i as u64))))
                     .flatten()
-                    .collect::<RowSet>(),
+                    .collect(),
             }
         } else {
             unreachable!();
@@ -294,7 +294,7 @@ impl<'a> Search<'a> {
                 .into_iter()
                 .map(|uuid| index.iter_by(|v| v.cmp(&uuid)))
                 .flatten()
-                .collect::<RowSet>()
+                .collect()
         } else {
             unreachable!();
         }
