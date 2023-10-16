@@ -65,7 +65,7 @@ impl Data {
                 if d.file_type().unwrap().is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
                         let field = Field::new(d.path(), option.allocation_lot);
-                        fields_cache.entry(String::from(fname)).or_insert(field);
+                        fields_cache.entry(fname.into()).or_insert(field);
                     }
                 }
             }
@@ -221,9 +221,7 @@ impl Data {
                     if let Some(str_fname) = p.file_name().to_str() {
                         if !self.fields_cache.contains_key(str_fname) {
                             let field = Field::new(path, self.option.allocation_lot);
-                            self.fields_cache
-                                .entry(String::from(str_fname))
-                                .or_insert(field);
+                            self.fields_cache.entry(str_fname.into()).or_insert(field);
                         }
                     }
                 }
