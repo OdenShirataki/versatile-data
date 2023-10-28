@@ -60,7 +60,7 @@ impl Data {
         let mut fields_dir = dir.to_path_buf();
         fields_dir.push("fields");
         if fields_dir.exists() {
-            for d in fields_dir.read_dir().unwrap() {
+            for d in fields_dir.read_dir().unwrap().into_iter() {
                 let d = d.unwrap();
                 if d.file_type().unwrap().is_dir() {
                     if let Some(fname) = d.file_name().to_str() {
@@ -214,7 +214,7 @@ impl Data {
     }
     fn load_fields(&mut self) {
         if self.fields_dir.exists() {
-            for p in self.fields_dir.read_dir().unwrap() {
+            for p in self.fields_dir.read_dir().unwrap().into_iter() {
                 let p = p.unwrap();
                 let path = p.path();
                 if path.is_dir() {

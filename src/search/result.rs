@@ -59,7 +59,7 @@ impl<'a> Search<'a> {
                 .map(|c| Self::result_condition(data, c)),
         )
         .await;
-        for r in future::join_all(fs).await {
+        for r in future::join_all(fs).await.into_iter() {
             rows.retain(|v| r.contains(v));
         }
         rows
