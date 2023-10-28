@@ -48,7 +48,7 @@ impl<'a> Search<'a> {
             .await
             .into_iter()
             .flatten()
-            .collect::<RowSet>(),
+            .collect(),
         }
     }
 
