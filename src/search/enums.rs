@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Term {
     In(u64),
     Past(u64),
@@ -23,7 +23,7 @@ impl Default for Term {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Number {
     Min(isize),
     Max(isize),
@@ -31,7 +31,7 @@ pub enum Number {
     In(Vec<isize>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Field {
     Match(Vec<u8>),
     Range(Vec<u8>, Vec<u8>),
