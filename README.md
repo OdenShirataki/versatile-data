@@ -18,8 +18,6 @@ You don't have to think about which fields to index. it is done automatically.
 ## Example
 
 ```rust
-use std::sync::Arc;
-
 use versatile_data::*;
 
 let dir = "./vd-test/";
@@ -176,19 +174,19 @@ futures::executor::block_on(async {
     println!("match:{:?}", r);
 
     let r = data
-        .search_field("hoge", &search::Field::Forward(Arc::new("age".to_string())))
+        .search_field("hoge", &search::Field::Forward("age".to_string()))
         .result()
         .await;
     println!("forward:{:?}", r);
 
     let r = data
-        .search_field("hoge", &search::Field::Partial(Arc::new("eb".to_string())))
+        .search_field("hoge", &search::Field::Partial("eb".to_string()))
         .result()
         .await;
     println!("partial:{:?}", r);
 
     let r = data
-        .search_field("hoge", &search::Field::Backward(Arc::new("be".to_string())))
+        .search_field("hoge", &search::Field::Backward("be".to_string()))
         .result()
         .await;
     println!("backward:{:?}", r);

@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, sync::Arc};
+use std::num::NonZeroU32;
 
 use async_recursion::async_recursion;
 use futures::future;
@@ -172,17 +172,17 @@ impl<'a> Search<'a> {
 
     fn result_field_sub(
         field: &crate::Field,
-        cont: &Arc<String>,
-        func: fn(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool),
+        cont: &str,
+        func: fn(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool),
     ) -> RowSet {
         field
             .iter()
-            .map(|row| func(row, field, Arc::clone(cont)))
+            .map(|row| func(row, field, cont))
             .filter_map(|(v, b)| b.then_some(v))
             .collect()
     }
 
-    fn forward(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
+    fn forward(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
             field
@@ -191,7 +191,7 @@ impl<'a> Search<'a> {
         )
     }
 
-    fn partial(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
+    fn partial(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
             field.bytes(row).map_or(false, |bytes| {
@@ -207,7 +207,7 @@ impl<'a> Search<'a> {
         )
     }
 
-    fn backward(row: NonZeroU32, field: &crate::Field, cont: Arc<String>) -> (NonZeroU32, bool) {
+    fn backward(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
             field
@@ -216,11 +216,7 @@ impl<'a> Search<'a> {
         )
     }
 
-    fn value_forward(
-        row: NonZeroU32,
-        field: &crate::Field,
-        cont: Arc<String>,
-    ) -> (NonZeroU32, bool) {
+    fn value_forward(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
             field
@@ -229,11 +225,7 @@ impl<'a> Search<'a> {
         )
     }
 
-    fn value_partial(
-        row: NonZeroU32,
-        field: &crate::Field,
-        cont: Arc<String>,
-    ) -> (NonZeroU32, bool) {
+    fn value_partial(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
             field.bytes(row).map_or(false, |bytes| {
@@ -245,11 +237,7 @@ impl<'a> Search<'a> {
         )
     }
 
-    fn value_backward(
-        row: NonZeroU32,
-        field: &crate::Field,
-        cont: Arc<String>,
-    ) -> (NonZeroU32, bool) {
+    fn value_backward(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
             field
