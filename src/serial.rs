@@ -33,7 +33,6 @@ impl SerialNumber {
         }
     }
 
-    #[inline(always)]
     pub fn delete(&mut self, row: NonZeroU32) {
         self.serial.delete(row);
         self.fragment.insert_blank(row);

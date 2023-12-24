@@ -42,7 +42,6 @@ impl Data {
         }
     }
 
-    #[inline(always)]
     fn subsort(&self, tmp: Vec<NonZeroU32>, sub_orders: &[Order]) -> Vec<NonZeroU32> {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
@@ -159,7 +158,6 @@ impl Data {
         tmp
     }
 
-    #[inline(always)]
     fn sort_with_triee_inner<T>(
         &self,
         rows: &RowSet,
@@ -207,7 +205,6 @@ impl Data {
         }
     }
 
-    #[inline(always)]
     fn sort_with_triee<T>(
         &self,
         rows: &RowSet,
@@ -220,7 +217,6 @@ impl Data {
         self.sort_with_triee_inner(rows, triee, triee.iter(), sub_orders)
     }
 
-    #[inline(always)]
     fn sort_with_triee_desc<T>(
         &self,
         rows: &RowSet,
@@ -233,7 +229,6 @@ impl Data {
         self.sort_with_triee_inner(rows, triee, triee.desc_iter(), sub_orders)
     }
 
-    #[inline(always)]
     fn sort_with_key(
         &self,
         rows: &RowSet,
@@ -263,7 +258,6 @@ impl Data {
         }
     }
 
-    #[inline(always)]
     fn sort_with_key_desc(
         &self,
         rows: &RowSet,

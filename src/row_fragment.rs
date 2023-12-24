@@ -16,17 +16,14 @@ impl RowFragment {
         Self { filemmap }
     }
 
-    #[inline(always)]
     fn blank_count(&self) -> u64 {
         self.filemmap.len() / U32_SIZE as u64 - 1
     }
 
-    #[inline(always)]
     pub fn insert_blank(&mut self, row: NonZeroU32) {
         self.filemmap.append(&row.get().to_ne_bytes()).unwrap();
     }
 
-    #[inline(always)]
     pub fn pop(&mut self) -> Option<NonZeroU32> {
         let count = self.blank_count();
         (count > 0).then(|| {
@@ -36,7 +33,6 @@ impl RowFragment {
         })
     }
 
-    #[inline(always)]
     pub fn serial_increment(&mut self) -> NonZeroU32 {
         let blank_list = unsafe { &mut *(self.filemmap.as_ptr() as *mut u32) };
         *blank_list += 1;

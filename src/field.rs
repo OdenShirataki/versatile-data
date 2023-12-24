@@ -7,17 +7,14 @@ use crate::Data;
 pub type Field = IdxBinary<DataAddress>;
 
 impl Data {
-    #[inline(always)]
     pub fn field_names(&self) -> Vec<&String> {
         self.fields_cache.iter().map(|(key, _)| key).collect()
     }
 
-    #[inline(always)]
     pub fn field_bytes(&self, row: NonZeroU32, name: &str) -> &[u8] {
         self.field(name).and_then(|v| v.bytes(row)).unwrap_or(b"")
     }
 
-    #[inline(always)]
     pub fn field_num(&self, row: NonZeroU32, name: &str) -> f64 {
         self.field(name)
             .and_then(|v| v.bytes(row))
@@ -25,7 +22,6 @@ impl Data {
             .unwrap_or(0.0)
     }
 
-    #[inline(always)]
     pub(crate) fn create_field(&mut self, field_name: &str) -> &mut Field {
         let mut fields_dir = self.fields_dir.clone();
         fields_dir.push(field_name);

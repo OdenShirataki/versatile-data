@@ -20,7 +20,7 @@ impl<'a> Search<'a> {
         self.data.sort(&self.result().await, &orders)
     }
 
-    #[async_recursion]
+    #[async_recursion(?Send)]
     pub async fn result_condition(data: &Data, condition: &Condition<'a>) -> RowSet {
         match condition {
             Condition::Activity(condition) => {
@@ -65,7 +65,6 @@ impl<'a> Search<'a> {
         rows
     }
 
-    #[inline(always)]
     fn result_term(data: &Data, condition: &Term) -> RowSet {
         match condition {
             Term::In(base) => {
@@ -102,7 +101,6 @@ impl<'a> Search<'a> {
         }
     }
 
-    #[inline(always)]
     fn result_row(data: &Data, condition: &Number) -> RowSet {
         match condition {
             Number::Min(row) => {
@@ -246,7 +244,6 @@ impl<'a> Search<'a> {
         )
     }
 
-    #[inline(always)]
     fn result_last_updated(data: &Data, condition: &Number) -> RowSet {
         if let Some(ref f) = data.last_updated {
             match condition {
@@ -275,7 +272,6 @@ impl<'a> Search<'a> {
         }
     }
 
-    #[inline(always)]
     fn result_uuid(data: &Data, uuids: &[u128]) -> RowSet {
         if let Some(ref index) = data.uuid {
             uuids

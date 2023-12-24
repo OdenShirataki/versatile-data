@@ -133,17 +133,14 @@ impl Data {
         }
     }
 
-    #[inline(always)]
     pub fn serial(&self, row: NonZeroU32) -> u32 {
         self.serial.value(row).cloned().unwrap()
     }
 
-    #[inline(always)]
     pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
         self.uuid.as_ref().and_then(|uuid| uuid.value(row).cloned())
     }
 
-    #[inline(always)]
     pub fn uuid_string(&self, row: NonZeroU32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
             uuid.value(row)
@@ -151,7 +148,6 @@ impl Data {
         })
     }
 
-    #[inline(always)]
     pub fn activity(&self, row: NonZeroU32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
             a.value(row).map(|v| {
@@ -164,17 +160,14 @@ impl Data {
         })
     }
 
-    #[inline(always)]
     pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
         self.term_begin.as_ref().and_then(|f| f.value(row).cloned())
     }
 
-    #[inline(always)]
     pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
         self.term_end.as_ref().and_then(|f| f.value(row).cloned())
     }
 
-    #[inline(always)]
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
         if let Some(last_update) = &self.last_updated {
             last_update.value(row).cloned()
@@ -208,10 +201,10 @@ impl Data {
         self.update_field(row, record, false).await;
     }
 
-    #[inline(always)]
     fn field(&self, name: &str) -> Option<&Field> {
         self.fields_cache.get(name)
     }
+
     fn load_fields(&mut self) {
         if self.fields_dir.exists() {
             for p in self.fields_dir.read_dir().unwrap().into_iter() {
@@ -229,7 +222,6 @@ impl Data {
         }
     }
 
-    #[inline(always)]
     fn now() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -257,7 +249,7 @@ impl Data {
                 ))
                 .await;
             }
-            .boxed(),
+            .boxed_local(),
             async {
                 if with_uuid {
                     if let Some(ref mut uuid) = self.uuid {
@@ -265,19 +257,19 @@ impl Data {
                     }
                 }
             }
-            .boxed(),
+            .boxed_local(),
             async {
                 if let Some(ref mut f) = self.last_updated {
                     f.update_with_allocate(row, Self::now()).await;
                 }
             }
-            .boxed(),
+            .boxed_local(),
             async {
                 if let Some(ref mut f) = self.activity {
                     f.update_with_allocate(row, record.activity as u8).await;
                 }
             }
-            .boxed(),
+            .boxed_local(),
             async {
                 if let Some(ref mut f) = self.term_begin {
                     f.update_with_allocate(
@@ -291,7 +283,7 @@ impl Data {
                     .await;
                 }
             }
-            .boxed(),
+            .boxed_local(),
             async {
                 if let Some(ref mut f) = self.term_end {
                     f.update_with_allocate(
@@ -305,7 +297,7 @@ impl Data {
                     .await;
                 }
             }
-            .boxed(),
+            .boxed_local(),
         ])
         .await;
     }
@@ -327,7 +319,7 @@ impl Data {
                         async {
                             f.delete(row);
                         }
-                        .boxed(),
+                        .boxed_local(),
                     );
                 }
                 if let Some(ref mut f) = self.activity {
@@ -335,7 +327,7 @@ impl Data {
                         async {
                             f.delete(row);
                         }
-                        .boxed(),
+                        .boxed_local(),
                     );
                 }
                 if let Some(ref mut f) = self.term_begin {
@@ -343,7 +335,7 @@ impl Data {
                         async {
                             f.delete(row);
                         }
-                        .boxed(),
+                        .boxed_local(),
                     );
                 }
                 if let Some(ref mut f) = self.term_end {
@@ -351,7 +343,7 @@ impl Data {
                         async {
                             f.delete(row);
                         }
-                        .boxed(),
+                        .boxed_local(),
                     );
                 }
                 if let Some(ref mut f) = self.last_updated {
@@ -359,7 +351,7 @@ impl Data {
                         async {
                             f.delete(row);
                         }
-                        .boxed(),
+                        .boxed_local(),
                     );
                 }
                 futures::future::join_all(futs).await;
@@ -368,7 +360,6 @@ impl Data {
         .await;
     }
 
-    #[inline(always)]
     pub fn all(&self) -> RowSet {
         self.serial.iter().collect()
     }
