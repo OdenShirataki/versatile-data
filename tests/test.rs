@@ -101,7 +101,7 @@ fn test() {
         println!("{:?}", r);
 
         data.update(Operation::Update {
-            row: 2,
+            row: 2.try_into().unwrap(),
             record: Record {
                 fields: [("hoge".into(), "HAHA".into())].into(),
                 ..Default::default()
@@ -110,7 +110,7 @@ fn test() {
         .await;
 
         data.update(Operation::Update {
-            row: 4,
+            row: 4.try_into().unwrap(),
             record: Record {
                 fields: [("hoge".into(), "agaba".into())].into(),
                 ..Default::default()
@@ -118,7 +118,7 @@ fn test() {
         })
         .await;
         data.update(Operation::Update {
-            row: 5,
+            row: 5.try_into().unwrap(),
             record: Record {
                 fields: [("hoge".into(), "agababi".into())].into(),
                 ..Default::default()
@@ -126,7 +126,7 @@ fn test() {
         })
         .await;
         data.update(Operation::Update {
-            row: 1,
+            row: 1.try_into().unwrap(),
             record: Record {
                 fields: [("hoge".into(), "ageabe".into())].into(),
                 ..Default::default()
@@ -134,7 +134,7 @@ fn test() {
         })
         .await;
         data.update(Operation::Update {
-            row: 7,
+            row: 7.try_into().unwrap(),
             record: Record {
                 fields: [("hoge".into(), "ageee".into())].into(),
                 ..Default::default()
@@ -142,7 +142,7 @@ fn test() {
         })
         .await;
         data.update(Operation::Update {
-            row: 6,
+            row: 6.try_into().unwrap(),
             record: Record {
                 fields: [("hoge".into(), "bebebe".into())].into(),
                 ..Default::default()

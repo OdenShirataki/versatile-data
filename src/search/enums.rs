@@ -12,7 +12,6 @@ pub enum Term {
 }
 
 impl Default for Term {
-    #[inline(always)]
     fn default() -> Self {
         Self::In(
             SystemTime::now()

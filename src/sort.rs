@@ -34,6 +34,7 @@ pub enum Order {
 }
 
 impl Data {
+    /// Sort search results.
     pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<NonZeroU32> {
         let sub_orders = &orders[1..];
         match &orders[0] {

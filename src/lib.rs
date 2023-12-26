@@ -8,7 +8,6 @@ mod serial;
 mod sort;
 
 pub use field::Field;
-use futures::FutureExt;
 pub use idx_binary::{self, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
 pub use option::DataOption;
@@ -30,9 +29,6 @@ use serial::SerialNumber;
 
 pub type RowSet = BTreeSet<NonZeroU32>;
 
-pub fn create_uuid() -> u128 {
-    Uuid::new_v4().as_u128()
-}
 pub fn uuid_string(uuid: u128) -> String {
     Uuid::from_u128(uuid).to_string()
 }
@@ -50,6 +46,7 @@ pub struct Data {
 }
 
 impl Data {
+    /// Opens the file and creates the Data.
     pub fn new<P: AsRef<Path>>(dir: P, option: DataOption) -> Self {
         let dir = dir.as_ref();
         if !dir.exists() {
@@ -133,14 +130,17 @@ impl Data {
         }
     }
 
+    /// Returns a serial number.The serial number is incremented each time data is added.
     pub fn serial(&self, row: NonZeroU32) -> u32 {
         self.serial.value(row).cloned().unwrap()
     }
 
+    /// Returns a UUID.UUID is a unique ID that is automatically generated when data is registered..
     pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
         self.uuid.as_ref().and_then(|uuid| uuid.value(row).cloned())
     }
 
+    /// Returns the UUID as a string.
     pub fn uuid_string(&self, row: NonZeroU32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
             uuid.value(row)
@@ -148,6 +148,7 @@ impl Data {
         })
     }
 
+    /// Returns the activity value. activity is used to indicate whether data is valid or invalid.
     pub fn activity(&self, row: NonZeroU32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
             a.value(row).map(|v| {
@@ -160,14 +161,17 @@ impl Data {
         })
     }
 
+    /// Returns the start date and time of the data's validity period.
     pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
         self.term_begin.as_ref().and_then(|f| f.value(row).cloned())
     }
 
+    /// Returns the end date and time of the data's validity period.
     pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
         self.term_end.as_ref().and_then(|f| f.value(row).cloned())
     }
 
+    /// Returns the date and time when the data was last updated.
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
         if let Some(last_update) = &self.last_updated {
             last_update.value(row).cloned()
@@ -176,29 +180,9 @@ impl Data {
         }
     }
 
-    pub async fn update(&mut self, operation: Operation) -> u32 {
-        match operation {
-            Operation::New(record) => self.create_row(record).await.get(),
-            Operation::Update { row, record } => {
-                self.update_field(NonZeroU32::new(row).unwrap(), record, false)
-                    .await;
-                row
-            }
-            Operation::Delete { row } => {
-                self.delete(NonZeroU32::new(row).unwrap()).await;
-                0
-            }
-        }
-    }
-
-    pub async fn create_row(&mut self, record: Record) -> NonZeroU32 {
-        let row = self.serial.next_row().await;
-        self.update_field(row, record, true).await;
-        row
-    }
-
-    pub async fn update_row(&mut self, row: NonZeroU32, record: Record) {
-        self.update_field(row, record, false).await;
+    /// Returns all rows.
+    pub fn all(&self) -> RowSet {
+        self.serial.iter().collect()
     }
 
     fn field(&self, name: &str) -> Option<&Field> {
@@ -227,140 +211,5 @@ impl Data {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs()
-    }
-
-    async fn update_field(&mut self, row: NonZeroU32, record: Record, with_uuid: bool) {
-        for (key, _) in &record.fields {
-            if !self.fields_cache.contains_key(key) {
-                self.create_field(key);
-            }
-        }
-
-        futures::future::join_all([
-            async {
-                futures::future::join_all(self.fields_cache.iter_mut().filter_map(
-                    |(key, field)| {
-                        if let Some(v) = record.fields.get(key) {
-                            Some(field.update(row, v))
-                        } else {
-                            None
-                        }
-                    },
-                ))
-                .await;
-            }
-            .boxed_local(),
-            async {
-                if with_uuid {
-                    if let Some(ref mut uuid) = self.uuid {
-                        uuid.update_with_allocate(row, create_uuid()).await;
-                    }
-                }
-            }
-            .boxed_local(),
-            async {
-                if let Some(ref mut f) = self.last_updated {
-                    f.update_with_allocate(row, Self::now()).await;
-                }
-            }
-            .boxed_local(),
-            async {
-                if let Some(ref mut f) = self.activity {
-                    f.update_with_allocate(row, record.activity as u8).await;
-                }
-            }
-            .boxed_local(),
-            async {
-                if let Some(ref mut f) = self.term_begin {
-                    f.update_with_allocate(
-                        row,
-                        if let Term::Overwrite(term) = record.term_begin {
-                            term
-                        } else {
-                            Self::now()
-                        },
-                    )
-                    .await;
-                }
-            }
-            .boxed_local(),
-            async {
-                if let Some(ref mut f) = self.term_end {
-                    f.update_with_allocate(
-                        row,
-                        if let Term::Overwrite(term) = record.term_end {
-                            term
-                        } else {
-                            0
-                        },
-                    )
-                    .await;
-                }
-            }
-            .boxed_local(),
-        ])
-        .await;
-    }
-
-    async fn delete(&mut self, row: NonZeroU32) {
-        self.load_fields();
-
-        futures::future::join(
-            futures::future::join(async { self.serial.delete(row) }, async {
-                futures::future::join_all(self.fields_cache.iter_mut().map(|(_, v)| async {
-                    v.delete(row);
-                }))
-                .await
-            }),
-            async {
-                let mut futs = vec![];
-                if let Some(ref mut f) = self.uuid {
-                    futs.push(
-                        async {
-                            f.delete(row);
-                        }
-                        .boxed_local(),
-                    );
-                }
-                if let Some(ref mut f) = self.activity {
-                    futs.push(
-                        async {
-                            f.delete(row);
-                        }
-                        .boxed_local(),
-                    );
-                }
-                if let Some(ref mut f) = self.term_begin {
-                    futs.push(
-                        async {
-                            f.delete(row);
-                        }
-                        .boxed_local(),
-                    );
-                }
-                if let Some(ref mut f) = self.term_end {
-                    futs.push(
-                        async {
-                            f.delete(row);
-                        }
-                        .boxed_local(),
-                    );
-                }
-                if let Some(ref mut f) = self.last_updated {
-                    futs.push(
-                        async {
-                            f.delete(row);
-                        }
-                        .boxed_local(),
-                    );
-                }
-                futures::future::join_all(futs).await;
-            },
-        )
-        .await;
-    }
-
-    pub fn all(&self) -> RowSet {
-        self.serial.iter().collect()
     }
 }

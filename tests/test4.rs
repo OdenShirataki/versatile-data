@@ -39,7 +39,10 @@ fn test4() {
             ..Default::default()
         }))
         .await;
-        data.update(Operation::Delete { row: 2 }).await;
+        data.update(Operation::Delete {
+            row: 2.try_into().unwrap(),
+        })
+        .await;
         data.update(Operation::New(Record {
             fields: [
                 ("name".into(), "test4".into()),

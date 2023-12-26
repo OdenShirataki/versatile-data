@@ -1,4 +1,10 @@
+use std::num::NonZeroU32;
+
+use futures::FutureExt;
 use hashbrown::HashMap;
+use uuid::Uuid;
+
+use crate::Data;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Activity {
@@ -32,6 +38,163 @@ pub struct Record {
 
 pub enum Operation {
     New(Record),
-    Update { row: u32, record: Record },
-    Delete { row: u32 },
+    Update { row: NonZeroU32, record: Record },
+    Delete { row: NonZeroU32 },
+}
+
+pub fn create_uuid() -> u128 {
+    Uuid::new_v4().as_u128()
+}
+
+impl Data {
+    /// Perform operations to register, update, and delete data.
+    pub async fn update(&mut self, operation: Operation) -> Option<NonZeroU32> {
+        match operation {
+            Operation::New(record) => {
+                let row = self.serial.next_row().await;
+                self.update_field(row, record, true).await;
+                Some(row)
+            }
+            Operation::Update { row, record } => {
+                self.update_field(row, record, false).await;
+                Some(row)
+            }
+            Operation::Delete { row } => {
+                self.delete(row).await;
+                None
+            }
+        }
+    }
+
+    async fn delete(&mut self, row: NonZeroU32) {
+        self.load_fields();
+
+        futures::future::join(
+            futures::future::join(async { self.serial.delete(row) }, async {
+                futures::future::join_all(self.fields_cache.iter_mut().map(|(_, v)| async {
+                    v.delete(row);
+                }))
+                .await
+            }),
+            async {
+                let mut futs = vec![];
+                if let Some(ref mut f) = self.uuid {
+                    futs.push(
+                        async {
+                            f.delete(row);
+                        }
+                        .boxed_local(),
+                    );
+                }
+                if let Some(ref mut f) = self.activity {
+                    futs.push(
+                        async {
+                            f.delete(row);
+                        }
+                        .boxed_local(),
+                    );
+                }
+                if let Some(ref mut f) = self.term_begin {
+                    futs.push(
+                        async {
+                            f.delete(row);
+                        }
+                        .boxed_local(),
+                    );
+                }
+                if let Some(ref mut f) = self.term_end {
+                    futs.push(
+                        async {
+                            f.delete(row);
+                        }
+                        .boxed_local(),
+                    );
+                }
+                if let Some(ref mut f) = self.last_updated {
+                    futs.push(
+                        async {
+                            f.delete(row);
+                        }
+                        .boxed_local(),
+                    );
+                }
+                futures::future::join_all(futs).await;
+            },
+        )
+        .await;
+    }
+
+    async fn update_field(&mut self, row: NonZeroU32, record: Record, with_uuid: bool) {
+        for (key, _) in &record.fields {
+            if !self.fields_cache.contains_key(key) {
+                self.create_field(key);
+            }
+        }
+
+        futures::future::join_all([
+            async {
+                futures::future::join_all(self.fields_cache.iter_mut().filter_map(
+                    |(key, field)| {
+                        if let Some(v) = record.fields.get(key) {
+                            Some(field.update(row, v))
+                        } else {
+                            None
+                        }
+                    },
+                ))
+                .await;
+            }
+            .boxed_local(),
+            async {
+                if with_uuid {
+                    if let Some(ref mut uuid) = self.uuid {
+                        uuid.update_with_allocate(row, Uuid::new_v4().as_u128())
+                            .await;
+                    }
+                }
+            }
+            .boxed_local(),
+            async {
+                if let Some(ref mut f) = self.last_updated {
+                    f.update_with_allocate(row, Self::now()).await;
+                }
+            }
+            .boxed_local(),
+            async {
+                if let Some(ref mut f) = self.activity {
+                    f.update_with_allocate(row, record.activity as u8).await;
+                }
+            }
+            .boxed_local(),
+            async {
+                if let Some(ref mut f) = self.term_begin {
+                    f.update_with_allocate(
+                        row,
+                        if let Term::Overwrite(term) = record.term_begin {
+                            term
+                        } else {
+                            Self::now()
+                        },
+                    )
+                    .await;
+                }
+            }
+            .boxed_local(),
+            async {
+                if let Some(ref mut f) = self.term_end {
+                    f.update_with_allocate(
+                        row,
+                        if let Term::Overwrite(term) = record.term_end {
+                            term
+                        } else {
+                            0
+                        },
+                    )
+                    .await;
+                }
+            }
+            .boxed_local(),
+        ])
+        .await;
+    }
 }
