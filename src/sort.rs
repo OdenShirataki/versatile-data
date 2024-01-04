@@ -167,7 +167,7 @@ impl Data {
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32>
     where
-        T: Copy + PartialEq,
+        T: PartialEq,
     {
         if sub_orders.len() == 0 {
             iter.filter_map(|row| rows.contains(&row).then_some(row))
@@ -213,7 +213,7 @@ impl Data {
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32>
     where
-        T: Copy + PartialEq,
+        T: PartialEq,
     {
         self.sort_with_triee_inner(rows, triee, triee.iter(), sub_orders)
     }
@@ -225,7 +225,7 @@ impl Data {
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32>
     where
-        T: Copy + PartialEq,
+        T: PartialEq,
     {
         self.sort_with_triee_inner(rows, triee, triee.desc_iter(), sub_orders)
     }
