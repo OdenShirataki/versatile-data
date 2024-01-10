@@ -20,6 +20,7 @@ use std::{
     collections::BTreeSet,
     fs,
     num::NonZeroU32,
+    ops::Deref,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -132,27 +133,29 @@ impl Data {
 
     /// Returns a serial number.The serial number is incremented each time data is added.
     pub fn serial(&self, row: NonZeroU32) -> u32 {
-        self.serial.value(row).cloned().unwrap()
+        *unsafe { self.serial.get_unchecked(row) }.deref()
     }
 
     /// Returns a UUID.UUID is a unique ID that is automatically generated when data is registered..
     pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
-        self.uuid.as_ref().and_then(|uuid| uuid.value(row).cloned())
+        self.uuid
+            .as_ref()
+            .and_then(|uuid| uuid.get(row).map(|node| *node.deref()))
     }
 
     /// Returns the UUID as a string.
     pub fn uuid_string(&self, row: NonZeroU32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
-            uuid.value(row)
-                .map(|v| uuid::Uuid::from_u128(*v).to_string())
+            uuid.get(row)
+                .map(|v| uuid::Uuid::from_u128(*v.deref()).to_string())
         })
     }
 
     /// Returns the activity value. activity is used to indicate whether data is valid or invalid.
     pub fn activity(&self, row: NonZeroU32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
-            a.value(row).map(|v| {
-                if *v != 0 {
+            a.get(row).map(|v| {
+                if *v.deref() != 0 {
                     Activity::Active
                 } else {
                     Activity::Inactive
@@ -163,18 +166,22 @@ impl Data {
 
     /// Returns the start date and time of the data's validity period.
     pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_begin.as_ref().and_then(|f| f.value(row).cloned())
+        self.term_begin
+            .as_ref()
+            .and_then(|f| f.get(row).map(|v| *v.deref()))
     }
 
     /// Returns the end date and time of the data's validity period.
     pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_end.as_ref().and_then(|f| f.value(row).cloned())
+        self.term_end
+            .as_ref()
+            .and_then(|f| f.get(row).map(|v| *v.deref()))
     }
 
     /// Returns the date and time when the data was last updated.
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
         if let Some(last_update) = &self.last_updated {
-            last_update.value(row).cloned()
+            last_update.get(row).map(|v| *v.deref())
         } else {
             None
         }

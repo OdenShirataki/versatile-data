@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, ops::Deref};
 
 use async_recursion::async_recursion;
 use futures::future;
@@ -108,7 +108,7 @@ impl Data {
                         return term_begin
                             .iter_to(|v| v.cmp(base))
                             .filter_map(|row| {
-                                let end = *term_end.value(row).unwrap_or(&0);
+                                let end = term_end.get(row).map(|v| *v.deref()).unwrap_or(0);
                                 (end == 0 || end > *base).then_some(row)
                             })
                             .collect();
@@ -158,7 +158,8 @@ impl Data {
                     (i > 0
                         && self
                             .serial
-                            .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
+                            .get(unsafe { NonZeroU32::new_unchecked(i as u32) })
+                            .is_some())
                     .then_some(unsafe { NonZeroU32::new_unchecked(i as u32) })
                 })
                 .collect(),
@@ -169,7 +170,8 @@ impl Data {
                     (i > 0
                         && self
                             .serial
-                            .exists(unsafe { NonZeroU32::new_unchecked(i as u32) }))
+                            .get(unsafe { NonZeroU32::new_unchecked(i as u32) })
+                            .is_some())
                     .then_some(unsafe { NonZeroU32::new_unchecked(i as u32) })
                 })
                 .collect(),

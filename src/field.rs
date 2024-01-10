@@ -1,10 +1,10 @@
 use std::{fs, num::NonZeroU32};
 
-use idx_binary::{DataAddress, IdxBinary};
+use idx_binary::IdxBinary;
 
 use crate::Data;
 
-pub type Field = IdxBinary<DataAddress>;
+pub type Field = IdxBinary;
 
 impl Data {
     /// Returns a list of field names.

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32};
+use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32, ops::Deref};
 
 use idx_binary::Avltriee;
 
@@ -52,14 +52,14 @@ impl Data {
                         OrderKey::Serial => {
                             return self
                                 .serial
-                                .value(*a)
+                                .get(*a)
                                 .unwrap()
-                                .cmp(self.serial.value(*b).unwrap());
+                                .cmp(self.serial.get(*b).unwrap());
                         }
                         OrderKey::Row => return a.cmp(b),
                         OrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
-                                let ord = f.value(*a).unwrap().cmp(f.value(*b).unwrap());
+                                let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -67,7 +67,7 @@ impl Data {
                         }
                         OrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
-                                let ord = f.value(*a).unwrap().cmp(f.value(*b).unwrap());
+                                let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -75,7 +75,7 @@ impl Data {
                         }
                         OrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
-                                let ord = f.value(*a).unwrap().cmp(f.value(*b).unwrap());
+                                let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -103,16 +103,16 @@ impl Data {
                         OrderKey::Serial => {
                             return self
                                 .serial
-                                .value(*b)
+                                .get(*b)
                                 .unwrap()
-                                .cmp(self.serial.value(*a).unwrap());
+                                .cmp(self.serial.get(*a).unwrap());
                         }
                         OrderKey::Row => {
                             return b.cmp(a);
                         }
                         OrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
-                                let ord = f.value(*b).unwrap().cmp(f.value(*a).unwrap());
+                                let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -120,7 +120,7 @@ impl Data {
                         }
                         OrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
-                                let ord = f.value(*b).unwrap().cmp(f.value(*a).unwrap());
+                                let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -128,7 +128,7 @@ impl Data {
                         }
                         OrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
-                                let ord = f.value(*b).unwrap().cmp(f.value(*a).unwrap());
+                                let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -179,7 +179,7 @@ impl Data {
             let mut tmp: Vec<NonZeroU32> = Vec::new();
             for r in iter {
                 if rows.contains(&r) {
-                    let value = unsafe { triee.value_unchecked(r) };
+                    let value = unsafe { triee.get_unchecked(r) }.deref();
                     if let Some(before) = before {
                         if before.ne(value) {
                             ret.extend(if tmp.len() <= 1 {

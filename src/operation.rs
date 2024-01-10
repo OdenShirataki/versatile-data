@@ -148,27 +148,26 @@ impl Data {
             async {
                 if with_uuid {
                     if let Some(ref mut uuid) = self.uuid {
-                        uuid.update_with_allocate(row, Uuid::new_v4().as_u128())
-                            .await;
+                        uuid.update(row, Uuid::new_v4().as_u128()).await;
                     }
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.last_updated {
-                    f.update_with_allocate(row, Self::now()).await;
+                    f.update(row, Self::now()).await;
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.activity {
-                    f.update_with_allocate(row, record.activity as u8).await;
+                    f.update(row, record.activity as u8).await;
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.term_begin {
-                    f.update_with_allocate(
+                    f.update(
                         row,
                         if let Term::Overwrite(term) = record.term_begin {
                             term
@@ -182,7 +181,7 @@ impl Data {
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.term_end {
-                    f.update_with_allocate(
+                    f.update(
                         row,
                         if let Term::Overwrite(term) = record.term_end {
                             term
