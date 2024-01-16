@@ -134,13 +134,7 @@ impl Data {
         futures::future::join_all([
             async {
                 futures::future::join_all(self.fields_cache.iter_mut().filter_map(
-                    |(key, field)| {
-                        if let Some(v) = record.fields.get(key) {
-                            Some(field.update(row, v))
-                        } else {
-                            None
-                        }
-                    },
+                    |(key, field)| record.fields.get(key).map(|v| field.update(row, v)),
                 ))
                 .await;
             }

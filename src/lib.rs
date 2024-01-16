@@ -180,11 +180,9 @@ impl Data {
 
     /// Returns the date and time when the data was last updated.
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
-        if let Some(last_update) = &self.last_updated {
-            last_update.get(row).map(|v| *v.deref())
-        } else {
-            None
-        }
+        self.last_updated
+            .as_ref()
+            .and_then(|f| f.get(row).map(|v| *v.deref()))
     }
 
     /// Returns all rows.

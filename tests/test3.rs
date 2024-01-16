@@ -18,11 +18,11 @@ fn test3() {
     });
 
     if let Ok(str) = std::str::from_utf8(data.field_bytes(1.try_into().unwrap(), "test")) {
-        println!("FIELD:{}", str);
+        assert_eq!("TEST", str);
     }
 
     let data = Data::new(dir, DataOption::default());
     if let Ok(str) = std::str::from_utf8(data.field_bytes(1.try_into().unwrap(), "test")) {
-        println!("FIELD:{}", str);
+        assert_eq!("TEST", str);
     }
 }
