@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32, ops::Deref};
 
-use idx_binary::Avltriee;
+use idx_binary::IdxFile;
 
 use crate::{Data, RowSet};
 
@@ -162,7 +162,7 @@ impl Data {
     fn sort_with_triee_inner<T>(
         &self,
         rows: &RowSet,
-        triee: &Avltriee<T>,
+        index: &IdxFile<T>,
         iter: impl Iterator<Item = NonZeroU32>,
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32>
@@ -179,7 +179,7 @@ impl Data {
             let mut tmp: Vec<NonZeroU32> = Vec::new();
             for r in iter {
                 if rows.contains(&r) {
-                    let value = unsafe { triee.get_unchecked(r) }.deref();
+                    let value = unsafe { index.get_unchecked(r) }.deref();
                     if let Some(before) = before {
                         if before.ne(value) {
                             ret.extend(if tmp.len() <= 1 {
@@ -209,25 +209,25 @@ impl Data {
     fn sort_with_triee<T>(
         &self,
         rows: &RowSet,
-        triee: &Avltriee<T>,
+        index: &IdxFile<T>,
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
     {
-        self.sort_with_triee_inner(rows, triee, triee.iter(), sub_orders)
+        self.sort_with_triee_inner(rows, index, index.iter(), sub_orders)
     }
 
     fn sort_with_triee_desc<T>(
         &self,
         rows: &RowSet,
-        triee: &Avltriee<T>,
+        index: &IdxFile<T>,
         sub_orders: &[Order],
     ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
     {
-        self.sort_with_triee_inner(rows, triee, triee.desc_iter(), sub_orders)
+        self.sort_with_triee_inner(rows, index, index.desc_iter(), sub_orders)
     }
 
     fn sort_with_key(
