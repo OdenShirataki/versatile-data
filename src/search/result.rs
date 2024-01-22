@@ -3,7 +3,7 @@ use std::{num::NonZeroU32, ops::Deref};
 use async_recursion::async_recursion;
 use futures::future;
 
-use crate::{Condition, Data, Order, RowSet, Search};
+use crate::{Condition, CustomSort, Data, Order, RowSet, Search};
 
 use super::{Field, Number, Term};
 
@@ -16,7 +16,7 @@ impl<'a> Search<'a> {
         }
     }
 
-    pub async fn result_with_sort(&self, orders: Vec<Order>) -> Vec<NonZeroU32> {
+    pub async fn result_with_sort<C: CustomSort>(&self, orders: Vec<Order<C>>) -> Vec<NonZeroU32> {
         self.data.sort(&self.result().await, &orders)
     }
 }

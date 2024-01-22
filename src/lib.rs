@@ -13,7 +13,7 @@ pub use operation::*;
 pub use option::DataOption;
 pub use row_fragment::RowFragment;
 pub use search::{Condition, Search};
-pub use sort::{CustomSort, Order, OrderKey};
+pub use sort::{CustomOrderKey, CustomSort, Order, OrderKey};
 pub use uuid::Uuid;
 
 use std::{

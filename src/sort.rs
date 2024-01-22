@@ -16,26 +16,44 @@ impl Debug for dyn CustomSort {
     }
 }
 
+pub struct NoCustomSort {}
+
+impl CustomSort for NoCustomSort {
+    fn compare(&self, _: NonZeroU32, _: NonZeroU32) -> Ordering {
+        unreachable!()
+    }
+
+    fn asc(&self) -> Vec<NonZeroU32> {
+        unreachable!()
+    }
+
+    fn desc(&self) -> Vec<NonZeroU32> {
+        unreachable!()
+    }
+}
+
 #[derive(Debug)]
-pub enum OrderKey {
+pub enum CustomOrderKey<C: CustomSort> {
     Serial,
     Row,
     TermBegin,
     TermEnd,
     LastUpdated,
     Field(String),
-    Custom(Box<dyn CustomSort>),
+    Custom(C),
 }
 
+pub type OrderKey = CustomOrderKey<NoCustomSort>;
+
 #[derive(Debug)]
-pub enum Order {
-    Asc(OrderKey),
-    Desc(OrderKey),
+pub enum Order<C: CustomSort> {
+    Asc(CustomOrderKey<C>),
+    Desc(CustomOrderKey<C>),
 }
 
 impl Data {
     /// Sort search results.
-    pub fn sort(&self, rows: &RowSet, orders: &[Order]) -> Vec<NonZeroU32> {
+    pub fn sort<C: CustomSort>(&self, rows: &RowSet, orders: &[Order<C>]) -> Vec<NonZeroU32> {
         let sub_orders = &orders[1..];
         match &orders[0] {
             Order::Asc(key) => self.sort_with_key(rows, key, sub_orders),
@@ -43,21 +61,25 @@ impl Data {
         }
     }
 
-    fn subsort(&self, tmp: Vec<NonZeroU32>, sub_orders: &[Order]) -> Vec<NonZeroU32> {
+    fn subsort<C: CustomSort>(
+        &self,
+        tmp: Vec<NonZeroU32>,
+        sub_orders: &[Order<C>],
+    ) -> Vec<NonZeroU32> {
         let mut tmp = tmp;
         tmp.sort_by(|a, b| {
             for i in 0..sub_orders.len() {
                 match &sub_orders[i] {
                     Order::Asc(order_key) => match order_key {
-                        OrderKey::Serial => {
+                        CustomOrderKey::Serial => {
                             return self
                                 .serial
                                 .get(*a)
                                 .unwrap()
                                 .cmp(self.serial.get(*b).unwrap());
                         }
-                        OrderKey::Row => return a.cmp(b),
-                        OrderKey::TermBegin => {
+                        CustomOrderKey::Row => return a.cmp(b),
+                        CustomOrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
                                 let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
                                 if ord != Ordering::Equal {
@@ -65,7 +87,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::TermEnd => {
+                        CustomOrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
                                 let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
                                 if ord != Ordering::Equal {
@@ -73,7 +95,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::LastUpdated => {
+                        CustomOrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
                                 let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
                                 if ord != Ordering::Equal {
@@ -81,7 +103,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::Field(field_name) => {
+                        CustomOrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
                                     field.bytes(*a).unwrap(),
@@ -92,7 +114,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::Custom(custom_order) => {
+                        CustomOrderKey::Custom(custom_order) => {
                             let ord = custom_order.compare(*a, *b);
                             if ord != Ordering::Equal {
                                 return ord;
@@ -100,17 +122,17 @@ impl Data {
                         }
                     },
                     Order::Desc(order_key) => match order_key {
-                        OrderKey::Serial => {
+                        CustomOrderKey::Serial => {
                             return self
                                 .serial
                                 .get(*b)
                                 .unwrap()
                                 .cmp(self.serial.get(*a).unwrap());
                         }
-                        OrderKey::Row => {
+                        CustomOrderKey::Row => {
                             return b.cmp(a);
                         }
-                        OrderKey::TermBegin => {
+                        CustomOrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
                                 let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
                                 if ord != Ordering::Equal {
@@ -118,7 +140,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::TermEnd => {
+                        CustomOrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
                                 let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
                                 if ord != Ordering::Equal {
@@ -126,7 +148,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::LastUpdated => {
+                        CustomOrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
                                 let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
                                 if ord != Ordering::Equal {
@@ -134,7 +156,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::Field(field_name) => {
+                        CustomOrderKey::Field(field_name) => {
                             if let Some(field) = self.field(&field_name) {
                                 let ord = idx_binary::compare(
                                     field.bytes(*b).unwrap(),
@@ -145,7 +167,7 @@ impl Data {
                                 }
                             }
                         }
-                        OrderKey::Custom(custom_order) => {
+                        CustomOrderKey::Custom(custom_order) => {
                             let ord = custom_order.compare(*b, *a);
                             if ord != Ordering::Equal {
                                 return ord;
@@ -159,12 +181,12 @@ impl Data {
         tmp
     }
 
-    fn sort_with_triee_inner<T>(
+    fn sort_with_triee_inner<T, C: CustomSort>(
         &self,
         rows: &RowSet,
         index: &IdxFile<T>,
         iter: impl Iterator<Item = NonZeroU32>,
-        sub_orders: &[Order],
+        sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
@@ -206,11 +228,11 @@ impl Data {
         }
     }
 
-    fn sort_with_triee<T>(
+    fn sort_with_triee<T, C: CustomSort>(
         &self,
         rows: &RowSet,
         index: &IdxFile<T>,
-        sub_orders: &[Order],
+        sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
@@ -218,11 +240,11 @@ impl Data {
         self.sort_with_triee_inner(rows, index, index.iter(), sub_orders)
     }
 
-    fn sort_with_triee_desc<T>(
+    fn sort_with_triee_desc<T, C: CustomSort>(
         &self,
         rows: &RowSet,
         index: &IdxFile<T>,
-        sub_orders: &[Order],
+        sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32>
     where
         T: PartialEq,
@@ -230,61 +252,63 @@ impl Data {
         self.sort_with_triee_inner(rows, index, index.desc_iter(), sub_orders)
     }
 
-    fn sort_with_key(
+    fn sort_with_key<C: CustomSort>(
         &self,
         rows: &RowSet,
-        key: &OrderKey,
-        sub_orders: &[Order],
+        key: &CustomOrderKey<C>,
+        sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32> {
         match key {
-            OrderKey::Serial => self.sort_with_triee(rows, &self.serial, &vec![]),
-            OrderKey::Row => rows.into_iter().cloned().collect(),
-            OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
+            CustomOrderKey::Serial => self.sort_with_triee::<u32, C>(rows, &self.serial, &vec![]),
+            CustomOrderKey::Row => rows.into_iter().cloned().collect(),
+            CustomOrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.into_iter().cloned().collect(),
                 |f| self.sort_with_triee(rows, f, sub_orders),
             ),
-            OrderKey::TermEnd => self.term_end.as_ref().map_or_else(
+            CustomOrderKey::TermEnd => self.term_end.as_ref().map_or_else(
                 || rows.into_iter().cloned().collect(),
                 |f| self.sort_with_triee(rows, f, sub_orders),
             ),
-            OrderKey::LastUpdated => self.term_end.as_ref().map_or_else(
+            CustomOrderKey::LastUpdated => self.term_end.as_ref().map_or_else(
                 || rows.into_iter().cloned().collect(),
                 |f| self.sort_with_triee(rows, f, sub_orders),
             ),
-            OrderKey::Field(field_name) => self.field(&field_name).map_or_else(
+            CustomOrderKey::Field(field_name) => self.field(&field_name).map_or_else(
                 || rows.into_iter().cloned().collect(),
                 |f| self.sort_with_triee(rows, f, sub_orders),
             ),
-            OrderKey::Custom(custom_order) => custom_order.asc(),
+            CustomOrderKey::Custom(custom_order) => custom_order.asc(),
         }
     }
 
-    fn sort_with_key_desc(
+    fn sort_with_key_desc<C: CustomSort>(
         &self,
         rows: &RowSet,
-        key: &OrderKey,
-        sub_orders: &[Order],
+        key: &CustomOrderKey<C>,
+        sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32> {
         match key {
-            OrderKey::Serial => self.sort_with_triee_desc(rows, &self.serial, &vec![]),
-            OrderKey::Row => rows.into_iter().rev().cloned().collect(),
-            OrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
+            CustomOrderKey::Serial => {
+                self.sort_with_triee_desc::<u32, C>(rows, &self.serial, &vec![])
+            }
+            CustomOrderKey::Row => rows.into_iter().rev().cloned().collect(),
+            CustomOrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.into_iter().rev().cloned().collect(),
                 |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
-            OrderKey::TermEnd => self.term_end.as_ref().map_or_else(
+            CustomOrderKey::TermEnd => self.term_end.as_ref().map_or_else(
                 || rows.into_iter().rev().cloned().collect(),
                 |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
-            OrderKey::LastUpdated => self.last_updated.as_ref().map_or_else(
+            CustomOrderKey::LastUpdated => self.last_updated.as_ref().map_or_else(
                 || rows.into_iter().rev().cloned().collect(),
                 |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
-            OrderKey::Field(field_name) => self.field(&field_name).map_or_else(
+            CustomOrderKey::Field(field_name) => self.field(&field_name).map_or_else(
                 || rows.into_iter().rev().cloned().collect(),
                 |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
-            OrderKey::Custom(custom_order) => custom_order.desc(),
+            CustomOrderKey::Custom(custom_order) => custom_order.desc(),
         }
     }
 }
