@@ -77,46 +77,56 @@ impl Data {
             },
             option.allocation_lot,
         );
-        let uuid = option.uuid.then_some(IdxFile::new(
-            {
-                let mut path = dir.to_path_buf();
-                path.push("uuid.i");
-                path
-            },
-            option.allocation_lot,
-        ));
-        let activity = option.activity.then_some(IdxFile::new(
-            {
-                let mut path = dir.to_path_buf();
-                path.push("activity.i");
-                path
-            },
-            option.allocation_lot,
-        ));
-        let term_begin = option.term.then_some(IdxFile::new(
-            {
-                let mut path = dir.to_path_buf();
-                path.push("term_begin.i");
-                path
-            },
-            option.allocation_lot,
-        ));
-        let term_end = option.term.then_some(IdxFile::new(
-            {
-                let mut path = dir.to_path_buf();
-                path.push("term_end.i");
-                path
-            },
-            option.allocation_lot,
-        ));
-        let last_updated = option.last_updated.then_some(IdxFile::new(
-            {
-                let mut path = dir.to_path_buf();
-                path.push("last_updated.i");
-                path
-            },
-            option.allocation_lot,
-        ));
+        let uuid = option.uuid.then(|| {
+            IdxFile::new(
+                {
+                    let mut path = dir.to_path_buf();
+                    path.push("uuid.i");
+                    path
+                },
+                option.allocation_lot,
+            )
+        });
+        let activity = option.activity.then(|| {
+            IdxFile::new(
+                {
+                    let mut path = dir.to_path_buf();
+                    path.push("activity.i");
+                    path
+                },
+                option.allocation_lot,
+            )
+        });
+        let term_begin = option.term.then(|| {
+            IdxFile::new(
+                {
+                    let mut path = dir.to_path_buf();
+                    path.push("term_begin.i");
+                    path
+                },
+                option.allocation_lot,
+            )
+        });
+        let term_end = option.term.then(|| {
+            IdxFile::new(
+                {
+                    let mut path = dir.to_path_buf();
+                    path.push("term_end.i");
+                    path
+                },
+                option.allocation_lot,
+            )
+        });
+        let last_updated = option.last_updated.then(|| {
+            IdxFile::new(
+                {
+                    let mut path = dir.to_path_buf();
+                    path.push("last_updated.i");
+                    path
+                },
+                option.allocation_lot,
+            )
+        });
 
         Self {
             fields_dir,
@@ -199,12 +209,10 @@ impl Data {
             for p in self.fields_dir.read_dir().unwrap().into_iter() {
                 let p = p.unwrap();
                 let path = p.path();
-                if path.is_dir() {
-                    if let Some(str_fname) = p.file_name().to_str() {
-                        if !self.fields_cache.contains_key(str_fname) {
-                            let field = Field::new(path, self.option.allocation_lot);
-                            self.fields_cache.entry(str_fname.into()).or_insert(field);
-                        }
+                if let (true, Some(str_fname)) = (path.is_dir(), p.file_name().to_str()) {
+                    if !self.fields_cache.contains_key(str_fname) {
+                        let field = Field::new(path, self.option.allocation_lot);
+                        self.fields_cache.entry(str_fname.into()).or_insert(field);
                     }
                 }
             }
