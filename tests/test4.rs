@@ -20,14 +20,12 @@ fn test4() {
         }))
         .await;
         data.update(Operation::New(Record {
-            activity: Activity::Active,
-            term_begin: Term::Default,
-            term_end: Term::Default,
             fields: [
                 ("name".into(), "test2".into()),
                 ("password".into(), "test".into()),
             ]
             .into(),
+            ..Default::default()
         }))
         .await;
         data.update(Operation::New(Record {

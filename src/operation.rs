@@ -51,7 +51,7 @@ impl Data {
     pub async fn update(&mut self, operation: Operation) -> Option<NonZeroU32> {
         match operation {
             Operation::New(record) => {
-                let row = self.serial.next_row().await;
+                let row = self.serial.next_row();
                 self.update_field(row, record, true).await;
                 Some(row)
             }
@@ -134,7 +134,12 @@ impl Data {
         futures::future::join_all([
             async {
                 futures::future::join_all(self.fields_cache.iter_mut().filter_map(
-                    |(key, field)| record.fields.get(key).map(|v| field.update(row, v)),
+                    |(key, field)| {
+                        record
+                            .fields
+                            .get(key)
+                            .map(|v| async { field.update(row, v) })
+                    },
                 ))
                 .await;
             }
@@ -142,20 +147,20 @@ impl Data {
             async {
                 if with_uuid {
                     if let Some(ref mut uuid) = self.uuid {
-                        uuid.update(row, Uuid::new_v4().as_u128()).await;
+                        uuid.update(row, Uuid::new_v4().as_u128());
                     }
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.last_updated {
-                    f.update(row, Self::now()).await;
+                    f.update(row, Self::now());
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.activity {
-                    f.update(row, record.activity as u8).await;
+                    f.update(row, record.activity as u8);
                 }
             }
             .boxed_local(),
@@ -168,8 +173,7 @@ impl Data {
                         } else {
                             Self::now()
                         },
-                    )
-                    .await;
+                    );
                 }
             }
             .boxed_local(),
@@ -182,8 +186,7 @@ impl Data {
                         } else {
                             0
                         },
-                    )
-                    .await;
+                    );
                 }
             }
             .boxed_local(),

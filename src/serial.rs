@@ -38,14 +38,13 @@ impl SerialNumber {
         self.fragment.insert_blank(row);
     }
 
-    pub async fn next_row(&mut self) -> NonZeroU32 {
+    pub fn next_row(&mut self) -> NonZeroU32 {
         let v = self.fragment.serial_increment().get();
-        let row = if let Some(row) = self.fragment.pop() {
-            self.serial.update(row, v).await;
+        if let Some(row) = self.fragment.pop() {
+            self.serial.update(row, v);
             row
         } else {
-            self.serial.insert(v).await
-        };
-        row
+            self.serial.insert(v)
+        }
     }
 }
