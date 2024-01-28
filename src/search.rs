@@ -1,6 +1,8 @@
 mod enums;
 mod result;
 
+use crate::FieldName;
+
 use super::{Activity, Data};
 
 pub use enums::*;
@@ -29,8 +31,8 @@ impl<'a> Search<'a> {
     }
 
     /// Search field.
-    pub fn search_field(self, field_name: &'a str, condition: &'a Field) -> Self {
-        self.search(Condition::Field(field_name, condition))
+    pub fn search_field(self, name: FieldName, condition: &'a Field) -> Self {
+        self.search(Condition::Field(name, condition))
     }
 
     /// Search by data publication period.
@@ -70,8 +72,8 @@ impl Data {
     }
 
     /// Create a [Search] object with the field search set.
-    pub fn search_field<'a>(&'a self, field_name: &'a str, condition: &'a Field) -> Search {
-        Search::new(self).search_field(field_name, condition)
+    pub fn search_field<'a>(&'a self, name: FieldName, condition: &'a Field) -> Search {
+        Search::new(self).search_field(name, condition)
     }
 
     /// Create a [Search] object with the activity search set.

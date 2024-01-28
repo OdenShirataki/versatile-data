@@ -19,14 +19,15 @@ fn test() {
 
     futures::executor::block_on(async {
         let range = 1u32..=100000;
+        let id_num = FieldName::from("num");
         for i in range {
-            data.update(Operation::Update {
-                row: unsafe { NonZeroU32::new_unchecked(i) },
-                record: Record {
-                    fields: [("num".into(), i.to_string().into())].into(),
-                    ..Default::default()
-                },
-            })
+            data.update(
+                unsafe { NonZeroU32::new_unchecked(i) },
+                Activity::Active,
+                Term::Default,
+                Term::Default,
+                [(id_num.clone(), i.to_string().into())].into(),
+            )
             .await;
         }
     });

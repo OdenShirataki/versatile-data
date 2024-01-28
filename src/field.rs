@@ -1,36 +1,61 @@
-use std::{fs, num::NonZeroU32};
+use std::{fs, num::NonZeroU32, ops::Deref, sync::Arc};
 
+use hashbrown::HashMap;
 use idx_binary::IdxBinary;
 
 use crate::Data;
 
 pub type Field = IdxBinary;
 
-impl Data {
-    /// Returns a list of field names.
-    pub fn field_names(&self) -> Vec<&String> {
-        self.fields_cache.iter().map(|(key, _)| key).collect()
-    }
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct FieldName(Arc<String>);
 
+impl<T: Into<String>> From<T> for FieldName {
+    fn from(value: T) -> Self {
+        Self(Arc::new(value.into()))
+    }
+}
+
+impl Deref for FieldName {
+    type Target = Arc<String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub type Fields = HashMap<FieldName, Field>;
+
+impl Data {
     /// Returns the value of the field with the specified name in the specified row as a slice.
-    pub fn field_bytes(&self, row: NonZeroU32, name: &str) -> &[u8] {
-        self.field(name).and_then(|v| v.bytes(row)).unwrap_or(b"")
+    pub fn field_bytes(&self, row: NonZeroU32, name: &FieldName) -> &[u8] {
+        self.fields
+            .get(name)
+            .and_then(|v| v.bytes(row))
+            .unwrap_or(b"")
     }
 
     /// Returns the value of the field with the specified name in the specified row as a number.
-    pub fn field_num(&self, row: NonZeroU32, name: &str) -> f64 {
-        self.field(name)
+    pub fn field_num(&self, row: NonZeroU32, name: &FieldName) -> f64 {
+        self.fields
+            .get(name)
             .and_then(|v| v.bytes(row))
             .and_then(|v| unsafe { std::str::from_utf8_unchecked(v) }.parse().ok())
             .unwrap_or(0.0)
     }
 
-    pub(crate) fn create_field(&mut self, field_name: &str) -> &mut Field {
-        let mut fields_dir = self.fields_dir.clone();
-        fields_dir.push(field_name);
-        fs::create_dir_all(&fields_dir).unwrap();
-        let field = Field::new(fields_dir, self.option.allocation_lot);
-        self.fields_cache.entry(field_name.into()).or_insert(field);
-        self.fields_cache.get_mut(field_name).unwrap()
+    pub(crate) fn create_field(&mut self, name: &FieldName) {
+        if !self.fields.contains_key(name) {
+            let mut fields_dir = self.fields_dir.clone();
+            fields_dir.push(name.as_ref().to_string());
+            fs::create_dir_all(&fields_dir).unwrap();
+            let field = Field::new(fields_dir, self.option.allocation_lot);
+
+            self.fields.insert(name.clone(), field);
+        }
+    }
+
+    pub fn fields(&self) -> &Fields {
+        &self.fields
     }
 }

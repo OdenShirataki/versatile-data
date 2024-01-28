@@ -7,7 +7,7 @@ mod row_fragment;
 mod serial;
 mod sort;
 
-pub use field::Field;
+pub use field::{Field, FieldName, Fields};
 pub use idx_binary::{self, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
 pub use option::DataOption;
@@ -25,7 +25,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use hashbrown::HashMap;
 use serial::SerialNumber;
 
 pub type RowSet = BTreeSet<NonZeroU32>;
@@ -43,7 +42,7 @@ pub struct Data {
     term_begin: Option<IdxFile<u64>>,
     term_end: Option<IdxFile<u64>>,
     last_updated: Option<IdxFile<u64>>,
-    fields_cache: HashMap<String, Field>,
+    fields: Fields,
 }
 
 impl Data {
@@ -54,16 +53,17 @@ impl Data {
             fs::create_dir_all(dir).unwrap();
         }
 
-        let mut fields_cache = HashMap::new();
+        let mut fields = Fields::default();
+
         let mut fields_dir = dir.to_path_buf();
         fields_dir.push("fields");
         if fields_dir.exists() {
             for d in fields_dir.read_dir().unwrap().into_iter() {
                 let d = d.unwrap();
                 if d.file_type().unwrap().is_dir() {
-                    if let Some(fname) = d.file_name().to_str() {
+                    if let Some(name) = d.file_name().to_str() {
                         let field = Field::new(d.path(), option.allocation_lot);
-                        fields_cache.entry(fname.into()).or_insert(field);
+                        fields.insert(name.into(), field);
                     }
                 }
             }
@@ -137,7 +137,7 @@ impl Data {
             term_begin,
             term_end,
             last_updated,
-            fields_cache,
+            fields,
         }
     }
 
@@ -198,25 +198,6 @@ impl Data {
     /// Returns all rows.
     pub fn all(&self) -> RowSet {
         self.serial.iter().collect()
-    }
-
-    fn field(&self, name: &str) -> Option<&Field> {
-        self.fields_cache.get(name)
-    }
-
-    fn load_fields(&mut self) {
-        if self.fields_dir.exists() {
-            for p in self.fields_dir.read_dir().unwrap().into_iter() {
-                let p = p.unwrap();
-                let path = p.path();
-                if let (true, Some(str_fname)) = (path.is_dir(), p.file_name().to_str()) {
-                    if !self.fields_cache.contains_key(str_fname) {
-                        let field = Field::new(path, self.option.allocation_lot);
-                        self.fields_cache.entry(str_fname.into()).or_insert(field);
-                    }
-                }
-            }
-        }
     }
 
     fn now() -> u64 {

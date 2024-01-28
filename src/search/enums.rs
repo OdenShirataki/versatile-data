@@ -1,4 +1,4 @@
-use crate::Activity;
+use crate::{Activity, FieldName};
 use std::{
     ops::RangeInclusive,
     time::{SystemTime, UNIX_EPOCH},
@@ -51,7 +51,7 @@ pub enum Condition<'a> {
     Row(&'a Number),
     Uuid(&'a [u128]),
     LastUpdated(&'a Number),
-    Field(&'a str, &'a Field),
+    Field(FieldName, &'a Field),
     Narrow(&'a Vec<Condition<'a>>),
     Wide(&'a Vec<Condition<'a>>),
 }

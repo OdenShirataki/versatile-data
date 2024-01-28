@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32, ops::Deref};
 
 use idx_binary::IdxFile;
 
-use crate::{Data, RowSet};
+use crate::{Data, FieldName, RowSet};
 
 pub trait CustomSort {
     fn compare(&self, a: NonZeroU32, b: NonZeroU32) -> Ordering;
@@ -39,7 +39,7 @@ pub enum CustomOrderKey<C: CustomSort> {
     TermBegin,
     TermEnd,
     LastUpdated,
-    Field(String),
+    Field(FieldName),
     Custom(C),
 }
 
@@ -103,8 +103,8 @@ impl Data {
                                 }
                             }
                         }
-                        CustomOrderKey::Field(field_name) => {
-                            if let Some(field) = self.field(&field_name) {
+                        CustomOrderKey::Field(name) => {
+                            if let Some(field) = self.fields.get(name) {
                                 let ord = idx_binary::compare(
                                     field.bytes(*a).unwrap(),
                                     field.bytes(*b).unwrap(),
@@ -156,8 +156,8 @@ impl Data {
                                 }
                             }
                         }
-                        CustomOrderKey::Field(field_name) => {
-                            if let Some(field) = self.field(&field_name) {
+                        CustomOrderKey::Field(name) => {
+                            if let Some(field) = self.fields.get(name) {
                                 let ord = idx_binary::compare(
                                     field.bytes(*b).unwrap(),
                                     field.bytes(*a).unwrap(),
@@ -273,7 +273,7 @@ impl Data {
                 || rows.into_iter().cloned().collect(),
                 |f| self.sort_with_triee(rows, f, sub_orders),
             ),
-            CustomOrderKey::Field(field_name) => self.field(&field_name).map_or_else(
+            CustomOrderKey::Field(name) => self.fields.get(name).map_or_else(
                 || rows.into_iter().cloned().collect(),
                 |f| self.sort_with_triee(rows, f, sub_orders),
             ),
@@ -304,7 +304,7 @@ impl Data {
                 || rows.into_iter().rev().cloned().collect(),
                 |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),
-            CustomOrderKey::Field(field_name) => self.field(&field_name).map_or_else(
+            CustomOrderKey::Field(name) => self.fields.get(name).map_or_else(
                 || rows.into_iter().rev().cloned().collect(),
                 |f| self.sort_with_triee_desc(rows, f, sub_orders),
             ),

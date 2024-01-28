@@ -18,6 +18,8 @@ You don't have to think about which fields to index. it is done automatically.
 ## Example
 
 ```rust
+use std::num::NonZeroU32;
+
 use versatile_data::*;
 
 let dir = "./vd-test/";
@@ -27,35 +29,48 @@ if std::path::Path::new(dir).exists() {
 let mut data = Data::new(dir, DataOption::default());
 let range = 1..=10;
 futures::executor::block_on(async {
+    let field_num = FieldName::from("num");
+    let field_num_by3 = FieldName::from("num_by3");
+    let field_num_mod3 = FieldName::from("num_mod3");
+
+    let field_hoge = FieldName::from("hoge");
+
     for i in range.clone() {
-        data.update(Operation::New(Record {
-            fields: [
-                ("num".into(), i.to_string().into()),
-                ("num_by3".into(), (i * 3).to_string().into()),
-                ("num_mod3".into(), (i % 3).to_string().into()),
+        data.insert(
+            Activity::Active,
+            Term::Default,
+            Term::Default,
+            [
+                (field_num.clone(), i.to_string().into()),
+                (field_num_by3.clone(), (i * 3).to_string().into()),
+                (field_num_mod3.clone(), (i % 3).to_string().into()),
             ]
             .into(),
-            ..Default::default()
-        }))
+        )
         .await;
     }
     let mut sam = 0.0;
 
     for i in range {
-        sam += data.field_num(i.try_into().unwrap(), "num");
+        sam += data.field_num(i.try_into().unwrap(), &field_num);
         println!(
             "{},{},{},{}",
             data.serial(i.try_into().unwrap()),
-            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num")).unwrap(),
-            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_by3")).unwrap(),
-            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), "num_mod3")).unwrap()
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), &field_num)).unwrap(),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), &field_num_by3))
+                .unwrap(),
+            std::str::from_utf8(data.field_bytes(i.try_into().unwrap(), &field_num_mod3))
+                .unwrap()
         );
     }
 
     assert_eq!(sam, 55.0);
 
     let r = data
-        .search_field("num", &search::Field::Range(b"3".to_vec(), b"8".to_vec()))
+        .search_field(
+            field_num.clone(),
+            &search::Field::Range(b"3".to_vec(), b"8".to_vec()),
+        )
         .search_default() //Automatic execution of the following two lines
         //.search_term(Term::In(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()))
         //.search_activity(Activity::Active)
@@ -66,8 +81,8 @@ futures::executor::block_on(async {
     let r = data
         .search_default()
         .search(Condition::Wide(&vec![
-            Condition::Field("num", &search::Field::Match(b"4".to_vec())),
-            Condition::Field("num", &search::Field::Match(b"6".to_vec())),
+            Condition::Field(field_num.clone(), &search::Field::Match(b"4".to_vec())),
+            Condition::Field(field_num.clone(), &search::Field::Match(b"6".to_vec())),
         ]))
         .result()
         .await;
@@ -81,21 +96,21 @@ futures::executor::block_on(async {
 
     let r=data
         .search_default()
-        .result_with_sort(vec![Order::Desc(OrderKey::Field("num".to_owned()))]).await   //natural order
+        .result_with_sort(vec![Order::Desc(OrderKey::Field(field_num.clone()))]).await   //natural order
     ;
     println!("sorted-num-desc:{:?}", r);
 
     let r = data
         .search_default()
-        .result_with_sort(vec![Order::Desc(OrderKey::Field("num_mod3".to_owned()))])
+        .result_with_sort(vec![Order::Desc(OrderKey::Field(field_num_mod3.clone()))])
         .await;
     println!("sorted-mod3-desc:{:?}", r);
 
     let r = data
         .search_default()
         .result_with_sort(vec![
-            Order::Asc(OrderKey::Field("num_mod3".to_owned())),
-            Order::Asc(OrderKey::Field("num".to_owned())),
+            Order::Asc(OrderKey::Field(field_num_mod3.clone())),
+            Order::Asc(OrderKey::Field(field_num.clone())),
         ])
         .await;
     println!("sorted mod3-asc num-asc:{:?}", r);
@@ -103,90 +118,99 @@ futures::executor::block_on(async {
     let r = data
         .search_default()
         .result_with_sort(vec![
-            Order::Asc(OrderKey::Field("num_mod3".to_owned())),
-            Order::Desc(OrderKey::Field("num".to_owned())),
+            Order::Asc(OrderKey::Field(field_num_mod3.clone())),
+            Order::Desc(OrderKey::Field(field_num.clone())),
         ])
         .await;
     println!("sorted mod3-asc num-desc:{:?}", r);
 
     let r = data
-        .search_field("num", &search::Field::Range(b"3".to_vec(), b"8".to_vec()))
+        .search_field(
+            field_num,
+            &search::Field::Range(b"3".to_vec(), b"8".to_vec()),
+        )
         .search_row(&search::Number::Range(4..=7))
         .search_default()
         .result()
         .await;
     println!("{:?}", r);
 
-    data.update(Operation::Update {
-        row: 2.try_into().unwrap(),
-        record: Record {
-            fields: [("hoge".into(), "HAHA".into())].into(),
-            ..Default::default()
-        },
-    })
+    data.update(
+        unsafe { NonZeroU32::new_unchecked(2) },
+        Activity::Active,
+        Term::Default,
+        Term::Default,
+        [(field_hoge.clone(), "HAHA".into())].into(),
+    )
     .await;
 
-    data.update(Operation::Update {
-        row: 4.try_into().unwrap(),
-        record: Record {
-            fields: [("hoge".into(), "agaba".into())].into(),
-            ..Default::default()
-        },
-    })
+    data.update(
+        unsafe { NonZeroU32::new_unchecked(4) },
+        Activity::Active,
+        Term::Default,
+        Term::Default,
+        [(field_hoge.clone(), "agaba".into())].into(),
+    )
     .await;
-    data.update(Operation::Update {
-        row: 5.try_into().unwrap(),
-        record: Record {
-            fields: [("hoge".into(), "agababi".into())].into(),
-            ..Default::default()
-        },
-    })
+    data.update(
+        unsafe { NonZeroU32::new_unchecked(5) },
+        Activity::Active,
+        Term::Default,
+        Term::Default,
+        [(field_hoge.clone(), "agababi".into())].into(),
+    )
     .await;
-    data.update(Operation::Update {
-        row: 1.try_into().unwrap(),
-        record: Record {
-            fields: [("hoge".into(), "ageabe".into())].into(),
-            ..Default::default()
-        },
-    })
+    data.update(
+        unsafe { NonZeroU32::new_unchecked(1) },
+        Activity::Active,
+        Term::Default,
+        Term::Default,
+        [(field_hoge.clone(), "ageabe".into())].into(),
+    )
     .await;
-    data.update(Operation::Update {
-        row: 7.try_into().unwrap(),
-        record: Record {
-            fields: [("hoge".into(), "ageee".into())].into(),
-            ..Default::default()
-        },
-    })
+    data.update(
+        unsafe { NonZeroU32::new_unchecked(7) },
+        Activity::Active,
+        Term::Default,
+        Term::Default,
+        [(field_hoge.clone(), "ageee".into())].into(),
+    )
     .await;
-    data.update(Operation::Update {
-        row: 6.try_into().unwrap(),
-        record: Record {
-            fields: [("hoge".into(), "bebebe".into())].into(),
-            ..Default::default()
-        },
-    })
+    data.update(
+        unsafe { NonZeroU32::new_unchecked(6) },
+        Activity::Active,
+        Term::Default,
+        Term::Default,
+        [(field_hoge.clone(), "bebebe".into())].into(),
+    )
     .await;
 
     let r = data
-        .search_field("hoge", &search::Field::Match(b"HAHA".to_vec()))
+        .search_field(field_hoge.clone(), &search::Field::Match(b"HAHA".to_vec()))
         .result()
         .await;
     println!("match:{:?}", r);
 
     let r = data
-        .search_field("hoge", &search::Field::Forward("age".to_string()))
+        .search_field(
+            field_hoge.clone(),
+            &search::Field::Forward("age".to_string()),
+        )
         .result()
         .await;
     println!("forward:{:?}", r);
 
     let r = data
-        .search_field("hoge", &search::Field::Partial("eb".to_string()))
+        .search_field(
+            field_hoge.clone(),
+            &search::Field::Partial("eb".to_string()),
+        )
         .result()
         .await;
     println!("partial:{:?}", r);
 
     let r = data
-        .search_field("hoge", &search::Field::Backward("be".to_string()))
+        .search_field(field_hoge, &search::Field::Backward("be".to_string()))
         .result()
         .await;
     println!("backward:{:?}", r);

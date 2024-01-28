@@ -9,46 +9,55 @@ fn test4() {
     }
 
     let mut data = Data::new(dir, DataOption::default());
+
+    let field_name = FieldName::from("name");
+    let field_password = FieldName::from("password");
+
     futures::executor::block_on(async {
-        data.update(Operation::New(Record {
-            fields: [
-                ("name".into(), "test".into()),
-                ("password".into(), "test".into()),
+        data.insert(
+            Activity::Active,
+            Term::Default,
+            Term::Default,
+            [
+                (field_name.clone(), "test".into()),
+                (field_password.clone(), "test".into()),
             ]
             .into(),
-            ..Default::default()
-        }))
+        )
         .await;
-        data.update(Operation::New(Record {
-            fields: [
-                ("name".into(), "test2".into()),
-                ("password".into(), "test".into()),
+        data.insert(
+            Activity::Active,
+            Term::Default,
+            Term::Default,
+            [
+                (field_name.clone(), "test2".into()),
+                (field_password.clone(), "test".into()),
             ]
             .into(),
-            ..Default::default()
-        }))
+        )
         .await;
-        data.update(Operation::New(Record {
-            fields: [
-                ("name".into(), "test3".into()),
-                ("password".into(), "test".into()),
+        data.insert(
+            Activity::Active,
+            Term::Default,
+            Term::Default,
+            [
+                (field_name.clone(), "test3".into()),
+                (field_password.clone(), "test".into()),
             ]
             .into(),
-            ..Default::default()
-        }))
+        )
         .await;
-        data.update(Operation::Delete {
-            row: 2.try_into().unwrap(),
-        })
-        .await;
-        data.update(Operation::New(Record {
-            fields: [
-                ("name".into(), "test4".into()),
-                ("password".into(), "test".into()),
+        data.delete(2.try_into().unwrap()).await;
+        data.insert(
+            Activity::Active,
+            Term::Default,
+            Term::Default,
+            [
+                (field_name.clone(), "test4".into()),
+                (field_password.clone(), "test".into()),
             ]
             .into(),
-            ..Default::default()
-        }))
+        )
         .await;
         let r = data
             .search_default()
@@ -57,14 +66,16 @@ fn test4() {
         println!("{:?}", r);
 
         let mut data = Data::new(dir, DataOption::default());
-        data.update(Operation::New(Record {
-            fields: [
-                ("name".into(), "test5".into()),
-                ("password".into(), "test".into()),
+        data.insert(
+            Activity::Active,
+            Term::Default,
+            Term::Default,
+            [
+                (field_name.clone(), "test5".into()),
+                (field_password.clone(), "test".into()),
             ]
             .into(),
-            ..Default::default()
-        }))
+        )
         .await;
         let r = data
             .search_default()

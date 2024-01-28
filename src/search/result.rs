@@ -3,7 +3,7 @@ use std::{num::NonZeroU32, ops::Deref};
 use async_recursion::async_recursion;
 use futures::future;
 
-use crate::{Condition, CustomSort, Data, Order, RowSet, Search};
+use crate::{Condition, CustomSort, Data, FieldName, Order, RowSet, Search};
 
 use super::{Field, Number, Term};
 
@@ -178,8 +178,8 @@ impl Data {
         }
     }
 
-    pub fn result_field(&self, field_name: &str, condition: &Field) -> RowSet {
-        if let Some(field) = self.field(field_name) {
+    pub fn result_field(&self, name: &FieldName, condition: &Field) -> RowSet {
+        if let Some(field) = self.fields.get(name) {
             match condition {
                 Field::Match(v) => field.iter_by(|data| field.cmp(data, &v)).collect(),
                 Field::Min(min) => field.iter_from(|data| field.cmp(data, &min)).collect(),
