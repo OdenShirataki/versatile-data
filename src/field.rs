@@ -1,4 +1,4 @@
-use std::{fs, num::NonZeroU32, ops::Deref, sync::Arc};
+use std::{fs, num::NonZeroU32, sync::Arc};
 
 use hashbrown::HashMap;
 use idx_binary::IdxBinary;
@@ -7,23 +7,7 @@ use crate::Data;
 
 pub type Field = IdxBinary;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct FieldName(Arc<String>);
-
-impl<T: Into<String>> From<T> for FieldName {
-    fn from(value: T) -> Self {
-        Self(Arc::new(value.into()))
-    }
-}
-
-impl Deref for FieldName {
-    type Target = Arc<String>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
+pub type FieldName = Arc<String>;
 pub type Fields = HashMap<FieldName, Field>;
 
 impl Data {

@@ -63,7 +63,7 @@ impl Data {
                 if d.file_type().unwrap().is_dir() {
                     if let Some(name) = d.file_name().to_str() {
                         let field = Field::new(d.path(), option.allocation_lot);
-                        fields.insert(name.into(), field);
+                        fields.insert(FieldName::new(name.into()), field);
                     }
                 }
             }

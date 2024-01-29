@@ -9,7 +9,7 @@ fn test5() {
     }
 
     let mut data = Data::new(dir, DataOption::default());
-    let field_num = FieldName::from("num");
+    let field_num = FieldName::new("num".into());
 
     futures::executor::block_on(async {
         data.insert(

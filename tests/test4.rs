@@ -10,8 +10,8 @@ fn test4() {
 
     let mut data = Data::new(dir, DataOption::default());
 
-    let field_name = FieldName::from("name");
-    let field_password = FieldName::from("password");
+    let field_name = FieldName::new("name".into());
+    let field_password = FieldName::new("password".into());
 
     futures::executor::block_on(async {
         data.insert(

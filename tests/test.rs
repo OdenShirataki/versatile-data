@@ -12,11 +12,11 @@ fn test() {
     let mut data = Data::new(dir, DataOption::default());
     let range = 1..=10;
     futures::executor::block_on(async {
-        let field_num = FieldName::from("num");
-        let field_num_by3 = FieldName::from("num_by3");
-        let field_num_mod3 = FieldName::from("num_mod3");
+        let field_num = FieldName::new("num".into());
+        let field_num_by3 = FieldName::new("num_by3".into());
+        let field_num_mod3 = FieldName::new("num_mod3".into());
 
-        let field_hoge = FieldName::from("hoge");
+        let field_hoge = FieldName::new("hoge".into());
 
         for i in range.clone() {
             data.insert(
