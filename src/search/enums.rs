@@ -1,6 +1,7 @@
 use crate::{Activity, FieldName};
 use std::{
     ops::RangeInclusive,
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -36,12 +37,12 @@ pub enum Field {
     Range(Vec<u8>, Vec<u8>),
     Min(Vec<u8>),
     Max(Vec<u8>),
-    Forward(String),
-    Partial(String),
-    Backward(String),
-    ValueForward(String),
-    ValueBackward(String),
-    ValuePartial(String),
+    Forward(Arc<String>),
+    Partial(Arc<String>),
+    Backward(Arc<String>),
+    ValueForward(Arc<String>),
+    ValueBackward(Arc<String>),
+    ValuePartial(Arc<String>),
 }
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 #[cfg(test)]
 #[test]
 fn test() {
-    use std::num::NonZeroU32;
+    use std::{num::NonZeroU32, sync::Arc};
 
     use versatile_data::*;
 
@@ -177,7 +177,7 @@ fn test() {
         let r = data
             .search_field(
                 field_hoge.clone(),
-                &search::Field::Forward("age".to_string()),
+                &search::Field::Forward(Arc::new("age".into())),
             )
             .result()
             .await;
@@ -186,14 +186,14 @@ fn test() {
         let r = data
             .search_field(
                 field_hoge.clone(),
-                &search::Field::Partial("eb".to_string()),
+                &search::Field::Partial(Arc::new("eb".into())),
             )
             .result()
             .await;
         println!("partial:{:?}", r);
 
         let r = data
-            .search_field(field_hoge, &search::Field::Backward("be".to_string()))
+            .search_field(field_hoge, &search::Field::Backward(Arc::new("be".into())))
             .result()
             .await;
         println!("backward:{:?}", r);

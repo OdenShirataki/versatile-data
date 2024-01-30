@@ -31,7 +31,6 @@ impl Data {
                     let activity = *condition as u8;
                     index.iter_by(|v| v.cmp(&activity)).collect()
                 } else {
-                    //unreachable!();
                     RowSet::default()
                 }
             }
