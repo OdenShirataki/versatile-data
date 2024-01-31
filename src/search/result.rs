@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, ops::Deref};
+use std::num::NonZeroU32;
 
 use async_recursion::async_recursion;
 use futures::future;
@@ -107,7 +107,7 @@ impl Data {
                         return term_begin
                             .iter_to(|v| v.cmp(base))
                             .filter_map(|row| {
-                                let end = term_end.get(row).map(|v| *v.deref()).unwrap_or(0);
+                                let end = term_end.get(row).map(|v| **v).unwrap_or(0);
                                 (end == 0 || end > *base).then_some(row)
                             })
                             .collect();

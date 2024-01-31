@@ -20,7 +20,6 @@ use std::{
     collections::BTreeSet,
     fs,
     num::NonZeroU32,
-    ops::Deref,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -143,21 +142,21 @@ impl Data {
 
     /// Returns a serial number.The serial number is incremented each time data is added.
     pub fn serial(&self, row: NonZeroU32) -> u32 {
-        *unsafe { self.serial.get_unchecked(row) }.deref()
+        **unsafe { self.serial.get_unchecked(row) }
     }
 
     /// Returns a UUID.UUID is a unique ID that is automatically generated when data is registered..
     pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
         self.uuid
             .as_ref()
-            .and_then(|uuid| uuid.get(row).map(|node| *node.deref()))
+            .and_then(|uuid| uuid.get(row).map(|node| **node))
     }
 
     /// Returns the UUID as a string.
     pub fn uuid_string(&self, row: NonZeroU32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
             uuid.get(row)
-                .map(|v| uuid::Uuid::from_u128(*v.deref()).to_string())
+                .map(|v| uuid::Uuid::from_u128(**v).to_string())
         })
     }
 
@@ -165,7 +164,7 @@ impl Data {
     pub fn activity(&self, row: NonZeroU32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
             a.get(row).map(|v| {
-                if *v.deref() != 0 {
+                if **v != 0 {
                     Activity::Active
                 } else {
                     Activity::Inactive
@@ -178,21 +177,19 @@ impl Data {
     pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
         self.term_begin
             .as_ref()
-            .and_then(|f| f.get(row).map(|v| *v.deref()))
+            .and_then(|f| f.get(row).map(|v| **v))
     }
 
     /// Returns the end date and time of the data's validity period.
     pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_end
-            .as_ref()
-            .and_then(|f| f.get(row).map(|v| *v.deref()))
+        self.term_end.as_ref().and_then(|f| f.get(row).map(|v| **v))
     }
 
     /// Returns the date and time when the data was last updated.
     pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
         self.last_updated
             .as_ref()
-            .and_then(|f| f.get(row).map(|v| *v.deref()))
+            .and_then(|f| f.get(row).map(|v| **v))
     }
 
     /// Returns all rows.

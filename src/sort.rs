@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32, ops::Deref};
+use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32};
 
 use idx_binary::IdxFile;
 
@@ -201,7 +201,7 @@ impl Data {
             let mut tmp: Vec<NonZeroU32> = Vec::new();
             for r in iter {
                 if rows.contains(&r) {
-                    let value = unsafe { index.get_unchecked(r) }.deref();
+                    let value = &*unsafe { index.get_unchecked(r) };
                     if let Some(before) = before {
                         if before.ne(value) {
                             ret.extend(if tmp.len() <= 1 {
