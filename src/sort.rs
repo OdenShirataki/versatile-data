@@ -181,16 +181,13 @@ impl Data {
         tmp
     }
 
-    fn sort_with_triee_inner<T, C: CustomSort>(
+    fn sort_with_triee_inner<T: PartialEq, I: ?Sized, C: CustomSort>(
         &self,
         rows: &RowSet,
-        index: &IdxFile<T>,
+        index: &IdxFile<T, I>,
         iter: impl Iterator<Item = NonZeroU32>,
         sub_orders: &[Order<C>],
-    ) -> Vec<NonZeroU32>
-    where
-        T: PartialEq,
-    {
+    ) -> Vec<NonZeroU32> {
         if sub_orders.len() == 0 {
             iter.filter_map(|row| rows.contains(&row).then_some(row))
                 .collect()
@@ -228,27 +225,21 @@ impl Data {
         }
     }
 
-    fn sort_with_triee<T, C: CustomSort>(
+    fn sort_with_triee<T: PartialEq, I: ?Sized, C: CustomSort>(
         &self,
         rows: &RowSet,
-        index: &IdxFile<T>,
+        index: &IdxFile<T, I>,
         sub_orders: &[Order<C>],
-    ) -> Vec<NonZeroU32>
-    where
-        T: PartialEq,
-    {
+    ) -> Vec<NonZeroU32> {
         self.sort_with_triee_inner(rows, index, index.iter(), sub_orders)
     }
 
-    fn sort_with_triee_desc<T, C: CustomSort>(
+    fn sort_with_triee_desc<T: PartialEq, I: ?Sized, C: CustomSort>(
         &self,
         rows: &RowSet,
-        index: &IdxFile<T>,
+        index: &IdxFile<T, I>,
         sub_orders: &[Order<C>],
-    ) -> Vec<NonZeroU32>
-    where
-        T: PartialEq,
-    {
+    ) -> Vec<NonZeroU32> {
         self.sort_with_triee_inner(rows, index, index.desc_iter(), sub_orders)
     }
 
@@ -259,7 +250,9 @@ impl Data {
         sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32> {
         match key {
-            CustomOrderKey::Serial => self.sort_with_triee::<u32, C>(rows, &self.serial, &vec![]),
+            CustomOrderKey::Serial => {
+                self.sort_with_triee::<u32, u32, C>(rows, &self.serial, &vec![])
+            }
             CustomOrderKey::Row => rows.into_iter().cloned().collect(),
             CustomOrderKey::TermBegin => self.term_begin.as_ref().map_or_else(
                 || rows.into_iter().cloned().collect(),
@@ -275,7 +268,7 @@ impl Data {
             ),
             CustomOrderKey::Field(name) => self.fields.get(name).map_or_else(
                 || rows.into_iter().cloned().collect(),
-                |f| self.sort_with_triee(rows, f, sub_orders),
+                |f| self.sort_with_triee(rows, &*f, sub_orders),
             ),
             CustomOrderKey::Custom(custom_order) => custom_order.asc(),
         }
@@ -289,7 +282,7 @@ impl Data {
     ) -> Vec<NonZeroU32> {
         match key {
             CustomOrderKey::Serial => {
-                self.sort_with_triee_desc::<u32, C>(rows, &self.serial, &vec![])
+                self.sort_with_triee_desc::<u32, u32, C>(rows, &self.serial, &vec![])
             }
             CustomOrderKey::Row => rows.into_iter().rev().cloned().collect(),
             CustomOrderKey::TermBegin => self.term_begin.as_ref().map_or_else(

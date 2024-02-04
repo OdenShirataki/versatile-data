@@ -41,10 +41,10 @@ impl SerialNumber {
     pub fn next_row(&mut self) -> NonZeroU32 {
         let v = self.fragment.serial_increment().get();
         if let Some(row) = self.fragment.pop() {
-            self.serial.update(row, v);
+            self.serial.update(row, &v);
             row
         } else {
-            self.serial.insert(v)
+            self.serial.insert(&v)
         }
     }
 }

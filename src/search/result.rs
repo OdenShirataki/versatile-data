@@ -2,6 +2,7 @@ use std::num::NonZeroU32;
 
 use async_recursion::async_recursion;
 use futures::future;
+use idx_binary::AvltrieeIter;
 
 use crate::{Condition, CustomSort, Data, FieldName, Order, RowSet, Search};
 
@@ -29,7 +30,7 @@ impl Data {
             Condition::Activity(condition) => {
                 if let Some(ref index) = self.activity {
                     let activity = *condition as u8;
-                    index.iter_by(|v| v.cmp(&activity)).collect()
+                    index.iter_by(&activity).collect()
                 } else {
                     RowSet::default()
                 }
@@ -65,21 +66,18 @@ impl Data {
             match condition {
                 Number::Min(min) => {
                     let min = *min as u64;
-                    f.iter_from(|v| v.cmp(&min)).collect()
+                    f.iter_from(&min).collect()
                 }
                 Number::Max(max) => {
                     let max = *max as u64;
-                    f.iter_to(|v| v.cmp(&max)).collect()
+                    f.iter_to(&max).collect()
                 }
                 Number::Range(range) => f
-                    .iter_range(
-                        |v| v.cmp(&(*range.start() as u64)),
-                        |v| v.cmp(&(*range.end() as u64)),
-                    )
+                    .iter_range(&(*range.start() as u64), &(*range.end() as u64))
                     .collect(),
                 Number::In(rows) => rows
                     .into_iter()
-                    .map(|i| f.iter_by(|v| v.cmp(&(*i as u64))))
+                    .map(|i| f.iter_by(&(*i as u64)))
                     .flatten()
                     .collect(),
             }
@@ -92,7 +90,7 @@ impl Data {
         if let Some(ref index) = self.uuid {
             uuids
                 .into_iter()
-                .map(|uuid| index.iter_by(|v| v.cmp(&uuid)))
+                .map(|uuid| index.iter_by(&uuid))
                 .flatten()
                 .collect()
         } else {
@@ -105,7 +103,7 @@ impl Data {
                 if let Some(ref term_begin) = self.term_begin {
                     if let Some(ref term_end) = self.term_end {
                         return term_begin
-                            .iter_to(|v| v.cmp(base))
+                            .iter_to(base)
                             .filter_map(|row| {
                                 let end = term_end.get(row).map(|v| **v).unwrap_or(0);
                                 (end == 0 || end > *base).then_some(row)
@@ -120,14 +118,14 @@ impl Data {
             }
             Term::Future(base) => {
                 if let Some(ref index) = self.term_begin {
-                    return index.iter_from(|v| v.cmp(&base)).collect();
+                    return index.iter_from(&base).collect();
                 } else {
                     unreachable!();
                 }
             }
             Term::Past(base) => {
                 if let Some(ref index) = self.term_end {
-                    return index.iter_range(|v| v.cmp(&1), |v| v.cmp(&base)).collect();
+                    return index.iter_range(&1, &base).collect();
                 } else {
                     unreachable!();
                 }
@@ -180,12 +178,10 @@ impl Data {
     pub fn result_field(&self, name: &FieldName, condition: &Field) -> RowSet {
         if let Some(field) = self.fields.get(name) {
             match condition {
-                Field::Match(v) => field.iter_by(|data| field.cmp(data, &v)).collect(),
-                Field::Min(min) => field.iter_from(|data| field.cmp(data, &min)).collect(),
-                Field::Max(max) => field.iter_to(|data| field.cmp(data, &max)).collect(),
-                Field::Range(min, max) => field
-                    .iter_range(|data| field.cmp(data, &min), |data| field.cmp(data, &max))
-                    .collect(),
+                Field::Match(v) => AvltrieeIter::by(field, v).collect(),
+                Field::Min(min) => AvltrieeIter::from_asc(field, min).collect(),
+                Field::Max(max) => AvltrieeIter::to_asc(field, &max).collect(),
+                Field::Range(min, max) => AvltrieeIter::range_asc(field, &min, &max).collect(),
                 Field::Forward(cont) => Self::result_field_sub(field, cont, Self::forward),
                 Field::Partial(cont) => Self::result_field_sub(field, cont, Self::partial),
                 Field::Backward(cont) => Self::result_field_sub(field, cont, Self::backward),

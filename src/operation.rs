@@ -74,20 +74,20 @@ impl Data {
             async {
                 if let Some(ref mut uuid) = self.uuid {
                     if uuid.get(row).is_none() {
-                        uuid.update(row, Uuid::new_v4().as_u128());
+                        uuid.update(row, &Uuid::new_v4().as_u128());
                     }
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.last_updated {
-                    f.update(row, Self::now());
+                    f.update(row, &Self::now());
                 }
             }
             .boxed_local(),
             async {
                 if let Some(ref mut f) = self.activity {
-                    f.update(row, activity as u8);
+                    f.update(row, &(activity as u8));
                 }
             }
             .boxed_local(),
@@ -95,7 +95,7 @@ impl Data {
                 if let Some(ref mut f) = self.term_begin {
                     f.update(
                         row,
-                        if let Term::Overwrite(term) = term_begin {
+                        &if let Term::Overwrite(term) = term_begin {
                             term
                         } else {
                             Self::now()
@@ -108,7 +108,7 @@ impl Data {
                 if let Some(ref mut f) = self.term_end {
                     f.update(
                         row,
-                        if let Term::Overwrite(term) = term_end {
+                        &if let Term::Overwrite(term) = term_end {
                             term
                         } else {
                             0
