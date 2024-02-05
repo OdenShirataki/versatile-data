@@ -1,4 +1,4 @@
-use idx_binary::IdxFile;
+use idx_binary::{AvltrieeUpdate, IdxFile};
 use std::{num::NonZeroU32, path::PathBuf};
 
 use crate::RowFragment;
@@ -7,12 +7,14 @@ pub(crate) struct SerialNumber {
     serial: IdxFile<u32>,
     fragment: RowFragment,
 }
+
 impl std::ops::Deref for SerialNumber {
     type Target = IdxFile<u32>;
     fn deref(&self) -> &Self::Target {
         &self.serial
     }
 }
+
 impl SerialNumber {
     pub fn new(path: PathBuf, reserve_unit: u32) -> Self {
         let file_name = path.file_name().map_or("".into(), |f| f.to_string_lossy());

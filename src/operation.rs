@@ -2,6 +2,7 @@ use std::num::NonZeroU32;
 
 use futures::FutureExt;
 use hashbrown::HashMap;
+use idx_binary::AvltrieeUpdate;
 use uuid::Uuid;
 
 use crate::{Data, FieldName};
