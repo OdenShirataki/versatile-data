@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32};
 
-use idx_binary::IdxFile;
+use idx_binary::{AvltrieeSearch, IdxFileAvlTriee};
 
 use crate::{Data, FieldName, RowSet};
 
@@ -106,8 +106,8 @@ impl Data {
                         CustomOrderKey::Field(name) => {
                             if let Some(field) = self.fields.get(name) {
                                 let ord = idx_binary::compare(
-                                    field.bytes(*a).unwrap(),
-                                    field.bytes(*b).unwrap(),
+                                    field.value(*a).unwrap(),
+                                    field.value(*b).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -159,8 +159,8 @@ impl Data {
                         CustomOrderKey::Field(name) => {
                             if let Some(field) = self.fields.get(name) {
                                 let ord = idx_binary::compare(
-                                    field.bytes(*b).unwrap(),
-                                    field.bytes(*a).unwrap(),
+                                    field.value(*b).unwrap(),
+                                    field.value(*a).unwrap(),
                                 );
                                 if ord != Ordering::Equal {
                                     return ord;
@@ -184,7 +184,7 @@ impl Data {
     fn sort_with_triee_inner<T: PartialEq, I: ?Sized, C: CustomSort>(
         &self,
         rows: &RowSet,
-        index: &IdxFile<T, I>,
+        triee: &IdxFileAvlTriee<T, I>,
         iter: impl Iterator<Item = NonZeroU32>,
         sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32> {
@@ -198,7 +198,7 @@ impl Data {
             let mut tmp: Vec<NonZeroU32> = Vec::new();
             for r in iter {
                 if rows.contains(&r) {
-                    let value = &*unsafe { index.get_unchecked(r) };
+                    let value = &*unsafe { triee.get_unchecked(r) };
                     if let Some(before) = before {
                         if before.ne(value) {
                             ret.extend(if tmp.len() <= 1 {
@@ -228,16 +228,16 @@ impl Data {
     fn sort_with_triee<T: PartialEq, I: ?Sized, C: CustomSort>(
         &self,
         rows: &RowSet,
-        index: &IdxFile<T, I>,
+        triee: &IdxFileAvlTriee<T, I>,
         sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32> {
-        self.sort_with_triee_inner(rows, index, index.iter(), sub_orders)
+        self.sort_with_triee_inner(rows, triee, triee.iter(), sub_orders)
     }
 
     fn sort_with_triee_desc<T: PartialEq, I: ?Sized, C: CustomSort>(
         &self,
         rows: &RowSet,
-        index: &IdxFile<T, I>,
+        index: &IdxFileAvlTriee<T, I>,
         sub_orders: &[Order<C>],
     ) -> Vec<NonZeroU32> {
         self.sort_with_triee_inner(rows, index, index.desc_iter(), sub_orders)
@@ -268,7 +268,7 @@ impl Data {
             ),
             CustomOrderKey::Field(name) => self.fields.get(name).map_or_else(
                 || rows.into_iter().cloned().collect(),
-                |f| self.sort_with_triee(rows, &*f, sub_orders),
+                |f| self.sort_with_triee(rows, f.as_ref(), sub_orders),
             ),
             CustomOrderKey::Custom(custom_order) => custom_order.asc(),
         }
@@ -299,7 +299,7 @@ impl Data {
             ),
             CustomOrderKey::Field(name) => self.fields.get(name).map_or_else(
                 || rows.into_iter().rev().cloned().collect(),
-                |f| self.sort_with_triee_desc(rows, f, sub_orders),
+                |f| self.sort_with_triee_desc(rows, f.as_ref(), sub_orders),
             ),
             CustomOrderKey::Custom(custom_order) => custom_order.desc(),
         }

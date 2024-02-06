@@ -1,7 +1,7 @@
 use std::{fs, num::NonZeroU32, sync::Arc};
 
 use hashbrown::HashMap;
-use idx_binary::IdxBinary;
+use idx_binary::{AvltrieeSearch, IdxBinary};
 
 use crate::Data;
 
@@ -15,7 +15,7 @@ impl Data {
     pub fn field_bytes(&self, row: NonZeroU32, name: &FieldName) -> &[u8] {
         self.fields
             .get(name)
-            .and_then(|v| v.bytes(row))
+            .and_then(|v| v.value(row))
             .unwrap_or(b"")
     }
 
@@ -23,7 +23,7 @@ impl Data {
     pub fn field_num(&self, row: NonZeroU32, name: &FieldName) -> f64 {
         self.fields
             .get(name)
-            .and_then(|v| v.bytes(row))
+            .and_then(|v| v.value(row))
             .and_then(|v| unsafe { std::str::from_utf8_unchecked(v) }.parse().ok())
             .unwrap_or(0.0)
     }

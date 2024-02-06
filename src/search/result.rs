@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use async_recursion::async_recursion;
 use futures::future;
-use idx_binary::AvltrieeIter;
+use idx_binary::{AvltrieeIter, AvltrieeSearch};
 
 use crate::{Condition, CustomSort, Data, FieldName, Order, RowSet, Search};
 
@@ -206,6 +206,7 @@ impl Data {
         func: fn(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool),
     ) -> RowSet {
         field
+            .as_ref()
             .iter()
             .map(|row| func(row, field, cont))
             .filter_map(|(v, b)| b.then_some(v))
@@ -216,7 +217,7 @@ impl Data {
         (
             row,
             field
-                .bytes(row)
+                .value(row)
                 .map_or(false, |bytes| bytes.starts_with(cont.as_bytes())),
         )
     }
@@ -224,7 +225,7 @@ impl Data {
     fn partial(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
-            field.bytes(row).map_or(false, |bytes| {
+            field.value(row).map_or(false, |bytes| {
                 let len = cont.len();
                 len <= bytes.len() && {
                     let cont_bytes = cont.as_bytes();
@@ -241,7 +242,7 @@ impl Data {
         (
             row,
             field
-                .bytes(row)
+                .value(row)
                 .map_or(false, |bytes| bytes.ends_with(cont.as_bytes())),
         )
     }
@@ -250,7 +251,7 @@ impl Data {
         (
             row,
             field
-                .bytes(row)
+                .value(row)
                 .map_or(false, |bytes| cont.as_bytes().starts_with(bytes)),
         )
     }
@@ -258,7 +259,7 @@ impl Data {
     fn value_partial(row: NonZeroU32, field: &crate::Field, cont: &str) -> (NonZeroU32, bool) {
         (
             row,
-            field.bytes(row).map_or(false, |bytes| {
+            field.value(row).map_or(false, |bytes| {
                 cont.as_bytes()
                     .windows(bytes.len())
                     .position(|window| window == bytes)
@@ -271,7 +272,7 @@ impl Data {
         (
             row,
             field
-                .bytes(row)
+                .value(row)
                 .map_or(false, |bytes| cont.as_bytes().ends_with(bytes)),
         )
     }
