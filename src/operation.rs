@@ -74,7 +74,7 @@ impl Data {
             .boxed_local(),
             async {
                 if let Some(ref mut uuid) = self.uuid {
-                    if uuid.get(row).is_none() {
+                    if uuid.node(row).is_none() {
                         uuid.update(row, &Uuid::new_v4().as_u128());
                     }
                 }

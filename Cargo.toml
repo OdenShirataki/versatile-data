@@ -1,6 +1,6 @@
 [package]
 name = "versatile-data"
-version = "0.114.0"
+version = "0.115.0"
 edition = "2021"
 
 authors = ["Oden Shirataki <oden.srtk@gmail.com>"]
@@ -18,7 +18,7 @@ hashbrown = "0.14.3"
 futures = "0.3.29"
 serde = { version = "1.0.193", features = ["derive"] }
 async-recursion = "1.0.5"
-idx_binary = { version = "0.37.0" }
+idx_binary = { version = "0.38.0" }
 
 [dependencies.uuid]
 version = "1.7.0"

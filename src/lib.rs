@@ -8,6 +8,7 @@ mod serial;
 mod sort;
 
 pub use field::{Field, FieldName, Fields};
+use idx_binary::AvltrieeSearch;
 pub use idx_binary::{self, AvltrieeIter, FileMmap, IdxBinary, IdxFile};
 pub use operation::*;
 pub use option::DataOption;
@@ -141,30 +142,28 @@ impl Data {
     }
 
     /// Returns a serial number.The serial number is incremented each time data is added.
-    pub fn serial(&self, row: NonZeroU32) -> u32 {
-        **unsafe { self.serial.get_unchecked(row) }
+    pub fn serial(&self, row: NonZeroU32) -> &u32 {
+        unsafe { self.serial.value_unchecked(row) }
     }
 
     /// Returns a UUID.UUID is a unique ID that is automatically generated when data is registered..
-    pub fn uuid(&self, row: NonZeroU32) -> Option<u128> {
-        self.uuid
-            .as_ref()
-            .and_then(|uuid| uuid.get(row).map(|node| **node))
+    pub fn uuid(&self, row: NonZeroU32) -> Option<&u128> {
+        self.uuid.as_ref().and_then(|uuid| uuid.value(row))
     }
 
     /// Returns the UUID as a string.
     pub fn uuid_string(&self, row: NonZeroU32) -> Option<String> {
         self.uuid.as_ref().and_then(|uuid| {
-            uuid.get(row)
-                .map(|v| uuid::Uuid::from_u128(**v).to_string())
+            uuid.value(row)
+                .map(|v| uuid::Uuid::from_u128(*v).to_string())
         })
     }
 
     /// Returns the activity value. activity is used to indicate whether data is valid or invalid.
     pub fn activity(&self, row: NonZeroU32) -> Option<Activity> {
         self.activity.as_ref().and_then(|a| {
-            a.get(row).map(|v| {
-                if **v != 0 {
+            a.value(row).map(|v| {
+                if *v != 0 {
                     Activity::Active
                 } else {
                     Activity::Inactive
@@ -174,22 +173,18 @@ impl Data {
     }
 
     /// Returns the start date and time of the data's validity period.
-    pub fn term_begin(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_begin
-            .as_ref()
-            .and_then(|f| f.get(row).map(|v| **v))
+    pub fn term_begin(&self, row: NonZeroU32) -> Option<&u64> {
+        self.term_begin.as_ref().and_then(|f| f.value(row))
     }
 
     /// Returns the end date and time of the data's validity period.
-    pub fn term_end(&self, row: NonZeroU32) -> Option<u64> {
-        self.term_end.as_ref().and_then(|f| f.get(row).map(|v| **v))
+    pub fn term_end(&self, row: NonZeroU32) -> Option<&u64> {
+        self.term_end.as_ref().and_then(|f| f.value(row))
     }
 
     /// Returns the date and time when the data was last updated.
-    pub fn last_updated(&self, row: NonZeroU32) -> Option<u64> {
-        self.last_updated
-            .as_ref()
-            .and_then(|f| f.get(row).map(|v| **v))
+    pub fn last_updated(&self, row: NonZeroU32) -> Option<&u64> {
+        self.last_updated.as_ref().and_then(|f| f.value(row))
     }
 
     /// Returns all rows.

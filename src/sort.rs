@@ -72,16 +72,17 @@ impl Data {
                 match &sub_orders[i] {
                     Order::Asc(order_key) => match order_key {
                         CustomOrderKey::Serial => {
-                            return self
-                                .serial
-                                .get(*a)
-                                .unwrap()
-                                .cmp(self.serial.get(*b).unwrap());
+                            return unsafe {
+                                self.serial
+                                    .value_unchecked(*a)
+                                    .cmp(self.serial.value_unchecked(*b))
+                            };
                         }
                         CustomOrderKey::Row => return a.cmp(b),
                         CustomOrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
-                                let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
+                                let ord =
+                                    unsafe { f.value_unchecked(*a).cmp(f.value_unchecked(*b)) };
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -89,7 +90,8 @@ impl Data {
                         }
                         CustomOrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
-                                let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
+                                let ord =
+                                    unsafe { f.value_unchecked(*a).cmp(f.value_unchecked(*b)) };
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -97,7 +99,8 @@ impl Data {
                         }
                         CustomOrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
-                                let ord = f.get(*a).unwrap().cmp(f.get(*b).unwrap());
+                                let ord =
+                                    unsafe { f.value_unchecked(*a).cmp(f.value_unchecked(*b)) };
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -123,18 +126,19 @@ impl Data {
                     },
                     Order::Desc(order_key) => match order_key {
                         CustomOrderKey::Serial => {
-                            return self
-                                .serial
-                                .get(*b)
-                                .unwrap()
-                                .cmp(self.serial.get(*a).unwrap());
+                            return unsafe {
+                                self.serial
+                                    .value_unchecked(*b)
+                                    .cmp(self.serial.value_unchecked(*a))
+                            };
                         }
                         CustomOrderKey::Row => {
                             return b.cmp(a);
                         }
                         CustomOrderKey::TermBegin => {
                             if let Some(ref f) = self.term_begin {
-                                let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
+                                let ord =
+                                    unsafe { f.value_unchecked(*b).cmp(f.value_unchecked(*a)) };
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -142,7 +146,8 @@ impl Data {
                         }
                         CustomOrderKey::TermEnd => {
                             if let Some(ref f) = self.term_end {
-                                let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
+                                let ord =
+                                    unsafe { f.value_unchecked(*b).cmp(f.value_unchecked(*a)) };
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -150,7 +155,8 @@ impl Data {
                         }
                         CustomOrderKey::LastUpdated => {
                             if let Some(ref f) = self.last_updated {
-                                let ord = f.get(*b).unwrap().cmp(f.get(*a).unwrap());
+                                let ord =
+                                    unsafe { f.value_unchecked(*b).cmp(f.value_unchecked(*a)) };
                                 if ord != Ordering::Equal {
                                     return ord;
                                 }
@@ -198,7 +204,7 @@ impl Data {
             let mut tmp: Vec<NonZeroU32> = Vec::new();
             for r in iter {
                 if rows.contains(&r) {
-                    let value = &*unsafe { triee.get_unchecked(r) };
+                    let value = unsafe { triee.node_unchecked(r) };
                     if let Some(before) = before {
                         if before.ne(value) {
                             ret.extend(if tmp.len() <= 1 {

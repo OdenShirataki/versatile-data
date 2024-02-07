@@ -105,8 +105,8 @@ impl Data {
                         return term_begin
                             .iter_to(base)
                             .filter_map(|row| {
-                                let end = term_end.get(row).map(|v| **v).unwrap_or(0);
-                                (end == 0 || end > *base).then_some(row)
+                                let end = term_end.value(row).unwrap_or(&0);
+                                (*end == 0 || end > base).then_some(row)
                             })
                             .collect();
                     } else {
@@ -155,7 +155,7 @@ impl Data {
                     (i > 0
                         && self
                             .serial
-                            .get(unsafe { NonZeroU32::new_unchecked(i as u32) })
+                            .node(unsafe { NonZeroU32::new_unchecked(i as u32) })
                             .is_some())
                     .then_some(unsafe { NonZeroU32::new_unchecked(i as u32) })
                 })
@@ -167,7 +167,7 @@ impl Data {
                     (i > 0
                         && self
                             .serial
-                            .get(unsafe { NonZeroU32::new_unchecked(i as u32) })
+                            .node(unsafe { NonZeroU32::new_unchecked(i as u32) })
                             .is_some())
                     .then_some(unsafe { NonZeroU32::new_unchecked(i as u32) })
                 })
