@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU32};
 
-use idx_binary::{AvltrieeSearch, IdxFileAvlTriee};
+use idx_binary::{AvltrieeSearch, IdxBinary, IdxFileAvlTriee};
 
 use crate::{Data, FieldName, RowSet};
 
@@ -108,7 +108,7 @@ impl Data {
                         }
                         CustomOrderKey::Field(name) => {
                             if let Some(field) = self.fields.get(name) {
-                                let ord = idx_binary::compare(
+                                let ord = IdxBinary::cmp(
                                     field.value(*a).unwrap(),
                                     field.value(*b).unwrap(),
                                 );
@@ -164,7 +164,7 @@ impl Data {
                         }
                         CustomOrderKey::Field(name) => {
                             if let Some(field) = self.fields.get(name) {
-                                let ord = idx_binary::compare(
+                                let ord = IdxBinary::cmp(
                                     field.value(*b).unwrap(),
                                     field.value(*a).unwrap(),
                                 );
